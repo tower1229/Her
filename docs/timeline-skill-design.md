@@ -38,14 +38,20 @@ OpenClaw 提供两种读取工具，在本系统中职责严格分离：
 
 | 工具 | 特性 | 本系统用途 |
 |------|------|-----------|
+| **`sessions_history`** | 会话历史原文，硬事实 | 读取目标窗口的真实聊天记录，作为**最高优先级硬锚** |
 | **`memory_get`** | 精准读取指定文件/行范围，确定性 | 读取当日 `memory/YYYY-MM-DD.md` 全文，供脚本做软指纹匹配（只读判定） |
-| **`memory_search`** | 语义检索（BM25 + 向量混合），模糊召回 | 查找目标时段附近的真实交互记录，作为生成 Episode 的约束上下文 |
+| **`memory_search`** | 语义检索（BM25 + 向量混合），模糊召回 | 查找目标时段附近的长期相关记忆，作为补充上下文 |
 
 **自定义脚本（Node/TypeScript）的职责**：
 - 解析磁盘 Markdown 段落，提取结构化字段（`Timestamp`、`Location`、`Action` 等）
 - 计算软指纹，判断是否已有 canon（见 §5.3）
 - 将磁盘格式映射为 `Episode` schema（见 §8.3）
 - 格式化写盘（追加新段落）
+
+**读取优先级（已定）**：
+1. `sessions_history`（硬锚，必须读取）
+2. `memory_get`（当日确定性状态）
+3. `memory_search`（语义补充）
 
 **不应用脚本替代的场景**：跨日历史回顾、开放式语义问题（如"上周对某话题怎么看"）——这类场景交给 `memory_search` + LLM 推理。
 
@@ -59,8 +65,8 @@ OpenClaw 提供两种读取工具，在本系统中职责严格分离：
 
 当 Session Context 接近上限时，OpenClaw 会触发一个**静默的智能体轮次**（Silent Agentic Turn），提醒模型将当前重要状态写入磁盘。
 
-- **对 timeline-skill 的含义**：当天生成的 Episode 如果尚未落盘（仅在 Context 中），**必须在此钩子中写入** `memory/YYYY-MM-DD.md`，否则 compaction 后该段经历将永久丢失。
-- **对 persona-skill 的含义**：persona 应在 SOUL 中声明接管此钩子，指导模型将当日关键状态写盘。
+- **对 timeline-skill 的含义**：timeline-skill 是**唯一写盘责任方（single writer）**。当天生成的状态若尚未落盘，必须在此钩子中补写 `memory/YYYY-MM-DD.md`。
+- **对 persona-skill 的含义**：persona 不直接写盘；仅在 flush 轮次中提示/触发 timeline-skill 执行补写。
 - **配置项**：`agents.defaults.compaction.memoryFlush`（默认启用），workspace 必须可写（`workspaceAccess: "rw"`）。
 
 ---
@@ -73,11 +79,12 @@ OpenClaw 提供两种读取工具，在本系统中职责严格分离：
 | **内部收集** | `SOUL.md`、`MEMORY.md`、`memory/YYYY-MM-DD.md`（via `memory_get`）、必要时 `memory_search`，以及 OpenClaw 注入 Context 的**当前时间（含 timezone）**，均在 skill 内部完成。 |
 | **「当下」** | 以 OpenClaw 注入 Context 的**系统当前时间**为锚（`agents.defaults.userTimezone` 配置），与现实世界时间线一致；窗口语义见 §4。 |
 | **「最近」默认窗** | **3 天**：`(now - 3d, now]`（边界按 timezone 换算后写死）。 |
-| **日粒度** | **每天独立**：每个日历日有独立的 timeline 窗口与持久化策略，不跨日合并为单一 `window_id`。 |
+| **日粒度** | **每天独立**：每个日历日有独立的 timeline 窗口与持久化策略，不跨日合并为单一幂等键。 |
 | **空白与触发** | **仅在被触发回忆时补空白**；未触发的时间段**允许没有** episode 记录（磁盘上可无该段叙事）。 |
 | **同段多次询问** | **只读已有 canon，禁止覆盖**；「对已有记忆补细节」暂不实现。 |
 | **输出非空** | **不存在「空窗无输出」**：一旦本 skill 被调用并需返回该日/该窗的可叙述状态，必须给出可读的结构化结果。允许的内容包括：独处、无聊、无所事事（随 MBTI / `SOUL` 对独处的偏好表述）；夜间睡眠时段可表述为「在睡觉」等。**不返回**「没有记忆」类空壳。 |
 | **编排** | Skill 间无原生 RPC；顺序依赖 **SOUL.md** 与各 **SKILL.md** 约定 + 模型执行质量。 |
+| **硬锚原则** | 真实聊天记录优先级最高，必须读取 `sessions_history` 作为事实锚点；memory 文件与语义检索为补充。 |
 | **实现形态** | Skill 可包含仅供本 skill 使用的脚本（如确定性 window 判断、只读检测、格式化写盘）；**不将「任意脚本能力」作为对终端用户暴露的产品能力**。 |
 | **容错** | v1 **先跑通主路径**；降级与冲突处理可后记入迭代（本备忘 §9）。 |
 
@@ -88,7 +95,7 @@ OpenClaw 提供两种读取工具，在本系统中职责严格分离：
 | Skill | 职责 | 主要操作 |
 |--------|------|----------|
 | **timeline-skill** | **事实时间线**：解析窗口 → 读/写记忆 → 输出该窗口的 Episode 级叙事 + `state_snapshot`（见 §7）。不负责最终聊天措辞的润色。 | **写** `memory/YYYY-MM-DD.md`；**读** `SOUL.md`、`MEMORY.md`、`memory_get`、`memory_search` |
-| **persona-skill** | **人格与表达**：在 timeline 给出的**事实状态**之上，结合 MBTI、`SOUL`、`USER.md`，生成语气、态度及面向 Stella 等消费方的结构化呈现。**不再承担「独自推断此刻身在何处、在做什么」作为事实源。** | **读** `memory_get`、`memory_search`；接管 pre-compaction flush 钩子 |
+| **persona-skill** | **人格与表达**：在 timeline 给出的**事实状态**之上，结合 MBTI、`SOUL`、`USER.md`，生成语气、态度及面向 Stella 等消费方的结构化呈现。**不再承担「独自推断此刻身在何处、在做什么」作为事实源。** | **读** timeline 输出、`memory_search`；flush 时仅触发 timeline 补写 |
 | **stella-selfie** | **多模态渲染**：消费 persona 输出的结构化 JSON → 生图；无「什么是真发生过」的定义权。 | 从当前 Context 读取 persona 输出 |
 
 **推荐调用链（需在 SOUL / SKILL 中写明）**：需要「当下/某段经历」时 → **timeline-skill** → **persona-skill** → （可选）**stella-selfie**。
@@ -171,8 +178,8 @@ fingerprint = normalize(date) + normalize(location) + normalize(action) + time_b
 ### 5.5 与 Pre-compaction Flush 的协作
 
 - 当天生成的段落在注入 Context 后，**应同步写盘**（不等 flush 触发），避免 compaction 后遗失。
-- persona-skill 在 SOUL 中声明接管 flush 钩子，负责将当日尚未落盘的状态以相同格式补写到 `memory/YYYY-MM-DD.md`。
-- 两者写入同一文件，格式相同，不设分区，脚本通过软指纹自然去重。
+- flush 轮次由 persona/系统提示触发，但**实际写盘动作只允许 timeline-skill 执行**。
+- timeline-skill 在 flush 轮次中再次运行软指纹判定，避免重复写入。
 
 ---
 
@@ -183,16 +190,13 @@ fingerprint = normalize(date) + normalize(location) + normalize(action) + time_b
   - 当日从**本地日历日 00:00** 至 **`anchor.now`（Context 中的当前时间）**。
   - 若调用意图是「此刻在干嘛」，返回的叙述应对齐该窗口内**已存在或本次新生成**的 canon，且须符合 §3「输出非空」。
 - **`recent_3d`（最近）**
-  - **`(now - 3d, now]`**，按日拆成**最多 3 个独立日历日**；每日分别检索/生成，**不合并**为一个跨日 `window_id`。
+  - **`(now - 3d, now]`**，按日拆成**最多 3 个独立日历日**；每日分别检索/生成，**不合并**为一个跨日幂等键。
 - **`explicit`**
   - 用户或解析器给出明确起止；仍按**涉及的自然日**拆成逐日处理。
 
-**`window_id` 生成规则**：对每个自然日分别生成稳定 id：
-```
-window_id = hash(timezone_id + calendar_date)
-```
-- 仅用日历日（不含 preset/bounds），保证同日多次调用（无论 `now_today` 还是 `recent_3d` 的某一天）命中同一 canon。
-- 这意味着**一天只有一条合并叙事**（见 §8 待议项 2 的拍板结论）。
+**幂等键规则（运行态）**：
+- 磁盘不落 `window_id` 等特殊标识。
+- 运行态可维护 `idempotency_key = hash(calendar_date + normalized(location) + normalized(action) + time_bucket)`，仅用于本轮计算与日志，不作为磁盘协议字段。
 
 ---
 
@@ -200,7 +204,7 @@ window_id = hash(timezone_id + calendar_date)
 
 | `resolution.mode` | 含义 |
 |-------------------|------|
-| `read_only_hit` | 该日已有 canon（`window_id` 精确命中），本次**未写入**，仅组装返回。 |
+| `read_only_hit` | 该日已有可复用 canon（软指纹命中），本次**未写入**，仅组装返回。 |
 | `generated_new` | 该日**此前无** canon，本次**首次追加**写入并返回。 |
 
 「未触发则磁盘可无记录」是指不会主动为每一分钟写日志；但一旦本 skill 被调用且需回答该日/该窗，返回体仍须**非空叙述**（§3）。
@@ -226,7 +230,7 @@ window_id = hash(timezone_id + calendar_date)
     "preset": "now_today | recent_3d | explicit",
     "start": "2026-03-20T00:00:00+08:00",
     "end": "2026-03-20T14:30:00+08:00",
-    "window_id": "hash(timezone_id + calendar_date)"
+    "idempotency_key": "runtime-only soft-fingerprint hash"
   },
 
   "resolution": {
@@ -289,7 +293,7 @@ window_id = hash(timezone_id + calendar_date)
   "provenance": {
     "writer": "timeline-skill",
     "written_at": "2026-03-20T14:30:05+08:00",
-    "window_id": "与 TimelineWindow.window_id 一致",
+    "idempotency_key": "runtime-only soft-fingerprint hash",
     "confidence": 1.0
   }
 }
@@ -323,6 +327,51 @@ window_id = hash(timezone_id + calendar_date)
 - `provenance.confidence` 反映解析质量，供消费方决策是否降级处理。
 - **夜间 / 独处 / 无聊**：`activity` 可表述为休息、睡眠、独处发呆等，由 **MBTI + SOUL** 约束具体文风。
 
+### 8.4 三技能接口契约（Contract v1）
+
+为避免文档漂移导致联调失败，三技能之间采用版本化契约：
+
+#### A. timeline-skill → persona-skill
+
+**必填字段（MUST）**：
+- `schema_version`
+- `window.calendar_date`
+- `resolution.mode`
+- `episodes`（至少 1 条）
+- `episodes[*].temporal.start`
+- `episodes[*].state_snapshot.scene.location_label`
+- `episodes[*].state_snapshot.scene.activity`
+- `episodes[*].state_snapshot.scene.time_of_day`
+- `episodes[*].state_snapshot.emotion.primary`
+- `episodes[*].state_snapshot.appearance.outfit_style`
+- `episodes[*].provenance.confidence`
+
+**缺失处理**：
+- 缺任一必填字段：persona 将该条 episode 视为不可消费并降级。
+- 若可消费 episode 数量为 0：persona 返回低置信度结构，交由 Stella 走默认回退。
+
+#### B. persona-skill → stella-selfie
+
+**必填字段（MUST）**：
+- `scene.location`
+- `scene.activity`
+- `scene.time_of_day`
+- `emotion.primary`
+- `appearance.outfit_style`
+- `camera.suggested_mode`
+- `camera.lighting`
+- `confidence`
+
+**缺失处理**：
+- 缺 `camera.suggested_mode` 或 `confidence`：Stella 必须回退默认 `mirror` 模式。
+- `confidence < 0.5`：Stella 必须执行保守或默认回退策略（见 Stella 集成文档）。
+
+#### C. 版本规则
+
+- `major` 版本不兼容（如 `2.x`），消费方应拒绝并降级。
+- `minor` 版本向后兼容（如 `1.1`），消费方可忽略未知字段。
+- 协议升级时必须同时更新三份文档：timeline / persona / stella 集成规范。
+
 ---
 
 ## 9. 触发与 Skill 生态（已定 + 延期）
@@ -346,12 +395,8 @@ window_id = hash(timezone_id + calendar_date)
 
 ## 11. 已拍板补充（本轮）
 
-1. **与「真实聊天记录」的硬锚：脚本层精确检查（已定）**  
-   在同一自然日内，仅靠语义检索无法形成可验证的精确时间线。v1 采用脚本层硬约束：
-   - 先用 `memory_get` 精确读取目标日 `memory/YYYY-MM-DD.md`
-   - 在 `## timeline-skill (v1)` 分区内按 `window_id` 精确匹配是否已有 canon
-   - 仅在 `window_id` 未命中时生成并追加
-   - `memory_search` 只用于召回相关上下文，不作为是否可写入的判定依据
+1. **与「真实聊天记录」的硬锚（已定）**  
+   timeline 必须读取 `sessions_history` 作为最高优先级事实锚点；`memory_get` 与 `memory_search` 为补充，不得覆盖会话硬事实。
 
 2. **内部脚本语言与入口：与 Stella 对齐（已定）**  
    timeline-skill 内部脚本统一采用 **Node.js + TypeScript**（与 Stella 技术栈一致），以降低维护成本与运行环境差异。
@@ -360,8 +405,7 @@ window_id = hash(timezone_id + calendar_date)
    `persona-skill-design.md` 与 `stella-context-awareness.md` 已按 **timeline → persona** 事实链进行同步更新。
 
 ---
-
-## 13. MEMORY FORMAT PROTOCOL（SOUL 级格式宪法）
+## 12. MEMORY FORMAT PROTOCOL（SOUL 级格式宪法）
 
 以下内容应写入 `SOUL.md`（或 `AGENTS.md`）的核心指令区，对所有记忆写入行为具有最高优先级约束。
 
@@ -445,7 +489,7 @@ represent a coherent activity or state.
 
 ---
 
-## 12. 参考链接
+## 13. 参考链接
 
 - [OpenClaw Memory](https://docs.openclaw.ai/concepts/memory)
 - [OpenClaw Agent Workspace](https://docs.openclaw.ai/concepts/agent-workspace)
