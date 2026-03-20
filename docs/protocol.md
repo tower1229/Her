@@ -110,6 +110,19 @@ Must enforce this read order:
 
 Session hard facts cannot be overridden by semantic recall.
 
+## Natural Inference Rule
+
+When direct hard facts are missing, `timeline-skill` may infer plausible details from:
+
+- `MEMORY.md` (persona biography)
+- `IDENTITY` base attributes (e.g. gender, age)
+- `SOUL` personality traits
+
+Constraints:
+
+- Never conflict with `sessions_history` or already persisted daily memory facts.
+- Keep low-confidence inference conservative and expose confidence via `provenance.confidence`.
+
 ## Flush Boundary
 
 - `timeline-skill` is the single writer for memory persistence.
