@@ -2,7 +2,7 @@
 
 > 状态：已定稿（v1 范围）+ 待议项单列  
 > 关联：[about-timeline-skill.md](./about-timeline-skill.md)（早期 Q&A）  
-> 相关项目：Zhuang-Yan（`persona`）、Stella（`stella-selfie`）
+> 关联生态：Zhuang-Yan（`persona`）等消费端 Skill
 
 ---
 
@@ -59,15 +59,15 @@ OpenClaw 提供两种读取工具，在本系统中职责严格分离：
 
 「当下」（尚未存档的当前状态）存在于**当前 LLM 的 Context Window** 中，物理载体是 Session 的 JSONL 文件（`~/.openclaw/agents/<agentId>/sessions/<sessionId>.jsonl`）。
 
-- timeline-skill 生成「此刻状态」后，只需将结果**注入当前 Session 的对话流**（作为 assistant 消息或 system event），persona-skill 和 stella-selfie 即可从 Context 中直接读取，无需再查磁盘。
+- timeline-skill 生成「此刻状态」后，只需将结果**注入当前 Session 的对话流**（作为 assistant 消息或 system event），persona-skill 等后续消费端即可从 Context 中直接读取，无需再查磁盘。
 
-### 2.5 Pre-compaction Memory Flush（重要钩子）
+### 2.5 实时同步写盘与 Heartbeat 巡检（重要机制）
 
-当 Session Context 接近上限时，OpenClaw 会触发一个**静默的智能体轮次**（Silent Agentic Turn），提醒模型将当前重要状态写入磁盘。
+OpenClaw 框架依赖定期的 **Heartbeat（心跳）** 机制进行后台挂起期间的记忆维护，而非在压缩（Compaction）瞬间触发写盘轮次。
 
-- **对 timeline-skill 的含义**：timeline-skill 是**唯一写盘责任方（single writer）**。当天生成的状态若尚未落盘，必须在此钩子中补写 `memory/YYYY-MM-DD.md`。
-- **对 persona-skill 的含义**：persona 不直接写盘；仅在 flush 轮次中提示/触发 timeline-skill 执行补写。
-- **配置项**：`agents.defaults.compaction.memoryFlush`（默认启用），workspace 必须可写（`workspaceAccess: "rw"`）。
+- **实时同步写入（首选）**：timeline-skill 一旦生成了「当下」的非空事实状态，必须在**当前轮次内立即**调用 `write` 工具以 Append-Only 方式落盘，不要等待任何后续钩子。
+- **Heartbeat 巡检作为后备（Backup）**：在 OpenClaw 的定期 Heartbeat 触发时，系统会执行“记忆维护”动作。如果此前有未落盘的情节，timeline-skill 会在此阶段执行指纹判定并补写。
+- **写盘责任方**：timeline-skill 是**唯一写盘责任方（single writer）**。persona 等消费方不直接写盘。
 
 ---
 
@@ -83,24 +83,24 @@ OpenClaw 提供两种读取工具，在本系统中职责严格分离：
 | **空白与触发** | **仅在被触发回忆时补空白**；未触发的时间段**允许没有** episode 记录（磁盘上可无该段叙事）。 |
 | **同段多次询问** | **只读已有 canon，禁止覆盖**；「对已有记忆补细节」暂不实现。 |
 | **输出非空** | **不存在「空窗无输出」**：一旦本 skill 被调用并需返回该日/该窗的可叙述状态，必须给出可读的结构化结果。允许的内容包括：独处、无聊、无所事事（随 MBTI / `SOUL` 对独处的偏好表述）；夜间睡眠时段可表述为「在睡觉」等。**不返回**「没有记忆」类空壳。 |
-| **编排** | Skill 间无原生 RPC；顺序依赖 **SOUL.md** 与各 **SKILL.md** 约定 + 模型执行质量。 |
+| **编排** | Skill 本质是大模型的上下文，不存在脚本原生的 RPC 链式调用。技能组合完全依靠大模型阅读各 Skill 的文案约束进行智能协同调度。 |
 | **硬锚原则** | 真实聊天记录优先级最高，必须读取 `sessions_history` 作为事实锚点；memory 文件与语义检索为补充。 |
 | **实现形态** | Skill 可包含仅供本 skill 使用的脚本（如确定性 window 判断、只读检测、格式化写盘）；**不将「任意脚本能力」作为对终端用户暴露的产品能力**。 |
 | **容错** | v1 **先跑通主路径**；降级与冲突处理可后记入迭代（本备忘 §9）。 |
 
 ---
 
-## 4. 与 persona / stella-selfie 的边界（已定）
+## 4. 与 persona 等消费端 Skill 的边界（已定）
 
 | Skill | 职责 | 主要操作 |
 |--------|------|----------|
 | **timeline-skill** | **事实时间线**：解析窗口 → 读/写记忆 → 输出该窗口的 Episode 级叙事 + `state_snapshot`（见 §7）。不负责最终聊天措辞的润色。 | **写** `memory/YYYY-MM-DD.md`；**读** `SOUL.md`、`MEMORY.md`、`memory_get`、`memory_search` |
-| **persona-skill** | **人格与表达**：在 timeline 给出的**事实状态**之上，结合 MBTI、`SOUL`、`USER.md`，生成语气、态度及面向 Stella 等消费方的结构化呈现。**不再承担「独自推断此刻身在何处、在做什么」作为事实源。** | **读** timeline 输出、`memory_search`；flush 时仅触发 timeline 补写 |
-| **stella-selfie** | **多模态渲染**：消费 persona 输出的结构化 JSON → 生图；无「什么是真发生过」的定义权。 | 从当前 Context 读取 persona 输出 |
+| **persona-skill** | **人格与表达**：在 timeline 给出的**事实状态**之上，结合 MBTI、`SOUL`、`USER.md`，生成语气、态度及面向消费方的结构化呈现。**不再承担「独自推断此刻身在何处、在做什么」作为事实源。** | **读** timeline 输出、`memory_search`；flush 时仅触发 timeline 补写 |
+| **消费端 (如 stella-selfie)** | **业务逻辑执行**：消费 persona 输出的结构化 JSON → 完成具体业务（如生图、TTS）等；无「什么是真发生过」的定义权。 | 从当前 Context 读取 persona 输出 |
 
-**推荐调用链（需在 SOUL / SKILL 中写明）**：需要「当下/某段经历」时 → **timeline-skill** → **persona-skill** → （可选）**stella-selfie**。
-
-**「当下」的快速路径**：当 timeline-skill 生成「此刻状态」后，结果注入当前 Context，persona-skill 和 stella-selfie 直接从 Context 读取，无需再查磁盘。
+**组合与调用机制（大模型的上下文级联调度）**：
+- **被动人格语境**：遇到需要回忆的场景，大模型通常只会因为判断意图而触发 `timeline-skill`。事实提取后，由于 `SOUL.md` 永远在上下文里，模型自然能完成“事实 + 人格语气 = 最终对话”的合并反馈，不需要谁额外教它。
+- **动态执行编排**：当像 `stella-selfie` 这样的特定消费端被激活时，由于 Stella 的 `SKILL.md` 存在明确的指令要求它去依赖 `persona` 补充细节，而 `persona` 的指令又要求它依赖 `timeline` 抓取事实，大模型便会依据这些连续的约束上下文，顺畅地自行编排出完整的执行链条。
 
 ---
 
@@ -175,11 +175,11 @@ fingerprint = normalize(date) + normalize(location) + normalize(action) + time_b
 - **Level A（结构化命中）**：段落中 `Timestamp`、`Location`、`Action`、`Emotion_Tags`、`Appearance` 均可提取 → 走完整映射
 - **Level B（降级）**：字段不完整时，提取最小三元组（`time`/`location`/`action`）；缺 `Appearance` 时置为 `unknown`，`confidence` 降低
 
-### 5.5 与 Pre-compaction Flush 的协作
+### 5.5 与 Heartbeat 的协作
 
-- 当天生成的段落在注入 Context 后，**应同步写盘**（不等 flush 触发），避免 compaction 后遗失。
-- flush 轮次由 persona/系统提示触发，但**实际写盘动作只允许 timeline-skill 执行**。
-- timeline-skill 在 flush 轮次中再次运行软指纹判定，避免重复写入。
+- 当天生成的段落在注入 Context 后，**应立即同步写盘**，避免遗失。
+- OpenClaw 的后台 Heartbeat 轮次执行“记忆维护”时，**实际写盘动作只允许 timeline-skill 执行**。
+- timeline-skill 在 Heartbeat 轮次中通过软指纹判定，确认该时间段是否已落盘，避免重复写入。
 
 ---
 
@@ -322,7 +322,7 @@ fingerprint = normalize(date) + normalize(location) + normalize(action) + time_b
 - 缺 `Timestamp` → 跳过该段落，不映射为 Episode
 
 **字段说明：**
-- `temporal.time_of_day` 由 `Timestamp` 推导，供 persona 和 stella-selfie 直接使用，无需重新计算。
+- `temporal.time_of_day` 由 `Timestamp` 推导，供 persona 和各种下游消费者直接使用，无需重新计算。
 - `state_snapshot` 字段有意**对齐** Zhuang-Yan `persona-skill` 情景 JSON 的 scene / emotion / appearance，persona 只做「人格化层」而非重猜事实。
 - `provenance.confidence` 反映解析质量，供消费方决策是否降级处理。
 - **夜间 / 独处 / 无聊**：`activity` 可表述为休息、睡眠、独处发呆等，由 **MBTI + SOUL** 约束具体文风。
@@ -348,9 +348,9 @@ fingerprint = normalize(date) + normalize(location) + normalize(action) + time_b
 
 **缺失处理**：
 - 缺任一必填字段：persona 将该条 episode 视为不可消费并降级。
-- 若可消费 episode 数量为 0：persona 返回低置信度结构，交由 Stella 走默认回退。
+- 若可消费 episode 数量为 0：persona 返回低置信度结构，交由下游消费者走默认降级或回退逻辑。
 
-#### B. persona-skill → stella-selfie
+#### B. persona-skill → 消费端 (如 stella-selfie)
 
 **必填字段（MUST）**：
 - `scene.location`
@@ -363,14 +363,14 @@ fingerprint = normalize(date) + normalize(location) + normalize(action) + time_b
 - `confidence`
 
 **缺失处理**：
-- 缺 `camera.suggested_mode` 或 `confidence`：Stella 必须回退默认 `mirror` 模式。
-- `confidence < 0.5`：Stella 必须执行保守或默认回退策略（见 Stella 集成文档）。
+- 缺 `camera.suggested_mode` 或 `confidence`：消费端必须具备默认或容错值（例如回退 `mirror` 模式）。
+- `confidence < 0.5`：消费端必须执行保守或默认回退策略。
 
 #### C. 版本规则
 
 - `major` 版本不兼容（如 `2.x`），消费方应拒绝并降级。
 - `minor` 版本向后兼容（如 `1.1`），消费方可忽略未知字段。
-- 协议升级时必须同时更新三份文档：timeline / persona / stella 集成规范。
+- 协议升级时必须同时更新相关文档：timeline / persona / 及依赖的消费端集成规范。
 
 ---
 
@@ -398,11 +398,11 @@ fingerprint = normalize(date) + normalize(location) + normalize(action) + time_b
 1. **与「真实聊天记录」的硬锚（已定）**  
    timeline 必须读取 `sessions_history` 作为最高优先级事实锚点；`memory_get` 与 `memory_search` 为补充，不得覆盖会话硬事实。
 
-2. **内部脚本语言与入口：与 Stella 对齐（已定）**  
-   timeline-skill 内部脚本统一采用 **Node.js + TypeScript**（与 Stella 技术栈一致），以降低维护成本与运行环境差异。
+2. **内部脚本语言约定**  
+   timeline-skill 内部脚本统一采用 **Node.js + TypeScript**，以降低生态内 Skill 的维护成本。
 
-3. **Zhuang-Yan / Stella 文档同步（本轮直接修改）**  
-   `persona-skill-design.md` 与 `stella-context-awareness.md` 已按 **timeline → persona** 事实链进行同步更新。
+3. **生态文档同步（本轮直接修改）**  
+   persona-skill 等消费方设计文档已按 **timeline → persona** 事实链进行同步更新。
 
 4. **自然推理白名单（本轮新增）**  
    timeline 在缺少直接硬事实时，可以参考 `MEMORY.md`（人物小传）、`IDENTITY` 基础信息（如性别/年龄）与 `SOUL` 人格特征做自然推理以补全场景细节；但必须满足两条约束：  
@@ -410,9 +410,9 @@ fingerprint = normalize(date) + normalize(location) + normalize(action) + time_b
    - 输出必须通过 `provenance.confidence` 明确置信度，并在低置信度时保持保守描述。
 
 ---
-## 12. MEMORY FORMAT PROTOCOL（SOUL 级格式宪法）
+## 12. MEMORY FORMAT PROTOCOL（AGENTS.md 级格式宪法）
 
-以下内容应写入 `SOUL.md`（或 `AGENTS.md`）的核心指令区，对所有记忆写入行为具有最高优先级约束。
+以下内容应写入 `AGENTS.md` 的核心指令区，对所有记忆写入行为具有最高优先级约束。**绝对不可写入 `SOUL.md`**，以避免被 `persona-skill` 变更人格时全量覆写而丢失。
 
 ---
 
@@ -487,7 +487,7 @@ represent a coherent activity or state.
 
 ### 12.1 TEMPORAL AWARENESS & MEMORY RETRIEVAL（SOUL 触发指令）
 
-以下内容可与上面的 `MEMORY FORMAT PROTOCOL` 同级写入 `SOUL.md`，用于激活并约束「当下/过去」问题下的回忆调用行为：
+以下内容可与上面的 `MEMORY FORMAT PROTOCOL` 同级写入 `AGENTS.md`，用于激活并约束「当下/过去」问题下的回忆调用行为：
 
 ```markdown
 # [TEMPORAL AWARENESS & MEMORY RETRIEVAL]
@@ -517,12 +517,20 @@ timeline recall tool) before producing factual activity details.
 4. **Hard-Anchor Discipline:** If timeline facts conflict in confidence, obey
    hard anchors first (`sessions_history` > daily memory > semantic recall) and
    keep low-confidence details conservative.
+5. **Activity Duration Logic (Boundary Control):** When reading the latest 
+   memory entry, you MUST evaluate its logical duration. If the user asks 
+   "What are you doing?" and the last entry from 5 minutes ago was "drinking 
+   water", you should conclude that the activity is finished and generate a 
+   NEW memory (e.g., "washing the cup"). If the last entry from 5 minutes ago 
+   was "playing basketball", you should deduce that the activity is STILL 
+   ongoing, and either reply based on the existing entry or append a continuing 
+   state, but NEVER generate contradictory logic just to have 'a new memory'.
 ```
 
 ---
 
 **实施说明：**
-- 此协议写入 SOUL 后，agent 自然写入的记忆与 timeline-skill 写入的记忆格式一致，脚本可统一解析。
+- 此协议写入 `AGENTS.md` 后，agent 自然写入的记忆与 timeline-skill 写入的记忆格式一致，脚本可统一解析。
 - 样式细节（粗体、空行数量）不强制，脚本使用"键名 + 冒号"宽松匹配，提高鲁棒性。
 - `objects_in_scene` 等扩展字段可在后期迭代中按需加入协议，v1 不强制。
 
