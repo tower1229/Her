@@ -175,7 +175,34 @@ fingerprint = normalize(date) + normalize(location) + normalize(action) + time_b
 - **Level A（结构化命中）**：段落中 `Timestamp`、`Location`、`Action`、`Emotion_Tags`、`Appearance` 均可提取 → 走完整映射
 - **Level B（降级）**：字段不完整时，提取最小三元组（`time`/`location`/`action`）；缺 `Appearance` 时置为 `unknown`，`confidence` 降低
 
-### 5.5 与 Heartbeat 的协作
+### 5.5 日内稳态字段继承（Stable Field Inheritance）
+
+`Appearance`（穿着）等**低变化率字段**在同一天内应保持稳定，不得每次生成新 Episode 时自由重新推断。脚本在生成新 Episode 时，必须执行以下继承逻辑：
+
+**继承流程（在软指纹未命中、需写入新段落时触发）：**
+
+1. 脚本已通过 `memory_get` 读取当日全文（§5.3 步骤1）。
+2. 提取当日**时间最早的一条 Episode** 的 `Appearance` 字段值，作为「**日锚外观（Day-Anchor Appearance）**」。
+3. 新 Episode 的 `Appearance` 字段**默认继承**日锚值，不重新推断。
+4. **仅当**新 Episode 的 `Action` 字段包含明确的换装信号时，允许覆盖继承值：
+
+| 换装信号类别 | 示例关键词 | 覆盖为 |
+|---|---|---|
+| 运动 / 锻炼 | gym, swim, run, 运动, 健身, 跑步 | 运动服 / sportswear |
+| 正式场合 | formal, wedding, dinner, 正装, 晚宴, 面试 | 正装 / formal wear |
+| 起床 / 刚睡醒 | wake up, 起床, 刚起, morning routine | 家居服 / home clothes |
+| 沐浴 / 换衣 | shower, bath, 洗澡, 换衣 | 根据后续活动推断 |
+| 睡前 / 就寝 | sleep, bedtime, 睡觉, 就寝 | 睡衣 / pajamas |
+
+5. 若当日**尚无任何已写入的 Episode**（首次生成），则正常推断 `Appearance`，该首次值即成为当日日锚。
+
+**与 Level B 降级的交互：**
+- 若日锚来源 Episode 的 `Appearance` 为 `unknown`（Level B 降级产物），则不继承该 `unknown` 值，改为正常推断，生成真实值后写入，并将此值升格为当日新日锚。
+
+> **设计意图**：Appearance 是一个日内稳态字段——人一天只换一两次衣服，且换装一定伴随明确的活动事件。通过继承而非重推，既保证了 persona-skill / stella-selfie 拿到的视觉参数在日内一致，也避免了幻觉式的外观漂移。
+
+### 5.6 与 Heartbeat 的协作
+
 
 - 当天生成的段落在注入 Context 后，**应立即同步写盘**，避免遗失。
 - OpenClaw 的后台 Heartbeat 轮次执行“记忆维护”时，**实际写盘动作只允许 timeline-skill 执行**。
@@ -358,12 +385,10 @@ fingerprint = normalize(date) + normalize(location) + normalize(action) + time_b
 - `scene.time_of_day`
 - `emotion.primary`
 - `appearance.outfit_style`
-- `camera.suggested_mode`
-- `camera.lighting`
 - `confidence`
 
 **缺失处理**：
-- 缺 `camera.suggested_mode` 或 `confidence`：消费端必须具备默认或容错值（例如回退 `mirror` 模式）。
+- 缺 `confidence`：消费端必须具备默认容错值。
 - `confidence < 0.5`：消费端必须执行保守或默认回退策略。
 
 #### C. 版本规则
