@@ -51,7 +51,7 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
     // 2. World hooks
     const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
     const weekday = !isWeekend;
-    const holidayKey = await getHoliday(`${yyyy}-${mm}-${dd}`);
+    const holidayKey = getHoliday(`${yyyy}-${mm}-${dd}`);
 
     const worldHooks: WorldHooks = {
       weekday,

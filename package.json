@@ -1,6 +1,6 @@
 {
   "name": "timeline-skill",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Factual timeline layer for OpenClaw agents. Retrieves or generates structured episode facts from memory and session history. Eliminates hallucinated locations, actions, and appearance drift.",
   "keywords": [
     "openclaw",

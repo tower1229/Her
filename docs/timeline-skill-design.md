@@ -366,7 +366,7 @@ fingerprint = normalize(date) + normalize(location) + normalize(action) + time_b
 - **夜间 / 独处 / 无聊**：`activity` 可表述为休息、睡眠、独处发呆等，由 **MBTI + SOUL** 约束具体文风。
 - **`world_hooks` 填充方案**（由 `write-episode.ts` 在写盘时负责计算）：
   - `weekday`：直接由 `Timestamp` 的日期部分计算 `date.getDay() !== 0 && date.getDay() !== 6`，无需外部 API。
-  - `holiday_key`：调用 **[Nager.Date](https://date.nager.at/api/v3/PublicHolidays/{year}/CN)**（完全免费，无需 API Key，支持 100+ 国家）；结果按年缓存到 `scripts/.cache/holidays-{year}-CN.json`，避免每次网络请求。命中节假日时填写英文节日名（如 `"Chinese New Year"`），无节假日时填 `null`。
+  - `holiday_key`：查询内置静态节假日表（`scripts/holidays.ts`），覆盖 **CN**（中国）和 **US**（美国）2025–2027 年全国性公共假日，无网络请求，无文件 I/O。命中节假日时填写英文节日名（如 `"Chinese New Year (Spring Festival)"`），无节假日或超出覆盖范围时填 `null`。
 
 ### 8.4 三技能接口契约（Contract v1）
 

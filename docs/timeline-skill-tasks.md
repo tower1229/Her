@@ -302,7 +302,7 @@ async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResult>
 1. **格式验证**：检查必填字段（Timestamp/Location/Action/Emotion_Tags/Appearance）→ 缺失时拒绝写入，返回 `error`
 2. **world_hooks 计算**：
    - `weekday = date.getDay() !== 0 && date.getDay() !== 6`（纯计算）
-   - `holiday_key = await getHoliday(dateStr)`（调用 holidays.ts）
+   - `holiday_key = getHoliday(dateStr)`（查询内置静态节假日表，无网络请求）
 3. **格式化段落**：按 §5.1 模板组装 Markdown 文本
 4. **Append-Only 写盘**：使用 `fs.appendFile`，若目标日文件不存在则自动创建
 5. **不修改已有内容**（immutable 约束）

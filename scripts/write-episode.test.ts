@@ -10,7 +10,7 @@ describe('writeEpisode', () => {
   const tempLog = path.join(__dirname, '.timeline-run.log');
 
   beforeEach(() => {
-    (getHoliday as jest.Mock).mockResolvedValue('Mock Holiday');
+    (getHoliday as jest.Mock).mockReturnValue(null);
     if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
     if (fs.existsSync(tempLog)) fs.unlinkSync(tempLog);
   });
@@ -59,7 +59,7 @@ describe('writeEpisode', () => {
     // Hooks
     if (res.world_hooks) {
         expect(res.world_hooks.weekday).toBe(false); // Sunday
-        expect(res.world_hooks.holiday_key).toBe('Mock Holiday');
+        expect(res.world_hooks.holiday_key).toBe(null); // 2026-03-22 is not a holiday
     }
 
     const logContent = fs.readFileSync(tempLog, 'utf8');
