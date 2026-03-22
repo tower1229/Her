@@ -77,40 +77,6 @@ A context engine plugin is powerful but heavy. It is appropriate only if timelin
 needs to participate directly in context assembly / compaction orchestration for the
 whole agent runtime.
 
-## 4.5 What happens to AGENTS / SOUL manual edits
-
-In the recommended plugin-based architecture, **users should no longer need to paste large
-protocol blocks manually as part of normal installation**. The goal is to shrink manual
-prompt editing to the smallest possible footprint.
-
-Recommended policy:
-
-- **AGENTS.md**
-  - no longer the home for the canonical memory-write protocol;
-  - should not carry large formatting or write-order rules once `timeline_resolve` owns
-    parsing, validation, and append-only writing;
-  - at most, keep a short policy sentence such as "for temporal facts, call timeline
-    tooling instead of writing daily log entries directly" if the host runtime still
-    benefits from a global reminder.
-- **SOUL.md**
-  - may keep a slim behavioral instruction telling the persona to consult timeline before
-    answering temporal questions;
-  - should not contain algorithmic details like fingerprinting, inheritance, or write
-    rules;
-  - should become optional if the bundled skill is sufficient to route temporal intent.
-
-Migration target:
-
-1. **Preferred end state**: no user hand-editing required beyond installing/enabling the
-   plugin and bundled skill.
-2. **Acceptable transitional state**: a one-time minimal SOUL reminder may still be used
-   if OpenClaw's current runtime needs extra prompt steering for tool routing.
-3. **Discouraged state**: requiring users to paste long AGENTS / SOUL template blocks to
-   make core timeline logic work.
-
-In short: under the new architecture, manual AGENTS / SOUL edits should become **optional
-and minimal**, not mandatory for correctness.
-
 ## 5. Layered Architecture
 
 The recommended implementation is intentionally layered.
