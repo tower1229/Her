@@ -1,11 +1,13 @@
 import { ParsedEpisode } from './types';
 
 export const OUTFIT_CHANGE_SIGNALS: Record<string, string[]> = {
-  sport: ['gym', 'swim', 'run', '运动', '健身', '跑步', '锻炼'],
-  formal: ['formal', 'wedding', 'dinner', '正装', '晚宴', '面试'],
+  sport: ['gym', 'swim', 'run', '运动', '健身', '跑步', '锻炼', '瑜伽'],
+  formal: ['formal', 'wedding', 'dinner', '正装', '晚宴', '面试', '酒会'],
   wakeup: ['wake up', '起床', '刚起', 'morning routine'],
-  bath: ['shower', 'bath', '洗澡', '换衣'],
-  sleep: ['sleep', 'bedtime', '睡觉', '就寝'],
+  bath: ['shower', 'bath', '洗澡', '换衣', '浴袍', '沐浴', '泡澡'],
+  sleep: ['sleep', 'bedtime', '睡觉', '就寝', '睡衣', '晚安'],
+  shopping: ['shopping', 'try on', '购物', '逛街', '买衣服', '试穿', '换装'],
+  home: ['home', 'relax', '回家', '换便装', '居家服', '休息', '葛优瘫']
 };
 
 export function resolveAppearance(

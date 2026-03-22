@@ -38,7 +38,7 @@ independent paragraph:
 | Location           | Yes         | Short phrase, specific enough to visualize   |
 | Action             | Yes         | One sentence, present tense                  |
 | Emotion_Tags       | Yes         | Comma-separated list in brackets             |
-| Appearance         | Yes         | Outfit or visible physical state             |
+| Appearance         | Yes         | Outfit or visible physical state. **Rule**: Keep it stable by default, but naturally change it when the situation realistically demands it (e.g., changing into pajamas for bed, wearing a bathrobe after a shower, trying on clothes while shopping, changing into sportswear for the gym, or putting on loungewear after returning home). |
 | Internal_Monologue | Recommended | One sentence; omit only if truly unavailable |
 
 ## 4. Example Entry

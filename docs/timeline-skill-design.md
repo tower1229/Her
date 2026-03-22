@@ -192,13 +192,15 @@ fingerprint = normalize(date) + normalize(location) + normalize(action) + time_b
 3. 新 Episode 的 `Appearance` 字段**默认继承**日锚值，不重新推断。
 4. **仅当**新 Episode 的 `Action` 字段包含明确的换装信号时，允许覆盖继承值：
 
-| 换装信号类别  | 示例关键词                                | 覆盖为                |
-| ------------- | ----------------------------------------- | --------------------- |
-| 运动 / 锻炼   | gym, swim, run, 运动, 健身, 跑步          | 运动服 / sportswear   |
-| 正式场合      | formal, wedding, dinner, 正装, 晚宴, 面试 | 正装 / formal wear    |
-| 起床 / 刚睡醒 | wake up, 起床, 刚起, morning routine      | 家居服 / home clothes |
-| 沐浴 / 换衣   | shower, bath, 洗澡, 换衣                  | 根据后续活动推断      |
-| 睡前 / 就寝   | sleep, bedtime, 睡觉, 就寝                | 睡衣 / pajamas        |
+| 换装信号类别  | 示例关键词                                          | 覆盖为                |
+| ------------- | --------------------------------------------------- | --------------------- |
+| 运动 / 锻炼   | gym, swim, run, 运动, 健身, 跑步, 锻炼, 瑜伽        | 根据上下文模型推断    |
+| 正式场合      | formal, wedding, dinner, 正装, 晚宴, 面试, 酒会     | 根据上下文模型推断    |
+| 起床 / 刚睡醒 | wake up, 起床, 刚起, morning routine                | 根据上下文模型推断    |
+| 沐浴 / 换衣   | shower, bath, 洗澡, 换衣, 浴袍, 沐浴, 泡澡          | 根据上下文模型推断    |
+| 睡前 / 就寝   | sleep, bedtime, 睡觉, 就寝, 睡衣, 晚安              | 根据上下文模型推断    |
+| 购物 / 试衣   | shopping, try on, 购物, 逛街, 买衣服, 试穿, 换装    | 根据上下文模型推断    |
+| 居家 / 放松   | home, relax, 回家, 换便装, 居家服, 休息, 葛优瘫     | 根据上下文模型推断    |
 
 5. 若当日**尚无任何已写入的 Episode**（首次生成），则正常推断 `Appearance`，该首次值即成为当日日锚。
 
@@ -499,7 +501,7 @@ independent paragraph:
 | Location           | Yes         | Short phrase, specific enough to visualize   |
 | Action             | Yes         | One sentence, present tense                  |
 | Emotion_Tags       | Yes         | Comma-separated list in brackets             |
-| Appearance         | Yes         | Outfit or visible physical state             |
+| Appearance         | Yes         | Outfit or visible physical state. **Rule**: Keep it stable by default, but naturally change it when the situation realistically demands it (e.g., changing into pajamas for bed, wearing a bathrobe after a shower, trying on clothes while shopping, changing into sportswear for the gym, or putting on loungewear after returning home). |
 | Internal_Monologue | Recommended | One sentence; omit only if truly unavailable |
 
 ## 4. Example Entry

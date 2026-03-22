@@ -53,3 +53,31 @@ describe('parseMemoryFile', () => {
     expect(result.length).toBe(0);
   });
 });
+
+import { mapToEpisode } from './parse-memory';
+
+describe('mapToEpisode', () => {
+  it('should map ParsedEpisode to Episode correctly', () => {
+    const parsed = {
+      timestamp: '2026-03-22T09:00:00+08:00',
+      location: '卧室床边',
+      action: '醒来',
+      emotionTags: ['sleepy'],
+      appearance: 'pajamas',
+      parseLevel: 'A' as const,
+      confidence: 1.0
+    };
+    
+    const worldHooks = { weekday: false, holiday_key: null };
+    const ep = mapToEpisode(parsed, worldHooks, 'test-key');
+    
+    expect(ep.temporal.start).toBe('2026-03-22T09:00:00+08:00');
+    expect(ep.temporal.end).toBe('2026-03-22T10:00:00+08:00');
+    expect(ep.temporal.time_of_day).toBe('morning');
+    expect(ep.state_snapshot.scene.location_kind).toBe('home');
+    expect(ep.state_snapshot.scene.location_label).toBe('卧室床边');
+    expect(ep.state_snapshot.emotion.primary).toBe('sleepy');
+    expect(ep.world_hooks).toEqual(worldHooks);
+    expect(ep.provenance.idempotency_key).toBe('test-key');
+  });
+});
