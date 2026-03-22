@@ -15,3 +15,24 @@ export function appendTraceLog(record: TraceLogRecord, logPath: string): void {
   }
   fs.appendFileSync(logPath, `${JSON.stringify(record)}\n`, 'utf8');
 }
+
+export function readRecentTraceLogs(logPath: string, n = 20): TraceLogRecord[] {
+  try {
+    if (!fs.existsSync(logPath)) return [];
+    const content = fs.readFileSync(logPath, 'utf8').trim();
+    if (!content) return [];
+    return content
+      .split('\n')
+      .slice(-n)
+      .map((line) => {
+        try {
+          return JSON.parse(line) as TraceLogRecord;
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean) as TraceLogRecord[];
+  } catch {
+    return [];
+  }
+}

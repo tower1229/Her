@@ -12,18 +12,38 @@ export interface GeneratedCandidateResult {
   episode: ReturnType<typeof mapToEpisode>;
   idempotencyKey: string;
   notes: string[];
+  confidenceReason: string;
   appearance: {
     inherited: boolean;
     reason: string;
+    source_episode_timestamp?: string;
   };
 }
 
-function pickAction(sources: CollectedSources): string {
+function pickAction(window: ResolvedWindow, sources: CollectedSources, dayEpisodes: ParsedEpisode[]): { action: string; reason: string; confidence: number } {
   const hardAnchor = sources.sessionsHistory[0]?.trim();
   if (hardAnchor) {
-    return `following recent context: ${hardAnchor.slice(0, 80)}`;
+    return {
+      action: `continuing context implied by sessions_history: ${hardAnchor.slice(0, 80)}`,
+      reason: 'sessions_history hard anchor available',
+      confidence: 0.68,
+    };
   }
-  return 'resting quietly and staying in a low-information state';
+
+  const priorEpisode = dayEpisodes[dayEpisodes.length - 1];
+  if (window.preset === 'now_today' && priorEpisode) {
+    return {
+      action: `continuing ${priorEpisode.action}`,
+      reason: 'same-day prior canon episode reused as ongoing activity anchor',
+      confidence: 0.58,
+    };
+  }
+
+  return {
+    action: 'resting quietly and staying in a low-information state',
+    reason: 'no hard anchor or same-day canon activity available',
+    confidence: 0.42,
+  };
 }
 
 function pickLocation(dayEpisodes: ParsedEpisode[]): string {
@@ -38,19 +58,20 @@ export function inferCandidate(window: ResolvedWindow, sources: CollectedSources
   }
 
   const timestamp = window.end;
-  const action = pickAction(sources);
+  const actionChoice = pickAction(window, sources, dayEpisodes);
   const location = pickLocation(dayEpisodes);
-  const appearanceResolution = resolveAppearance(dayEpisodes, action, 'same outfit as before');
+  const priorEpisode = dayEpisodes[dayEpisodes.length - 1];
+  const appearanceResolution = resolveAppearance(dayEpisodes, actionChoice.action, 'same outfit as before');
   const parsed: ParsedEpisode = {
     timestamp,
     location,
-    action,
+    action: actionChoice.action,
     emotionTags: ['calm'],
     appearance: appearanceResolution.appearance,
     internalMonologue: 'Keeping things simple and factual until stronger evidence appears.',
     naturalText: 'A conservative generated timeline placeholder was used because no canon entry matched the requested window.',
     parseLevel: 'B',
-    confidence: 0.5,
+    confidence: actionChoice.confidence,
   };
 
   const date = formatDate(timestampParts);
@@ -64,13 +85,16 @@ export function inferCandidate(window: ResolvedWindow, sources: CollectedSources
     parsed,
     episode: mapToEpisode(parsed, worldHooks, idempotencyKey),
     idempotencyKey,
+    confidenceReason: actionChoice.reason,
     notes: [
       'No reusable canon entry found; generated a conservative candidate.',
+      `Generation basis: ${actionChoice.reason}`,
       `Appearance resolution: ${appearanceResolution.reason}`,
     ],
     appearance: {
       inherited: !appearanceResolution.overridden,
       reason: appearanceResolution.reason,
+      source_episode_timestamp: priorEpisode?.timestamp,
     },
   };
 }

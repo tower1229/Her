@@ -16,7 +16,7 @@ describe('timelineStatus', () => {
     const result = await timelineStatus();
 
     expect(result.ok).toBe(true);
-    expect(result.registration.tools).toEqual(['timeline_resolve', 'timeline_status']);
+    expect(result.registration.tools).toEqual(['timeline_resolve', 'timeline_status', 'timeline_repair']);
     expect(result.runtime.last_run).toBeNull();
   });
 

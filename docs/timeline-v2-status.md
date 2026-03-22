@@ -217,8 +217,7 @@ Missing:
 ### 5.5 Maintenance / repair tooling
 
 Missing:
-- `timeline_repair`
-- deeper diagnostic commands for malformed daily logs and repair workflows.
+- deeper diagnostic commands for malformed daily logs and repair workflows beyond the initial `timeline_repair` tool.
 
 ### 5.6 Documentation sync
 
@@ -368,8 +367,8 @@ Goal:
 - make the runtime operable by humans.
 
 Tasks:
-1. Add `timeline_repair`.
-2. Expand `timeline_status` to cover more operational counters and recent trace summaries.
+1. Expand `timeline_status` to cover more operational counters and recent trace summaries.
+2. Expand `timeline_repair` beyond structural diagnostics into guided repair workflows.
 3. Add tests for both tools.
 4. Document how they should be used during debugging and migration.
 
@@ -423,7 +422,7 @@ If real SDK alignment is blocked, then the fallback next step is:
 
 1. enrich trace schema;
 2. add trace assertions to existing tests;
-3. follow `timeline_status` with `timeline_repair` as the next maintenance tool.
+3. follow the first `timeline_repair` slice with guided repair actions and richer trace readers.
 
 ## 15. Final status statement
 

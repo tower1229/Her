@@ -127,10 +127,8 @@ function validateTimelineResolveInput(input: TimelineResolveInput): void {
     throw new Error('natural_language range requires query');
   }
 
-  if (input.target_time_range === 'explicit') {
-    if (!input.start || !input.end) {
-      throw new Error('explicit range requires start and end');
-    }
+  if (input.target_time_range === 'explicit' && (!input.start || !input.end)) {
+    throw new Error('explicit range requires start and end');
   }
 }
 
@@ -158,7 +156,7 @@ function persistTraceIfRequested(output: TimelineResolveOutput, input: TimelineR
         ok: output.ok,
         requested_range: input.target_time_range,
         error: output.ok ? null : output.error,
-        resolution_mode: output.ok ? output.resolution_summary.mode : null,
+        resolution_mode: output.resolution_summary.mode,
         notes: output.notes,
         trace: output.trace ?? null,
       },
@@ -174,12 +172,12 @@ function recordRuntimeStatus(output: TimelineResolveOutput, input: TimelineResol
     updated_at: new Date().toISOString(),
     ok: output.ok,
     requested_range: input.target_time_range,
-    resolution_mode: output.ok ? output.resolution_summary.mode : undefined,
+    resolution_mode: output.resolution_summary.mode,
     trace_id: output.trace_id,
     trace_persisted: tracePersisted,
     trace_log_path: runtimeDependencies.traceLogPath,
-    writes_attempted: output.ok ? output.resolution_summary.writes_attempted : 0,
-    writes_succeeded: output.ok ? output.resolution_summary.writes_succeeded : 0,
+    writes_attempted: output.resolution_summary.writes_attempted,
+    writes_succeeded: output.resolution_summary.writes_succeeded,
     write_path: output.trace?.write.file_path,
     error_code: output.ok ? undefined : output.error.code,
     error_message: output.ok ? undefined : output.error.message,
@@ -210,102 +208,187 @@ export async function timelineResolve(
     const parsedEpisodes = parseMemoryFile(sources.memoryContent);
 
     let output = buildReadOnlyResult(input, window, sources) as TimelineResolveSuccessOutput;
-    let traceAppearance = { inherited: false, reason: 'not-applicable' };
-    let traceWrite = { attempted: false, succeeded: false } as TimelineTrace['write'];
-    let traceFingerprint = {
+    let traceAppearance: TimelineTrace['appearance'] = { inherited: false, reason: 'not-applicable' };
+    let traceWrite: TimelineTrace['write'] = {
+      attempted: false,
+      succeeded: false,
+      guard: 'not_attempted',
+      writer: 'openclaw-timeline-plugin',
+    };
+    let traceFingerprint: TimelineTrace['fingerprint'] = {
       checked: parsedEpisodes.length > 0,
       matched: output.resolution_summary.mode === 'read_only_hit' && parsedEpisodes.length > 0,
+      compared_episodes: parsedEpisodes.length,
       idempotency_key: output.result?.window.idempotency_key,
+      fallback_reason: parsedEpisodes.length === 0 ? 'no parsed episodes found in memory content' : undefined,
+    };
+    let decision: TimelineTrace['decision'] = {
+      resolution_mode: output.resolution_summary.mode,
     };
 
     if (input.mode === 'allow_generate' && parsedEpisodes.length === 0) {
-      const generated = inferCandidate(window, sources);
-      traceAppearance = generated.appearance;
-      const requestedPath = runtimeDependencies.memoryFilePath
-        ? runtimeDependencies.memoryFilePath(window.calendar_date)
-        : `memory/${window.calendar_date}.md`;
-
-      let filePath = requestedPath;
-      let writeResult: WriteResult = { success: false, written_at: '', error: 'write dependency missing' };
-
-      try {
-        filePath = assertCanonicalDailyLogPath(requestedPath, window.calendar_date);
-        writeResult = runtimeDependencies.writeEpisode
-          ? await withFileLock(filePath, async () =>
-              runtimeDependencies.writeEpisode!({
-                timestamp: generated.parsed.timestamp,
-                location: generated.parsed.location,
-                action: generated.parsed.action,
-                emotionTags: generated.parsed.emotionTags,
-                appearance: generated.parsed.appearance,
-                internalMonologue: generated.parsed.internalMonologue,
-                naturalText: generated.parsed.naturalText,
-                filePath,
-                windowPreset: window.preset,
-                confidence: generated.parsed.confidence,
-              }),
-            )
-          : { success: false, written_at: '', error: 'write dependency missing' };
-      } catch (error: any) {
-        writeResult = { success: false, written_at: '', error: error.message };
-      }
-
-      traceWrite = {
-        attempted: true,
-        succeeded: writeResult.success,
-        file_path: filePath,
-        error: writeResult.success ? undefined : writeResult.error,
-      };
-      traceFingerprint = {
-        checked: true,
-        matched: false,
-        idempotency_key: generated.idempotencyKey,
-      };
-
-      output = {
-        ok: true,
-        schema_version: '1.0',
-        trace_id: '',
-        resolution_summary: {
-          mode: writeResult.success ? 'generated_new' : 'not_implemented',
-          writes_attempted: 1,
-          writes_succeeded: writeResult.success ? 1 : 0,
-          sources: sources.sourceOrder,
-          confidence_min: generated.parsed.confidence,
-          confidence_max: generated.parsed.confidence,
-        },
-        result: {
+      if (window.preset !== 'now_today') {
+        output = {
+          ok: true,
           schema_version: '1.0',
-          document_type: 'timeline.window',
-          anchor: { now: window.end, timezone: window.timezone },
-          window: {
-            calendar_date: window.calendar_date,
-            preset: window.preset,
-            start: window.start,
-            end: window.end,
-            idempotency_key: generated.idempotencyKey,
+          trace_id: '',
+          resolution_summary: {
+            mode: 'not_implemented',
+            writes_attempted: 0,
+            writes_succeeded: 0,
+            sources: sources.sourceOrder,
+            confidence_min: 0,
+            confidence_max: 0,
           },
-          resolution: {
-            mode: 'generated_new',
-            notes: writeResult.success ? 'generated candidate persisted via append-only writer' : writeResult.error,
+          result: {
+            schema_version: '1.0',
+            document_type: 'timeline.window',
+            anchor: { now: window.end, timezone: window.timezone },
+            window: {
+              calendar_date: window.calendar_date,
+              preset: window.preset,
+              start: window.start,
+              end: window.end,
+              idempotency_key: 'generation-disabled-for-range',
+            },
+            resolution: {
+              mode: 'generated_new',
+              notes: 'Generation is intentionally disabled for non-now_today ranges to avoid unsafe canon writes.',
+            },
+            episodes: [],
           },
-          episodes: [generated.episode],
-        },
-        notes: generated.notes.concat(
-          writeResult.success
-            ? [`Generated episode persisted to ${filePath}.`]
-            : [`Generation attempted but write failed: ${writeResult.error ?? 'unknown error'}.`],
-        ),
-      };
+          notes: ['Generation is intentionally disabled for non-now_today ranges to avoid unsafe canon writes.'],
+        };
+        traceWrite = {
+          attempted: false,
+          succeeded: false,
+          guard: 'range_policy',
+          writer: 'openclaw-timeline-plugin',
+        };
+        traceFingerprint = {
+          checked: true,
+          matched: false,
+          compared_episodes: 0,
+          fallback_reason: 'generation disabled by range policy for non-now_today windows',
+        };
+        decision = {
+          resolution_mode: output.resolution_summary.mode,
+          fallback_category: 'range_policy',
+        };
+      } else {
+        const generated = inferCandidate(window, sources);
+        traceAppearance = generated.appearance;
+        const requestedPath = runtimeDependencies.memoryFilePath
+          ? runtimeDependencies.memoryFilePath(window.calendar_date)
+          : `memory/${window.calendar_date}.md`;
+
+        let filePath = requestedPath;
+        let writeResult: WriteResult = { success: false, written_at: '', error: 'write dependency missing' };
+        let writeGuard: TimelineTrace['write']['guard'] = 'canonical_path';
+
+        try {
+          filePath = assertCanonicalDailyLogPath(requestedPath, window.calendar_date);
+          writeResult = runtimeDependencies.writeEpisode
+            ? await withFileLock(filePath, async () =>
+                runtimeDependencies.writeEpisode!({
+                  timestamp: generated.parsed.timestamp,
+                  location: generated.parsed.location,
+                  action: generated.parsed.action,
+                  emotionTags: generated.parsed.emotionTags,
+                  appearance: generated.parsed.appearance,
+                  internalMonologue: generated.parsed.internalMonologue,
+                  naturalText: generated.parsed.naturalText,
+                  filePath,
+                  windowPreset: window.preset,
+                  confidence: generated.parsed.confidence,
+                }),
+              )
+            : { success: false, written_at: '', error: 'write dependency missing' };
+        } catch (error: any) {
+          writeResult = { success: false, written_at: '', error: error.message };
+          if (String(error.message || '').includes('EEXIST')) {
+            writeGuard = 'lock';
+          }
+        }
+
+        traceWrite = {
+          attempted: true,
+          succeeded: writeResult.success,
+          file_path: filePath,
+          error: writeResult.success ? undefined : writeResult.error,
+          guard: writeGuard,
+          writer: 'openclaw-timeline-plugin',
+        };
+        traceFingerprint = {
+          checked: true,
+          matched: false,
+          compared_episodes: 0,
+          idempotency_key: generated.idempotencyKey,
+          fallback_reason: generated.confidenceReason,
+        };
+        decision = {
+          resolution_mode: writeResult.success ? 'generated_new' : 'not_implemented',
+          fallback_category: writeResult.success ? undefined : 'write_failure',
+        };
+
+        output = {
+          ok: true,
+          schema_version: '1.0',
+          trace_id: '',
+          resolution_summary: {
+            mode: writeResult.success ? 'generated_new' : 'not_implemented',
+            writes_attempted: 1,
+            writes_succeeded: writeResult.success ? 1 : 0,
+            sources: sources.sourceOrder,
+            confidence_min: generated.parsed.confidence,
+            confidence_max: generated.parsed.confidence,
+          },
+          result: {
+            schema_version: '1.0',
+            document_type: 'timeline.window',
+            anchor: { now: window.end, timezone: window.timezone },
+            window: {
+              calendar_date: window.calendar_date,
+              preset: window.preset,
+              start: window.start,
+              end: window.end,
+              idempotency_key: generated.idempotencyKey,
+            },
+            resolution: {
+              mode: 'generated_new',
+              notes: writeResult.success ? 'generated candidate persisted via append-only writer' : writeResult.error,
+            },
+            episodes: [generated.episode],
+          },
+          notes: generated.notes.concat(
+            writeResult.success
+              ? [`Generated episode persisted to ${filePath}.`]
+              : [`Generation attempted but write failed: ${writeResult.error ?? 'unknown error'}.`],
+          ),
+        };
+      }
     }
 
     if (parsedEpisodes.length > 0 && output.resolution_summary.mode === 'read_only_hit') {
-      traceAppearance = { inherited: false, reason: 'existing canon reused' };
-      traceWrite = { attempted: false, succeeded: false };
+      traceAppearance = {
+        inherited: false,
+        reason: 'existing canon reused',
+        source_episode_timestamp: parsedEpisodes[0]?.timestamp,
+      };
+      traceWrite = {
+        attempted: false,
+        succeeded: false,
+        guard: 'not_attempted',
+        writer: 'openclaw-timeline-plugin',
+      };
       traceFingerprint = {
         checked: true,
         matched: true,
+        compared_episodes: parsedEpisodes.length,
         idempotency_key: output.result?.window.idempotency_key,
+      };
+      decision = {
+        resolution_mode: output.resolution_summary.mode,
       };
     }
 
@@ -315,12 +398,16 @@ export async function timelineResolve(
       source_order: sources.sourceOrder,
       source_summary: {
         sessions_history_count: sources.sessionsHistory.length,
+        sessions_history_preview: sources.sessionsHistory[0] || null,
         memory_chars: sources.memoryContent.length,
         memory_search_count: sources.memorySearch.length,
+        memory_search_preview: sources.memorySearch.slice(0, 3),
+        parsed_episode_count: parsedEpisodes.length,
       },
       fingerprint: traceFingerprint,
       appearance: traceAppearance,
       write: traceWrite,
+      decision,
       notes: output.notes,
     });
     output.trace_id = trace.trace_id;
@@ -328,18 +415,36 @@ export async function timelineResolve(
     return finalizeTimelineOutput(output, input);
   } catch (error: any) {
     const timelineError = error instanceof Error ? error : new Error(String(error));
+    const errorCode = classifyTimelineResolveError(timelineError);
     const trace = buildTrace({
       requested_range: input.target_time_range,
       actual_range: 'error',
       source_order: sourceOrder,
       source_summary: {
         sessions_history_count: 0,
+        sessions_history_preview: null,
         memory_chars: 0,
         memory_search_count: 0,
+        memory_search_preview: [],
+        parsed_episode_count: 0,
       },
-      fingerprint: { checked: false, matched: false },
+      fingerprint: {
+        checked: false,
+        matched: false,
+        compared_episodes: 0,
+        fallback_reason: timelineError.message,
+      },
       appearance: { inherited: false, reason: 'error' },
-      write: { attempted: false, succeeded: false },
+      write: {
+        attempted: false,
+        succeeded: false,
+        guard: 'not_attempted',
+        writer: 'openclaw-timeline-plugin',
+      },
+      decision: {
+        resolution_mode: 'not_implemented',
+        error_code: errorCode,
+      },
       notes: [timelineError.message],
     });
 
@@ -357,7 +462,7 @@ export async function timelineResolve(
       },
       notes: [timelineError.message],
       error: {
-        code: classifyTimelineResolveError(timelineError),
+        code: errorCode,
         message: timelineError.message,
       },
       trace,

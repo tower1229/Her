@@ -14,7 +14,7 @@ This repository follows the native OpenClaw plugin shape:
 - `openclaw.plugin.json` — draft OpenClaw plugin manifest
 - `index.ts` — plugin entry wiring
 - `skills/timeline/` — bundled routing skill for temporal intent
-- `src/tools/` — canonical tool entrypoints
+- `src/tools/` — canonical tool entrypoints (`timeline_resolve`, `timeline_status`, `timeline_repair`)
 - `src/core/` — deterministic timeline runtime pipeline
 - `src/hooks/` — lifecycle hook helpers (flush / snapshot / audit)
 - `src/storage/` — canonical write-path hardening and trace storage

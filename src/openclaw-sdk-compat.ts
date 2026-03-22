@@ -1,4 +1,5 @@
 import { timelineResolveToolSpec } from './tools/timeline_resolve';
+import { timelineRepairToolSpec } from './tools/timeline_repair';
 import { timelineStatusToolSpec } from './tools/timeline_status';
 
 export interface HookSpec {
@@ -96,6 +97,17 @@ export function makeTimelineStatusToolRegistration(): PluginToolRegistration {
     parameters: timelineStatusToolSpec.inputSchema,
     async execute(_callId, params) {
       return wrapToolData(await timelineStatusToolSpec.run(params as never));
+    },
+  };
+}
+
+export function makeTimelineRepairToolRegistration(): PluginToolRegistration {
+  return {
+    name: timelineRepairToolSpec.name,
+    description: timelineRepairToolSpec.description,
+    parameters: timelineRepairToolSpec.inputSchema,
+    async execute(_callId, params) {
+      return wrapToolData(await timelineRepairToolSpec.run(params as never));
     },
   };
 }

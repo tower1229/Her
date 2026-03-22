@@ -39,10 +39,11 @@ describe('timelineResolve trace schema', () => {
 
     expect(result.ok).toBe(true);
     expect(result.trace?.source_order).toEqual(['sessions_history', 'memory_get']);
+    expect(result.trace?.source_summary.parsed_episode_count).toBe(1);
     expect(result.trace?.fingerprint.checked).toBe(true);
-    expect(result.trace?.fingerprint.matched).toBe(true);
-    expect(result.trace?.write.attempted).toBe(false);
-    expect(result.trace?.source_summary.sessions_history_count).toBe(1);
+    expect(result.trace?.fingerprint.compared_episodes).toBe(1);
+    expect(result.trace?.write.guard).toBe('not_attempted');
+    expect(result.trace?.decision.resolution_mode).toBe('read_only_hit');
     expect(fs.existsSync(traceLogPath)).toBe(true);
   });
 
@@ -66,8 +67,31 @@ describe('timelineResolve trace schema', () => {
     expect(result.ok).toBe(true);
     expect(result.trace?.write.attempted).toBe(true);
     expect(result.trace?.write.succeeded).toBe(true);
-    expect(result.trace?.write.file_path).toBe('memory/2026-03-22.md');
+    expect(result.trace?.write.guard).toBe('canonical_path');
     expect(result.trace?.appearance.reason).toBeTruthy();
-    expect(result.trace?.fingerprint.matched).toBe(false);
+    expect(result.trace?.fingerprint.fallback_reason).toBeTruthy();
+    expect(result.trace?.decision.resolution_mode).toBe('generated_new');
+  });
+
+  it('refuses unsafe generation for non-now_today ranges and explains why in trace metadata', async () => {
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
+      sessionsHistory: async () => [],
+      memoryGet: async () => '',
+      traceLogPath,
+    });
+
+    const result = await timelineResolve({
+      target_time_range: 'recent_3d',
+      mode: 'allow_generate',
+      reason: 'past_recall',
+      trace: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected success envelope');
+    expect(result.resolution_summary.mode).toBe('not_implemented');
+    expect(result.trace?.write.guard).toBe('range_policy');
+    expect(result.trace?.decision.fallback_category).toBe('range_policy');
   });
 });

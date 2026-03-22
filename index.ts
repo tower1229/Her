@@ -8,6 +8,7 @@ import {
 } from './src/plugin_metadata';
 import {
   definePluginEntry,
+  makeTimelineRepairToolRegistration,
   makeTimelineStatusToolRegistration,
   makeTimelineToolRegistration,
   materializePlugin,
@@ -20,6 +21,7 @@ export const timelinePluginEntry = definePluginEntry({
   register(api) {
     api.registerTool(makeTimelineToolRegistration(), { optional: true });
     api.registerTool(makeTimelineStatusToolRegistration());
+    api.registerTool(makeTimelineRepairToolRegistration(), { optional: true });
     api.registerHook(preCompactionFlushHook);
     api.registerHook(sessionSnapshotHook);
     api.registerHook(auditTraceHook);

@@ -22,8 +22,8 @@
 
 - [x] `timeline_status` exposes plugin registration metadata.
 - [x] `timeline_status` exposes the last runtime snapshot (trace id, resolution mode, write outcome).
-- [ ] `timeline_repair` exists for malformed daily log diagnostics.
-- [ ] Maintainers can inspect recent trace failures without reading raw runtime internals.
+- [x] `timeline_repair` exists for malformed daily log diagnostics.
+- [x] Maintainers can inspect recent trace failures, recent run logs, and malformed sections without reading raw runtime internals.
 
 ## D. Generation / hardening
 
@@ -37,5 +37,5 @@ Call the current codebase **Timeline v2 released** only when:
 
 1. Section A is fully complete.
 2. Section B is fully complete.
-3. Section C has `timeline_status` and `timeline_repair` both complete.
+3. Section C has `timeline_status` and `timeline_repair` both complete and exercised.
 4. Section D is complete enough that generated writes and trace review are operationally trustworthy.
