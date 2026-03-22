@@ -23,8 +23,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "node node_modules/jest/bin/jest.js",
-    "release:clawhub": "node ./scripts/release-clawhub.mjs"
+    "test": "node node_modules/jest/bin/jest.js"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
