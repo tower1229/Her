@@ -1,68 +1,87 @@
-# Timeline Plugin v2 for OpenClaw
+# Timeline Plugin for OpenClaw
 
 [中文版 README](./README_ZH.md)
 
-A draft OpenClaw-native timeline plugin that turns temporal fact resolution into a
-canonical runtime capability instead of a prompt convention.
+Timeline is an OpenClaw plugin project for one very specific job:
+**help an agent answer time-related questions from a stable, inspectable, append-only memory model.**
 
-If you want an agent to answer questions like **“what are you doing now?”**,
-**“what have you been doing recently?”**, or **“what happened on this date?”**
-with structured, auditable, append-only memory behavior, this repository is built
-for that use case.
+If you want your agent to answer questions like:
+- **What are you doing now?**
+- **What have you been doing recently?**
+- **What happened on a specific day?**
+- **Can you check whether this timeline log is malformed?**
 
----
-
-## Should you install this?
-
-### Install this plugin if you need
-- a **single canonical tool** for timeline queries instead of prompt-only memory behavior;
-- **append-only day-log writes** with canonical path checks and file locking;
-- **diagnostics and repair tooling** for timeline memory (`timeline_status`, `timeline_repair`);
-- **traceable temporal resolution** so surprising results can be inspected later;
-- a bundled skill that routes temporal user questions toward a deterministic runtime.
-
-### This may not be the right fit if you only need
-- a generic chat persona without structured timeline memory;
-- free-form journaling without canonical write rules;
-- a finished GA plugin today — the repo is still explicitly in **`2.0.0-draft`** status.
+with more structure and less prompt drift, this repository is built for that use case.
 
 ---
 
-## What problem this plugin solves
+## What Timeline is trying to achieve
 
-Prompt-only timeline memories tend to drift:
-- the model answers “now” questions from loose context instead of a canonical source;
-- appearance / location / action details become inconsistent across turns;
-- generated facts get written back without enough guardrails;
-- debugging a bad timeline answer is hard because there is no durable trace.
+Timeline is not mainly about “v2 vs v1”.
+The underlying project goal is the same throughout:
 
-Timeline Plugin v2 moves that logic into runtime code so the plugin, not the prompt,
-owns:
-- temporal window resolution;
-- source ordering;
-- Markdown daily-log parsing;
-- fingerprint-based reuse vs generation;
-- append-only writes;
-- repair and status diagnostics;
-- lifecycle traceability.
+> Give the agent a trustworthy temporal memory layer so that timeline answers come from a canonical runtime path, not from loose prompt improvisation.
+
+In practice, that means Timeline is trying to provide:
+- a **single canonical path** for temporal fact resolution;
+- a **deterministic read flow** over timeline sources;
+- **append-only memory writing** instead of arbitrary mutation;
+- **diagnostics and traces** so maintainers can explain surprising answers;
+- **operator tools** for status inspection and malformed-log repair.
+
+The current repository implements that goal using a plugin-first OpenClaw architecture.
+
+---
+
+## Why this matters
+
+Without a dedicated timeline runtime, agents often answer temporal questions by mixing:
+- recent chat context;
+- vague memory fragments;
+- prompt conventions;
+- and model guesses.
+
+That tends to create familiar problems:
+- “now” answers drift over time;
+- location / action / appearance details become inconsistent;
+- facts may be written back without enough guardrails;
+- debugging a bad answer becomes difficult because there is no durable trace.
+
+Timeline exists to reduce those failures by moving the important logic into code.
+
+---
+
+## Typical scenarios
+
+### 1. Current-state grounding
+Use Timeline when the agent should answer questions such as:
+- “What are you doing right now?”
+- “Where are you now?”
+- “What have you been doing today?”
+
+### 2. Recent activity recall
+Use Timeline when you want a bounded summary of the recent past, while still preferring canonical memory over improvisation.
+
+### 3. Safer memory writing
+Use Timeline when timeline facts should only be written through a guarded append-only path instead of ad-hoc memory edits.
+
+### 4. Timeline maintenance and debugging
+Use Timeline when operators need to inspect registration state, recent runs, malformed day logs, or trace behavior.
 
 ---
 
 ## Core capabilities
 
 ### `timeline_resolve`
-The canonical runtime entrypoint for temporal fact retrieval and, when policy allows,
-append-only canon generation.
+The canonical tool for timeline retrieval and, when allowed by policy, conservative append-only generation.
 
 ### `timeline_status`
-A lightweight operational view into plugin registration metadata and the most recent
-runtime snapshot.
+A lightweight operator view of plugin metadata, registered tools/hooks, and the latest runtime snapshot.
 
 ### `timeline_repair`
-A maintenance tool for malformed daily logs, canonical path diagnostics, and recent
-run/trace inspection.
+A diagnostic tool for malformed daily logs, canonical-path validation, and recent run / trace inspection.
 
-### Lifecycle hooks
+### Lifecycle helpers
 The plugin also includes hook helpers for:
 - pre-compaction flush;
 - session snapshot;
@@ -70,51 +89,48 @@ The plugin also includes hook helpers for:
 
 ---
 
-## Typical usage scenarios
-
-### 1. Current status grounding
-Use this when the agent should answer:
-- “what are you doing right now?”
-- “where are you now?”
-- “what have you been up to today?”
-
-### 2. Recent recall
-Use this when the agent should summarize recent activity over a bounded window,
-while reusing canonical memory where possible.
-
-### 3. Safe append-only memory writing
-Use this when you want timeline facts to be written through a guarded path instead
-of ad-hoc memory mutations.
-
-### 4. Timeline debugging / repair
-Use `timeline_status` and `timeline_repair` when you need to inspect trace behavior,
-malformed day logs, or write-path health.
-
----
-
-## How it works
+## How Timeline works
 
 At a high level, the runtime does this:
 
-1. normalize the requested time window;
-2. collect sources in deterministic order (`sessions_history -> memory_get -> memory_search`);
-3. parse daily-log Markdown into structured episodes;
-4. reuse canon via fingerprint matching when possible;
-5. only generate conservatively when policy allows;
-6. write append-only through the timeline-owned storage path;
-7. emit trace and runtime diagnostics.
+1. normalize a request into a time window;
+2. read timeline-related sources in deterministic order;
+3. parse Markdown day logs into structured episodes;
+4. reuse canonical memory when possible;
+5. generate conservatively only when policy allows;
+6. write append-only through the timeline-owned path;
+7. emit trace and runtime-status diagnostics.
+
+The point is not just to answer a question once.
+The point is to make the answer path **repeatable, inspectable, and safer to maintain**.
+
+---
+
+## Should you install this?
+
+### Good fit
+Install this project if you need:
+- a dedicated timeline runtime for OpenClaw;
+- more trustworthy answers to temporal questions;
+- append-only timeline writing with path checks and lock protection;
+- status / repair tooling for operators;
+- a plugin that pushes timeline behavior into code instead of prompts alone.
+
+### Probably not the right fit
+This may not be the best fit if:
+- you only need a general chat persona;
+- you want free-form journaling rather than canonical timeline memory;
+- you do not need diagnostic / traceability features;
+- you need a fully finalized GA plugin immediately.
 
 ---
 
 ## Installation
 
-> This repository is currently positioned as a **draft plugin project / local plugin**.
-> The most realistic installation path today is local development or side-loading into
-> an OpenClaw setup you control.
+> The project is currently best treated as a **draft local plugin / pilotable runtime slice**.
+> The most realistic installation path today is local development or side-loading into an OpenClaw environment you control.
 
-### Option A — Install from a local checkout
-
-Clone the repository and install it into OpenClaw as a local plugin:
+### Install from a local checkout
 
 ```bash
 git clone https://github.com/tower1229/Her.git
@@ -124,24 +140,19 @@ npm run build
 openclaw plugins install -l .
 ```
 
-### Option B — Point OpenClaw at the plugin entry manually
+### Plugin entrypoints
 
-This repository exposes its runtime entry through:
+This repository exposes the plugin through:
 - `openclaw.plugin.json`
 - `package.json` → `openclaw.extensions`
 - `index.ts`
 
-If your OpenClaw environment uses direct local plugin paths, point it at this repo and
-ensure the runtime can resolve the built plugin entry.
+### Draft config fields
 
-### Configuration
-
-The draft manifest currently exposes these plugin config fields:
+The current manifest exposes:
 - `enableTrace`
 - `traceLogPath`
 - `canonicalMemoryRoot`
-
-Those fields live under the plugin entry for `timeline-plugin` in your OpenClaw plugin config.
 
 ---
 
@@ -150,12 +161,12 @@ Those fields live under the plugin entry for `timeline-plugin` in your OpenClaw 
 After installation:
 
 1. enable the plugin in your OpenClaw environment;
-2. ensure the plugin can access the canonical `memory/` directory you expect to use;
-3. ask a temporal question that should be routed to the timeline skill;
-4. inspect `timeline_status` if you want to confirm registration / recent runtime state;
-5. inspect `timeline_repair` if a daily log looks malformed or a write path seems wrong.
+2. make sure it can access the canonical `memory/` directory you intend to use;
+3. ask a clearly temporal question;
+4. inspect `timeline_status` to confirm registration / recent runtime state;
+5. run `timeline_repair` if a daily log looks malformed or a write path looks suspicious.
 
-Useful example prompts:
+Example prompts:
 - “What are you doing right now?”
 - “What have you been doing recently?”
 - “What happened on 2026-03-22?”
@@ -168,29 +179,32 @@ Useful example prompts:
 - `openclaw.plugin.json` — plugin manifest
 - `index.ts` — plugin entry wiring
 - `skills/timeline/` — bundled routing skill
-- `src/tools/` — canonical tools (`timeline_resolve`, `timeline_status`, `timeline_repair`)
-- `src/core/` — deterministic runtime pipeline
-- `src/hooks/` — lifecycle hooks
+- `src/tools/` — runtime tools (`timeline_resolve`, `timeline_status`, `timeline_repair`)
+- `src/core/` — deterministic timeline pipeline
+- `src/hooks/` — lifecycle helpers
 - `src/storage/` — write guards, trace logs, runtime status, run logs
 - `src/lib/` — parsing / fingerprint / time / inheritance helpers
-- `docs/` — design, interface, roadmap, status, and release checklist docs
+- `docs/` — interface, roadmap, migration, status, and release docs
 
 ---
 
-## Current status
+## Current project status
 
-This repo is intentionally focused on the v2 plugin shape only.
-It is already useful as a deterministic local runtime slice, but it is still not a final
-GA release. The main remaining gaps are real OpenClaw runtime validation, stronger
-write-path guarantees, richer operability/observability, and better generated-write
-quality.
+The implementation has already moved beyond pure design notes: it includes a real plugin skeleton, canonical tools, deterministic read logic, guarded append-only writes, hooks, diagnostics, and tests.
 
-Start here if you want to understand maturity and roadmap:
-- `docs/timeline-v2-refactor-plan.md`
-- `docs/timeline-v2-status.md` (includes a refreshed GA gap inventory)
+But this is still **not yet a final GA release**.
+The biggest remaining gaps are:
+- real OpenClaw runtime validation;
+- stronger write-path / single-writer guarantees;
+- richer observability and operator tooling;
+- higher-confidence generated-write behavior.
+
+If you want to understand maturity and next steps, start with:
+- `docs/timeline-v2-status.md`
 - `docs/timeline-v2-release-checklist.md`
 - `docs/timeline-v2-quickstart.md`
 - `docs/timeline-v2-migration.md`
+- `docs/timeline-v2-refactor-plan.md`
 - `docs/timeline-resolve-interface.md`
 - `CHANGELOG.md`
 

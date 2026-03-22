@@ -1,492 +1,357 @@
-# Timeline v2 Status Review and Next-Step Plan
+# Timeline 当前状态盘点与后续路线（中文重写版）
 
-> Status: working memo
-> Purpose: reconcile the v2 design docs with the code currently in the repository
-> Audience: maintainers planning the next implementation phase
+> 状态：工作备忘 / 当前实现盘点
+> 目的：从 Timeline 项目的真实设计目标出发，重新说明仓库目前已经做到什么、还缺什么、为什么还不能称为正式发布
+> 读者：维护者、潜在安装者、以及想判断成熟度的开发者
 
-## 1. Executive Summary
+## 1. 先说结论
 
-Timeline v2 is **no longer only a design concept**.
+Timeline 这个项目的核心目标，从来不是“做一个叫 v2 的新版本”本身。
+它真正要解决的问题一直是：
 
-The repository now contains:
-- a plugin skeleton;
-- a bundled timeline skill;
-- a canonical `timeline_resolve` runtime entrypoint;
-- deterministic read-only retrieval logic;
-- a conservative generated-new path with append-only writes;
-- lifecycle hook helpers for flush / snapshot / audit;
-- canonical path hardening and lock-based write protection;
-- passing unit/integration tests for the current implementation slice.
+> **给 agent 提供一条可信的时间线记忆链路，让“现在 / 最近 / 某日发生了什么”这类回答走稳定的 runtime，而不是只靠 prompt 约定和模型临场推断。**
 
-However, v2 is still **mid-flight**, not finished.
+从这个目标看，当前仓库已经不是纸面设计，而是一个**可以运行、可以测试、可以试装、可以继续迭代**的实现切片。
 
-The current implementation is best described as:
+它已经具备：
+- 插件形态；
+- canonical timeline 工具入口；
+- 确定性的时间窗口解析与读取路径；
+- 受控的 append-only 写入；
+- 基础 trace、status、repair 能力；
+- 一套能够跑通的测试。
 
-> **Milestone 1 complete, Milestone 2 complete, Milestone 3 partially complete,
-> Milestone 4 partially complete, Milestone 5 started but not finished.**
+但它还**不能被称为最终正式版（GA）**。
+当前更准确的描述是：
 
-## 2. How to read the current state
+> **一个已经证明方向可行、适合继续试运行与迭代的 Timeline draft plugin。**
 
-The original v2 documentation described a target architecture with:
-- plugin + bundled skill;
-- deterministic runtime pipeline;
-- append-only canon writes;
-- lifecycle hooks;
-- single-writer hardening;
-- observability and traceability;
-- phased migration away from prompt-heavy AGENTS / SOUL dependence.
+---
 
-The codebase now implements a meaningful subset of that plan, but still contains
-several placeholders, simplifications, and local stand-ins for future production work.
+## 2. 应该如何理解“当前状态”
 
-## 3. What is already implemented
+判断 Timeline 成熟度时，不应该只问：
+- 它是不是“v2”；
+- 它和过去的 prompt 方案差了多少。
 
-### 3.1 Plugin / packaging layer
+更重要的问题是：
+- 它是否已经能承担 Timeline 项目的真实设计目标？
+- 它是否已经能稳定回答时间问题？
+- 它是否已经足够可维护、可排查、可发布？
 
-Implemented:
+按照这个标准，当前代码库已经在“**目标落地**”上迈出很大一步，但在“**正式发布可信度**”上还差最后几段关键工程工作。
+
+---
+
+## 3. Timeline 项目的设计目标
+
+Timeline 想做的事情，可以概括成五点：
+
+1. **统一时间问题的解析入口**
+   - 不再让“现在在做什么”“最近在做什么”“某天发生了什么”分别靠 prompt 临时处理。
+   - 这些问题应该进入统一的 timeline runtime。
+
+2. **让时间线读取是确定性的**
+   - 时间窗口如何解析；
+   - 数据源按什么顺序读取；
+   - 什么时候复用既有 memory；
+   - 什么时候允许生成；
+   这些都应该由代码决定，而不是由 prompt 模糊控制。
+
+3. **让时间线写入是受控的**
+   - timeline 事实不应被随意改写；
+   - 写入应尽量 append-only；
+   - 写入路径应能校验，最好还能限制并发冲突。
+
+4. **让结果可解释、可排查**
+   - 如果回答异常，维护者应该能看到 trace；
+   - 如果日志 malformed，应该有 repair 工具协助定位问题；
+   - 如果运行过一次，至少应该能看到最近一次运行的状态快照。
+
+5. **让 Timeline 作为产品可被安装使用**
+   - README 需要从需求与场景出发说服用户；
+   - 插件结构需要适配 OpenClaw；
+   - 文档要能帮助维护者判断成熟度和发布风险。
+
+当前仓库，已经覆盖了其中一大部分，但还没有全部完成。
+
+---
+
+## 4. 目前已经落地的内容
+
+### 4.1 插件基础形态已经存在
+
+仓库已经具备基本的插件化结构，包括：
 - `openclaw.plugin.json`
 - `index.ts`
-- local `src/openclaw-sdk-compat.ts` compatibility facade
-- bundled skill at `skills/timeline/SKILL.md`
+- `package.json` 中的插件入口声明
+- `skills/timeline/` 下的 bundled skill
 
-Meaning:
-- the repository now has a concrete plugin-oriented shape;
-- temporal routing is no longer only described in docs;
-- the v2 skill has been simplified toward routing behavior.
+这意味着 Timeline 已经不再只是设计文档，而是一个可以被 OpenClaw 识别与接入的插件项目骨架。
 
-### 3.2 Canonical runtime entrypoint
+### 4.2 已经有 canonical timeline 工具入口
 
-Implemented:
-- `src/tools/timeline_resolve.ts`
+当前已经实现三类工具：
+- `timeline_resolve`
+- `timeline_status`
+- `timeline_repair`
 
-Meaning:
-- timeline resolution now has a single code entrypoint;
-- runtime dependencies can be injected for tests;
-- the code no longer depends purely on prompt simulation.
+其中最核心的是 `timeline_resolve`：
+它把时间问题的解析、读取、复用、必要时的保守生成，收敛到一个 canonical runtime 入口里。
 
-### 3.3 Deterministic read-only path
+这对 Timeline 项目非常关键，因为它意味着“时间问题如何处理”终于进入代码控制，而不是停留在 prompt 约定阶段。
 
-Implemented:
-- `src/core/resolve_window.ts`
-- `src/core/collect_sources.ts`
-- `src/core/map_window.ts`
-- `src/core/trace.ts`
+### 4.3 读取主流程已经具备确定性骨架
 
-Meaning:
-- temporal queries can now be normalized to a window;
-- source collection order is explicit in code;
-- existing Markdown entries can be parsed and mapped into a `timeline.window` result;
-- trace IDs are produced for runtime calls.
+当前 runtime 已经实现：
+- 时间窗口解析；
+- 数据源的固定读取顺序；
+- Markdown daily log 的解析；
+- 结构化 timeline result 的构造；
+- 指纹复用与 trace 的基础记录。
 
-### 3.4 Generated-new append-only path
+这意味着 Timeline 最重要的一条“读链路”已经不再是抽象想法，而是一条可以跑通、可以测试的真实流程。
 
-Implemented:
-- `src/core/infer_candidate.ts`
-- integration with `src/storage/write-episode.ts`
-- conservative generation fallback in `timeline_resolve`
+### 4.4 写入链路已经有第一层保护
 
-Meaning:
-- when no reusable canon entry exists, the runtime can now generate a minimal,
-  low-confidence candidate and persist it append-only.
+当前写入相关能力已经包括：
+- append-only 写入集成；
+- canonical daily log 路径校验；
+- lock 文件保护；
+- 写入结果进入 trace / status 的基础记录。
 
-### 3.5 Lifecycle hooks
+虽然它还没有达到“正式发布级别的单写者保障”，但至少已经不再是任意写 memory 的无保护状态。
 
-Implemented:
-- `src/hooks/pre_compaction_flush.ts`
-- `src/hooks/session_snapshot.ts`
-- `src/hooks/audit_trace.ts`
-- `src/storage/trace_log.ts`
+### 4.5 运维诊断能力已经有基础形态
 
-Meaning:
-- the hook layer is no longer a documentation placeholder;
-- flush / snapshot / audit behavior has runnable helper functions;
-- trace summaries can be persisted to disk.
+当前仓库已经提供：
+- `timeline_status`：看插件元信息、注册信息、最近一次运行状态；
+- `timeline_repair`：检查 malformed daily log、路径异常，以及最近运行 / trace；
+- trace log 与 runtime status 持久化的基础能力。
 
-### 3.6 Single-writer hardening (initial slice)
+这说明 Timeline 已经开始具备“出了问题能排查”的产品特征，而不是只能靠读源码猜问题。
 
-Implemented:
-- `src/storage/daily_log.ts`
-- `src/storage/lock.ts`
-- guard integration inside `timeline_resolve`
+### 4.6 已经有覆盖当前实现切片的测试
 
-Meaning:
-- generated writes are now validated against canonical daily log path rules;
-- writes use a simple lock file to reduce concurrent write risks;
-- non-canonical write targets are rejected in code.
+当前仓库已经包含并通过了多组测试，覆盖：
+- 时间窗口解析；
+- `timeline_resolve` 的只读路径、生成路径、guard 路径、trace 路径；
+- hooks；
+- storage 相关逻辑；
+- repair / status 工具。
 
-### 3.7 Test coverage for the implemented slice
+这说明当前实现不是一次性的实验代码，而是具备基本回归保护的工程切片。
 
-Implemented:
-- `src/core/resolve_window.test.ts`
-- `src/tools/timeline_resolve.test.ts`
-- `src/tools/timeline_resolve.generate.test.ts`
-- `src/tools/timeline_resolve.guard.test.ts`
-- `src/hooks/pre_compaction_flush.test.ts`
-- `src/hooks/audit_trace.test.ts`
-- `src/storage/daily_log.test.ts`
+---
 
-Meaning:
-- the current runtime slice is not speculative;
-- the implemented behavior is executable and regression-testable.
+## 5. 现在还没做完的，不是“边角料”，而是发布关键项
 
-## 4. What is only partially implemented
+如果只看文件数量和模块数，仓库已经很像一个完整插件。
+但距离正式发布，差的并不是一些装饰性的收尾，而是几项直接决定“能不能放心安装使用”的核心能力。
 
-### 4.1 Source semantics are still simplified
+### 5.1 真实 OpenClaw runtime 验证还没完全闭环
 
-Current state:
-- `sessions_history`, `memory_get`, and `memory_search` are dependency-injected stand-ins.
-- There is no real OpenClaw SDK or gateway integration yet.
+当前代码里仍然存在本地 compatibility facade。
+这意味着：
+- 插件形态已经有了；
+- 工具 / hook 的注册方式已经有 draft；
+- 但它还没有在真实 OpenClaw runtime 里完成足够扎实的端到端验证。
 
-Implication:
-- the code proves the pipeline structure,
-- but not yet the real platform wiring.
+这会影响正式发布判断，因为“本地看起来能工作”和“平台真实接入可用”不是同一件事。
 
-### 4.2 Generation logic is intentionally conservative and shallow
+### 5.2 写入安全还只是第一层，不是最终形态
 
-Current state:
-- `infer_candidate.ts` uses a very minimal heuristic fallback.
-- It does not yet model richer duration logic, stronger conflict handling, or more nuanced
-  confidence reasoning.
+现在已经有：
+- canonical path 校验；
+- lock 文件；
+- append-only 写入路径。
 
-Implication:
-- the generated path exists,
-- but it is still a safe placeholder rather than a production-grade inference engine.
+但还缺：
+- 更强的并发冲突语义；
+- 更明确的 write-denied / write-conflict 分类；
+- 中断写入、部分写入失败后的恢复语义；
+- 如果平台允许的话，对非 Timeline 写入的额外限制。
 
-### 4.3 Hook integration is helper-level, not SDK-native registration
+也就是说，写入路径已经比 prompt 时代安全得多，但还没到“正式发布后可以放心宣称具备强单写者保障”的程度。
 
-Current state:
-- hook helper functions are implemented,
-- but they are not yet wired against a real OpenClaw hook SDK/runtime surface.
+### 5.3 可观测性还不够深
 
-Implication:
-- lifecycle behavior can be tested locally,
-- but not yet claimed as production-integrated.
+当前已经有 trace、status、repair。
+但如果从“线上可维护性”角度看，仍然存在不足：
+- trace 还不够细，未必能独立解释每一次异常结果；
+- `timeline_status` 的运维信息还偏少；
+- `timeline_repair` 目前更像结构诊断，而不是带引导的修复工作流。
 
-### 4.4 Trace schema is still lightweight
+这意味着当前已经能排查一些问题，但还不足以支撑“复杂场景下的低成本运维”。
 
-Current state:
-- traces store IDs, event names, timestamps, and some summary fields.
-- They do not yet capture the full decision graph expected by the architecture docs.
+### 5.4 生成写入能力还偏保守，占位意义大于最终质量
 
-Implication:
-- observability exists,
-- but not yet at the depth needed for production debugging and evaluation.
+当前生成路径存在，这非常重要，因为它证明了 Timeline 不只是只读查询器。
+但它现在的生成策略仍然偏保守，主要问题包括：
+- 时长推理还不够强；
+- 冲突判断还不够细；
+- 锚点选择还不够稳；
+- 低信息状态下容易退回到比较 generic 的结果。
 
-### 4.5 Single-writer discipline is not fully enforced platform-wide
+因此，当前生成能力更适合被理解为“已经有安全占位实现”，而不是“已经达到高可信的正式发布质量”。
 
-Current state:
-- canonical path guards and locks exist in the timeline runtime path.
-- Other non-timeline code paths are not globally blocked by platform permissions yet.
+---
 
-Implication:
-- the timeline runtime is hardened,
-- but the whole repository/runtime is not yet guaranteed to be single-writer by system policy.
+## 6. 如果从“项目目标”角度打分，现在处于什么阶段？
 
-## 5. What is still missing relative to the v2 plan
+如果把 Timeline 的目标拆成几个里程碑，目前可以这样理解：
 
-### 5.1 Real OpenClaw SDK alignment
+### A. 项目方向已经被证明是可落地的
 
-Missing:
-- replacing the local compatibility facade with actual OpenClaw SDK contracts if/when the published runtime API differs;
-- verifying the current tool/hook registration shape against a real OpenClaw runtime load.
+这一步已经完成。
+因为仓库里已经有：
+- 真正的插件结构；
+- 真正的 runtime 工具；
+- 真正的写入与 trace 代码；
+- 真正的测试。
 
-### 5.2 Production-grade trace schema
+Timeline 已经不是“概念正确但没人实现”的阶段了。
 
-Missing:
-- source payload summaries;
-- fingerprint match diagnostics;
-- appearance inheritance reasoning in trace form;
-- explicit fallback/error categories;
-- trace sinks that can be inspected operationally.
+### B. 核心读链路已经基本成立
 
-### 5.3 Better write-path hardening
+这一步也基本完成。
+“时间问题进入 canonical runtime → 解析时间窗口 → 读取并解析 memory → 生成结构化结果” 这条链路已经成立。
 
-Missing:
-- stronger lock semantics if concurrent writes become more complex;
-- optional write-deny detection for non-timeline writers;
-- stronger reconciliation when a competing writer touches canon files.
+### C. 写链路和运维链路已经有第一版
 
-### 5.4 Better generated-state semantics
+这一步是“已具雏形，但尚未完成”。
+写入、trace、repair、status 都有了，但还缺正式发布级别的强度。
 
-Missing:
-- duration boundary logic for ongoing vs finished activities;
-- stronger conflict resolution with hard anchors;
-- better multi-day behavior for `recent_3d`;
-- explicit low-confidence fallback strategies by scenario.
+### D. 正式发布所需的可信度还不够
 
-### 5.5 Maintenance / repair tooling
+这一步还没完成。
+问题不在于没有代码，而在于：
+- 平台验证还不够；
+- 写入保障还不够；
+- 可观测性还不够；
+- 生成质量还不够。
 
-Missing:
-- deeper diagnostic commands for malformed daily logs and repair workflows beyond the initial `timeline_repair` tool.
+因此，当前最合适的定位不是“准备收尾发版”，而是“**已经进入可以集中做发布前硬化的阶段**”。
 
-### 5.6 Documentation sync
+---
 
-Missing:
-- explicit documentation of current milestone status in the repo until this memo;
-- a short roadmap tying current code to the original v2 plan.
+## 7. 当前距离正式发布的主要差距（重新盘点）
 
-## 6. Milestone status re-evaluation
+如果现在有人问：
 
-### Milestone 1 — Plugin skeleton
+> **Timeline 为什么还不能正式发布？**
 
-**Status: done**
+最准确的回答应该是下面四条。
 
-Completed:
-- plugin manifest draft
-- plugin entrypoint
-- bundled skill
-- runtime tool shell
+### 7.1 差距一：缺少真实平台闭环验证
 
-### Milestone 2 — Core runtime path
+虽然项目已经采用插件架构，但目前还需要进一步证明：
+- 真实 OpenClaw runtime 能无歧义加载它；
+- tool registration / hook registration 和平台约定完全匹配；
+- manifest、entrypoint、生命周期语义在真实环境中站得住。
 
-**Status: done (for the current local architecture slice)**
+这是最优先的发布前差距，因为如果平台对接本身还没被验证，后续很多优化都容易建立在不稳定基础上。
 
-Completed:
-- window resolution
-- source collection ordering
-- parse + map path
-- read-only hit path
-- tests
+### 7.2 差距二：写入路径还需要进一步硬化
 
-### Milestone 3 — Generation and writing
+当前的写入保护是有价值的，但仍主要集中在 Timeline 自己控制的代码路径里。
+正式发布前，更理想的状态应该是：
+- 冲突类型更明确；
+- 失败恢复更明确；
+- 写入保障不只是“尽量安全”，而是“运维上可解释、可处理”。
 
-**Status: partially done**
+### 7.3 差距三：运维视角还不够成熟
 
-Completed:
-- candidate generation exists
-- append-only writer integration exists
-- canonical path validation exists
-- file lock exists
+一个 Timeline 产品如果真的要给别人安装使用，就不能只“能跑”。
+它还必须：
+- 出问题时容易知道哪里出问题；
+- 维护者不必翻底层文件才能做初步诊断；
+- trace 足够支持复盘异常结果。
 
-Still missing:
-- richer generation logic
-- stronger conflict/duration reasoning
-- richer write diagnostics
+当前这方面已经有基础，但还不够成熟。
 
-### Milestone 4 — Hook integration
+### 7.4 差距四：生成路径还没有达到高可信度
 
-**Status: partially done**
+在正式发布语境里，最容易让维护者担心的，往往不是“是否能读”，而是“如果需要生成并写入，会不会写出不够可靠的东西”。
+当前生成路径是存在的，但还没有达到足够强的可信度标准。
 
-Completed:
-- runnable helper-level hook functions
-- tests for hook behavior
-- trace persistence helpers
+所以在正式发布前，生成逻辑仍需要继续加强，而不是把现在的保守实现当作最终质量。
 
-Still missing:
-- true OpenClaw runtime registration/integration
-- production lifecycle semantics validation
+---
 
-### Milestone 5 — Hardening
+## 8. 接下来最合理的工作顺序
 
-**Status: started**
+如果目标是尽快走向一个可信的正式发布，而不是继续扩表面功能，那么建议顺序如下：
 
-Completed:
-- canonical path guard
-- lock file helper
-- test coverage for guard failure
+### 第一步：先做真实平台对齐
 
-Still missing:
-- broader platform-level write controls
-- richer observability
-- repair/status tooling
-- production-grade trace analytics
+优先确认：
+- OpenClaw 真实插件接口；
+- tool / hook 注册方式；
+- manifest 与入口配置；
+- 生命周期实际行为。
 
-## 7. Recommended next-step plan
+原因很简单：如果平台对齐还没完成，后面的很多 hardening 都可能返工。
 
-The next tasks should now be ordered by leverage, not by original document order.
+### 第二步：补足可观测性与运维能力
 
-## 8. Next task batch A — Platform alignment (highest priority)
+在平台基础确认后，下一步最值得做的是：
+- 把 trace 做得更完整；
+- 让 `timeline_status` 提供更多真正有用的运维信息；
+- 让 `timeline_repair` 从“发现问题”进一步走向“引导修复”。
 
-Goal:
-- replace local assumptions with real OpenClaw integration points.
+原因是：没有足够可观测性，后续很难放心迭代生成能力和写入能力。
 
-Tasks:
-1. Replace the local compatibility facade with actual OpenClaw SDK/plugin contracts.
-2. Align `index.ts` and `openclaw.plugin.json` with the real plugin entry format.
-3. Verify how OpenClaw expects tools/hooks to be registered in production.
-4. Confirm whether bundled skills need any additional manifest wiring.
+### 第三步：继续硬化写入路径
 
-Definition of done:
-- the plugin can be loaded by a real OpenClaw runtime without relying on local stand-in types.
+接下来应该集中解决：
+- 冲突语义；
+- 错误分类；
+- 恢复策略；
+- 可能的更强平台级写入限制。
 
-## 9. Next task batch B — Observability hardening
+这样才能让 Timeline 的 append-only 设计真正具备产品可信度。
 
-Goal:
-- make timeline runs diagnosable in production.
+### 第四步：最后再做生成质量升级
 
-Tasks:
-1. Expand `src/core/trace.ts` to capture:
-   - source ordering;
-   - source payload summaries;
-   - fingerprint hit/miss metadata;
-   - appearance inheritance decisions;
-   - write guard outcomes;
-   - fallback reasons.
-2. Update `src/storage/trace_log.ts` schema accordingly.
-3. Add tests for richer trace contents.
-4. Add a small reader/debug helper if needed.
+生成能力当然重要，但它最好建立在：
+- 平台已验证；
+- trace 足够解释行为；
+- 写入路径足够安全；
+的基础上。
 
-Definition of done:
-- a failed or surprising timeline run can be explained from trace logs alone.
+只有这样，生成质量的提升才是“可控演进”，而不是“边猜边写”。
 
-## 10. Next task batch C — Generation quality
+---
 
-Goal:
-- make `generated_new` behavior safer and more realistic.
+## 9. 对外应该如何描述当前项目
 
-Tasks:
-1. Improve `infer_candidate.ts` with duration-boundary reasoning.
-2. Prefer recent hard-anchor/session facts over generic fallback text.
-3. Add confidence reason codes.
-4. Improve low-information fallback wording.
-5. Add tests for:
-   - ongoing activity continuation;
-   - completed activity rollover;
-   - low-confidence sleep/rest states.
+如果站在对外介绍或 README 的角度，当前项目最合适的表述不是：
+- “这是 v2，和过去不一样”；
+- “这是某个重构版本”；
+- “这是一个还没完成的替代品”。
 
-Definition of done:
-- generated timeline states are conservative, explainable, and less placeholder-like.
+更好的表述应该是：
 
-## 11. Next task batch D — Write-path hardening
+> **Timeline 是一个面向 OpenClaw 的时间线插件项目，目标是让 agent 对时间问题的回答更稳定、更可追踪、更可维护。当前仓库已经提供可运行的插件骨架、canonical 工具、受控写入和诊断能力，但仍处于 draft 阶段，正在向正式发布所需的工程可信度推进。**
 
-Goal:
-- move closer to actual single-writer enforcement.
+这能更准确地反映项目的产品目标，而不是把注意力困在“版本差异”上。
 
-Tasks:
-1. Strengthen lock handling and lock cleanup behavior.
-2. Add explicit write-denied / write-conflict error categories.
-3. Add non-timeline-write detection if the OpenClaw runtime permits it.
-4. Add recovery rules for partially written traces or failed writes.
+---
 
-Definition of done:
-- write conflicts and invalid writes become explicit operational events, not silent edge cases.
+## 10. 最终判断
 
-## 12. Next task batch E — Maintenance tools
+当前仓库最准确的阶段判断是：
 
-Goal:
-- make the runtime operable by humans.
+- 它已经**明显超过概念验证阶段**；
+- 它已经是一个**可运行、可测试、可试装**的 Timeline 插件实现；
+- 它已经具备 Timeline 项目目标的大部分关键骨架；
+- 但它还**没有达到可以正式发布并对外承诺稳定性的程度**。
 
-Tasks:
-1. Expand `timeline_status` to cover more operational counters and recent trace summaries.
-2. Expand `timeline_repair` beyond structural diagnostics into guided repair workflows.
-3. Add tests for both tools.
-4. Document how they should be used during debugging and migration.
+所以今天最合理的结论是：
 
-Definition of done:
-- maintainers can inspect and repair the runtime without digging through raw files manually.
+> **Timeline 已经从“设计目标”走到了“可运行实现”，但下一阶段的重点应该是发布前硬化，而不是继续把焦点放在版本差异本身。**
 
-## 13. Concrete recommended order for the next 3 implementation PRs
+如果只用一句话总结当前状态：
 
-### PR 1 — OpenClaw SDK alignment
-
-Ship:
-- real plugin registration
-- real tool registration
-- real hook registration
-- manifest cleanup
-
-Why first:
-- this validates the architecture against the actual platform.
-
-### PR 2 — Trace / observability upgrade
-
-Ship:
-- richer trace schema
-- better hook trace logging
-- trace-based debugging helpers
-
-Why second:
-- without stronger observability, later generation improvements are hard to trust.
-
-### PR 3 — Generation-quality upgrade
-
-Ship:
-- richer `infer_candidate`
-- duration logic
-- confidence reason codes
-- more scenario tests
-
-Why third:
-- once platform alignment and traces are solid, generation quality can improve safely.
-
-## 14. Immediate action items for the next coding step
-
-If implementation continues immediately, the most valuable next coding step is:
-
-1. inspect the real OpenClaw plugin SDK / runtime registration surface;
-2. replace the local plugin spec shim;
-3. align `index.ts` and hooks with the real platform API;
-4. preserve the current tests wherever possible.
-
-If real SDK alignment is blocked, then the fallback next step is:
-
-1. enrich trace schema;
-2. add trace assertions to existing tests;
-3. follow the first `timeline_repair` slice with guided repair actions and richer trace readers.
-
-## 15. GA gap re-inventory
-
-If the question is **"what still prevents an official release today?"**, the answer is now clearer than before.
-
-### 15.1 Release blockers (must finish before GA)
-
-1. **Real OpenClaw runtime validation**
-   - The plugin still relies on a local compatibility facade.
-   - Tool and hook registration have not been validated end-to-end inside a real OpenClaw runtime.
-   - Packaging assumptions (`index.ts`, manifest wiring, lifecycle semantics) still need platform proof.
-
-2. **Write-path trust model is incomplete**
-   - Canonical-path checks and lock files exist, but they only protect the timeline-owned code path.
-   - Explicit conflict / write-denied error categories are still thin.
-   - Recovery semantics for interrupted writes and partial trace persistence need to be defined and tested.
-
-3. **Observability is not yet production-grade**
-   - Trace logs exist, but they still do not fully explain every surprising run from logs alone.
-   - `timeline_status` needs richer counters, recent trace summaries, and clearer operator-facing health reporting.
-   - `timeline_repair` still focuses more on diagnostics than guided recovery.
-
-4. **Generated write quality is not yet strong enough for GA trust**
-   - Candidate inference is intentionally conservative, but still weak on duration reasoning, conflict checks, and anchor selection.
-   - Low-information states can still fall back to generic output.
-   - Confidence explanations need to be stronger before operators should rely on generated writes in production.
-
-### 15.2 Important but likely post-blocker polish
-
-These items matter, but they are better treated as **GA polish or immediate post-GA follow-up** unless they reveal a harder architectural issue:
-
-- broader operator docs with failure playbooks;
-- richer examples of repair workflows;
-- more runtime metrics / dashboards if the host platform supports them;
-- packaging ergonomics for easier third-party installation.
-
-### 15.3 Recommended release sequence from here
-
-If the goal is to reach a credible formal release with minimum thrash, the best order is now:
-
-1. **Platform proof first** — validate the real OpenClaw registration/integration path.
-2. **Observability second** — make runtime outcomes explainable from traces and status tooling.
-3. **Write-path hardening third** — formalize conflict, denial, and recovery semantics.
-4. **Generation quality fourth** — improve candidate quality once the platform and diagnostics are trustworthy.
-
-### 15.4 Practical release call
-
-So the current repo is best treated as:
-
-> **a solid draft / pilotable local runtime slice, not yet an officially releasable GA plugin.**
-
-The main reason is not lack of code volume; it is that the remaining work sits exactly on the four areas that determine production trust: **platform validation, write safety, observability, and generated-write quality.**
-
-## 16. Final status statement
-
-Timeline v2 has moved from:
-- **idea** → **design docs** → **plugin skeleton** → **tested local runtime slice**.
-
-It has **not yet** moved to:
-- **real OpenClaw SDK integration**
-- **production-grade observability**
-- **fully hardened single-writer enforcement**
-- **high-quality generation semantics**
-
-That means the project is now at a very useful intermediate point:
-
-> **The architecture is proven enough to keep building, but it should still be described as draft / pilot-ready rather than GA. The next work should focus on platform alignment, observability, and write-path hardening before expanding surface area further.**
+> **这已经是一个值得安装试用、也值得继续投入的 Timeline draft plugin；但正式发布前，仍需补齐平台验证、写入硬化、运维可观测性和生成可信度这四块关键能力。**
