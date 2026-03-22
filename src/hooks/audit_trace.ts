@@ -21,6 +21,7 @@ export function runAuditTrace(result: TimelineResolveOutput, logPath: string): v
         sources: result.resolution_summary.sources,
         writes_attempted: result.resolution_summary.writes_attempted,
         writes_succeeded: result.resolution_summary.writes_succeeded,
+        trace: result.trace ?? null,
       },
     },
     logPath,

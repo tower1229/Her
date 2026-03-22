@@ -26,6 +26,7 @@ export async function runSessionSnapshot(logPath: string): Promise<TimelineResol
         resolution_mode: result.resolution_summary.mode,
         writes_attempted: result.resolution_summary.writes_attempted,
         writes_succeeded: result.resolution_summary.writes_succeeded,
+        trace: result.trace ?? null,
       },
     },
     logPath,

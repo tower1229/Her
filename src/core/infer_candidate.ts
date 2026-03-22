@@ -12,6 +12,10 @@ export interface GeneratedCandidateResult {
   episode: ReturnType<typeof mapToEpisode>;
   idempotencyKey: string;
   notes: string[];
+  appearance: {
+    inherited: boolean;
+    reason: string;
+  };
 }
 
 function pickAction(sources: CollectedSources): string {
@@ -64,5 +68,9 @@ export function inferCandidate(window: ResolvedWindow, sources: CollectedSources
       'No reusable canon entry found; generated a conservative candidate.',
       `Appearance resolution: ${appearanceResolution.reason}`,
     ],
+    appearance: {
+      inherited: !appearanceResolution.overridden,
+      reason: appearanceResolution.reason,
+    },
   };
 }

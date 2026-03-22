@@ -1,7 +1,7 @@
 import { collectSources, TimelineSourceDependencies } from '../core/collect_sources';
 import { buildReadOnlyResult } from '../core/map_window';
 import { inferCandidate } from '../core/infer_candidate';
-import { buildTrace } from '../core/trace';
+import { buildTrace, TimelineTrace } from '../core/trace';
 import { parseMemoryFile } from '../../scripts/parse-memory';
 import { writeEpisode, WriteEpisodeInput, WriteResult } from '../../scripts/write-episode';
 import { assertCanonicalDailyLogPath } from '../storage/daily_log';
@@ -58,6 +58,7 @@ export interface TimelineResolveOutput {
     episodes: unknown[];
   };
   notes: string[];
+  trace?: TimelineTrace;
 }
 
 export interface TimelineRuntimeDependencies extends TimelineSourceDependencies {
@@ -96,9 +97,17 @@ export async function timelineResolve(
   const parsedEpisodes = parseMemoryFile(sources.memoryContent);
 
   let output = buildReadOnlyResult(input, window, sources);
+  let traceAppearance = { inherited: false, reason: 'not-applicable' };
+  let traceWrite = { attempted: false, succeeded: false } as TimelineTrace['write'];
+  let traceFingerprint = {
+    checked: parsedEpisodes.length > 0,
+    matched: output.resolution_summary.mode === 'read_only_hit' && parsedEpisodes.length > 0,
+    idempotency_key: output.result?.window.idempotency_key,
+  };
 
   if (input.mode === 'allow_generate' && parsedEpisodes.length === 0) {
     const generated = inferCandidate(window, sources);
+    traceAppearance = generated.appearance;
     const requestedPath = runtimeDependencies.memoryFilePath
       ? runtimeDependencies.memoryFilePath(window.calendar_date)
       : `memory/${window.calendar_date}.md`;
@@ -127,6 +136,18 @@ export async function timelineResolve(
     } catch (error: any) {
       writeResult = { success: false, written_at: '', error: error.message };
     }
+
+    traceWrite = {
+      attempted: true,
+      succeeded: writeResult.success,
+      file_path: filePath,
+      error: writeResult.success ? undefined : writeResult.error,
+    };
+    traceFingerprint = {
+      checked: true,
+      matched: false,
+      idempotency_key: generated.idempotencyKey,
+    };
 
     output = {
       ok: true,
@@ -165,8 +186,32 @@ export async function timelineResolve(
     };
   }
 
-  const trace = buildTrace(input.target_time_range, window.preset, sources.sourceOrder, output.notes);
+  if (parsedEpisodes.length > 0 && output.resolution_summary.mode === 'read_only_hit') {
+    traceAppearance = { inherited: false, reason: 'existing canon reused' };
+    traceWrite = { attempted: false, succeeded: false };
+    traceFingerprint = {
+      checked: true,
+      matched: true,
+      idempotency_key: output.result?.window.idempotency_key,
+    };
+  }
+
+  const trace = buildTrace({
+    requested_range: input.target_time_range,
+    actual_range: window.preset,
+    source_order: sources.sourceOrder,
+    source_summary: {
+      sessions_history_count: sources.sessionsHistory.length,
+      memory_chars: sources.memoryContent.length,
+      memory_search_count: sources.memorySearch.length,
+    },
+    fingerprint: traceFingerprint,
+    appearance: traceAppearance,
+    write: traceWrite,
+    notes: output.notes,
+  });
   output.trace_id = trace.trace_id;
+  output.trace = trace;
   return output;
 }
 
