@@ -22,11 +22,22 @@
 
 ---
 
-## 📖 用法 (Usage)
+## 📖 OpenClaw Agent 安装与配置 (Integration)
 
-1. 将本技能安装/配置于 OpenClaw 的工作区中。
-2. **被动触发（隐式运行）**：在系统的 `AGENTS.md` 层埋入该 Skill 的指令要求（可见 `docs/timeline-skill-design.md` 中的 `TEMPORAL AWARENESS & MEMORY RETRIEVAL` 片段）。
-3. 一旦系统判定用户的各种意图包含时间感知（询问当下、回忆昨天），大语言模型便会主动遵照指令要求，触发 `timeline-skill` 获取真实状态。
+要使 timeline-skill 生效，您需要手动将其部署并配置到您的 OpenClaw Agent 工作区中。请按照以下步骤操作：
+
+### 1. 部署 Skill 目录
+将 `Her/timeline-skill/` 整个目录复制到您 Agent 工作区下的 `skills/` 目录中。最终路径应类似于：
+`~/.openclaw/agents/<YourAgentId>/skills/timeline-skill/SKILL.md`
+
+### 2. 配置格式宪法 (AGENTS.md)
+Timeline 运作强依赖严格的日记存储格式。请打开本仓库的 `templates/AGENTS-protocol.template.md` 文件，复制其中的全部内容（即 `[MEMORY FORMAT PROTOCOL]` 区块），并粘贴到您工作区的 `AGENTS.md` 文件的核心指令区。
+*注意：这属于系统级护栏，绝对不可放入 `SOUL.md` 中，以免被覆盖。*
+
+### 3. 配置时间线感知能力 (SOUL.md)
+这一步赋予您的 Agent 判断“自己需要回忆”的意识。请打开本仓库的 `templates/SOUL-awareness.template.md` 文件，复制其中的全部内容（即 `[TEMPORAL AWARENESS & MEMORY RETRIEVAL]` 区块），并将其追加粘贴到您工作区中 `SOUL.md` 文件的**最末尾**。
+
+完成上述配置后，当系统判定用户的各种意图包含时间感知（询问当下、回忆昨天）时，大语言模型便会主动遵照指令要求，触发 `timeline-skill` 获取真实状态。
 
 ---
 
