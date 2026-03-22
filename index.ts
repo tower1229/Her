@@ -1,25 +1,25 @@
-import { PluginSpec } from './src/plugin-spec';
 import { auditTraceHook } from './src/hooks/audit_trace';
 import { preCompactionFlushHook } from './src/hooks/pre_compaction_flush';
 import { sessionSnapshotHook } from './src/hooks/session_snapshot';
-import { timelineResolveToolSpec } from './src/tools/timeline_resolve';
+import {
+  definePluginEntry,
+  makeTimelineToolRegistration,
+  materializePlugin,
+} from './src/openclaw-sdk-compat';
 
-export const pluginSpec: PluginSpec = {
+export const timelinePluginEntry = definePluginEntry({
   id: 'timeline-plugin',
+  name: 'Timeline Plugin',
   description:
-    'OpenClaw timeline v2 skeleton: bundled skill + canonical timeline_resolve tool + lifecycle hook placeholders.',
-  skillsDir: 'skills',
-  configSchema: {
-    type: 'object',
-    properties: {
-      enableTrace: { type: 'boolean', default: true },
-      traceLogPath: { type: 'string' },
-      canonicalMemoryRoot: { type: 'string' },
-    },
-    additionalProperties: false,
+    'OpenClaw timeline v2 runtime with a canonical timeline_resolve entrypoint and lifecycle helpers.',
+  register(api) {
+    api.registerTool(makeTimelineToolRegistration());
+    api.registerHook(preCompactionFlushHook);
+    api.registerHook(sessionSnapshotHook);
+    api.registerHook(auditTraceHook);
   },
-  tools: [timelineResolveToolSpec],
-  hooks: [preCompactionFlushHook, sessionSnapshotHook, auditTraceHook],
-};
+});
 
-export default pluginSpec;
+export const timelinePlugin = materializePlugin(timelinePluginEntry);
+
+export default timelinePluginEntry;

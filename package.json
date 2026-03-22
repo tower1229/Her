@@ -33,5 +33,10 @@
     "ts-jest": "^29.x",
     "typescript": "^5.x"
   },
-  "main": "dist/index.js"
+  "main": "dist/index.js",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
 }
