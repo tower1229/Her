@@ -1,5 +1,5 @@
 import { TimelineResolveInput } from '../tools/timeline_resolve';
-import { addHours, formatTimestamp, parseTimestampParts } from '../../scripts/time-utils';
+import { addHours, formatTimestamp, parseTimestampParts } from '../lib/time-utils';
 
 export interface ResolvedWindow {
   preset: 'now_today' | 'recent_3d' | 'explicit';

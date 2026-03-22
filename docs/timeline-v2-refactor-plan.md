@@ -53,7 +53,47 @@ Timeline v2.0 should:
 
 ## 4. v2.0 Architecture Summary
 
-### 4.1 Layers
+### 4.1 Architecture snapshot
+
+The repository should be understood as a layered OpenClaw plugin runtime:
+
+- **bundled skill** for temporal routing;
+- **`timeline_resolve` tool** as the canonical execution entrypoint;
+- **core runtime pipeline** for parsing, deduplication, generation, and mapping;
+- **storage helpers** for append-only writes, locks, and traces;
+- **hooks** for flush / snapshot / audit lifecycle behavior.
+
+```mermaid
+flowchart TD
+    U[User temporal query] --> M[OpenClaw model]
+    M --> S[Bundled timeline skill]
+    S --> T[timeline_resolve]
+
+    subgraph Runtime[Timeline v2 Runtime]
+      T --> W[resolve_window]
+      W --> SH[sessions_history]
+      W --> MG[memory_get]
+      W --> MS[memory_search optional]
+      MG --> P[parse_memory]
+      P --> F[fingerprint]
+      F --> G{hit?}
+      G -->|yes| MAP[map_window]
+      G -->|no| I[infer_candidate]
+      I --> WE[write_episode append-only]
+      MAP --> R[TimelineWindow result]
+      WE --> R
+    end
+
+    subgraph Lifecycle[Hooks]
+      H1[pre_compaction_flush] --> T
+      H2[session_snapshot] --> T
+      H3[audit_trace] --> L[trace_log]
+    end
+
+    R --> M
+```
+
+### 4.2 Layers
 
 #### Layer A — Bundled Skill
 

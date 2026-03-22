@@ -2,8 +2,8 @@ import { collectSources, TimelineSourceDependencies } from '../core/collect_sour
 import { buildReadOnlyResult } from '../core/map_window';
 import { inferCandidate } from '../core/infer_candidate';
 import { buildTrace, TimelineTrace } from '../core/trace';
-import { parseMemoryFile } from '../../scripts/parse-memory';
-import { writeEpisode, WriteEpisodeInput, WriteResult } from '../../scripts/write-episode';
+import { parseMemoryFile } from '../lib/parse-memory';
+import { writeEpisode, WriteEpisodeInput, WriteResult } from '../storage/write-episode';
 import { assertCanonicalDailyLogPath } from '../storage/daily_log';
 import { withFileLock } from '../storage/lock';
 import { resolveWindow } from '../core/resolve_window';

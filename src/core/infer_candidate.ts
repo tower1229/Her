@@ -1,9 +1,9 @@
-import { computeFingerprint } from '../../scripts/fingerprint';
-import { resolveAppearance } from '../../scripts/inherit-appearance';
-import { mapToEpisode, parseMemoryFile } from '../../scripts/parse-memory';
-import { ParsedEpisode } from '../../scripts/types';
-import { dayOfWeek, formatDate, parseTimestampParts } from '../../scripts/time-utils';
-import { getHoliday } from '../../scripts/holidays';
+import { computeFingerprint } from '../lib/fingerprint';
+import { resolveAppearance } from '../lib/inherit-appearance';
+import { mapToEpisode, parseMemoryFile } from '../lib/parse-memory';
+import { ParsedEpisode } from '../lib/types';
+import { dayOfWeek, formatDate, parseTimestampParts } from '../lib/time-utils';
+import { getHoliday } from '../lib/holidays';
 import { CollectedSources } from './collect_sources';
 import { ResolvedWindow } from './resolve_window';
 

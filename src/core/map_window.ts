@@ -1,7 +1,7 @@
-import { getHoliday } from '../../scripts/holidays';
-import { checkReadOnlyHit, computeFingerprint } from '../../scripts/fingerprint';
-import { mapToEpisode, parseMemoryFile } from '../../scripts/parse-memory';
-import { dayOfWeek, formatDate, parseTimestampParts } from '../../scripts/time-utils';
+import { getHoliday } from '../lib/holidays';
+import { checkReadOnlyHit, computeFingerprint } from '../lib/fingerprint';
+import { mapToEpisode, parseMemoryFile } from '../lib/parse-memory';
+import { dayOfWeek, formatDate, parseTimestampParts } from '../lib/time-utils';
 import { CollectedSources } from './collect_sources';
 import { ResolvedWindow } from './resolve_window';
 import { TimelineResolveInput, TimelineResolveOutput } from '../tools/timeline_resolve';
