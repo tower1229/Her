@@ -3,6 +3,7 @@ import * as path from 'path';
 import { WorldHooks } from './types';
 import { getHoliday } from './holidays';
 import { appendRunLog } from './run-log';
+import { dayOfWeek, formatDate, formatTime, parseTimestampParts } from './time-utils';
 
 export interface WriteEpisodeInput {
   timestamp: string; // ISO string e.g., 2026-03-22T14:30:00+08:00
@@ -33,23 +34,23 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
   }
 
   try {
-    const dateObj = new Date(timestamp);
-    if (isNaN(dateObj.getTime())) {
+    const timestampParts = parseTimestampParts(timestamp);
+    const dateObj = timestampParts ? null : new Date(timestamp);
+    if (!timestampParts && (!dateObj || isNaN(dateObj.getTime()))) {
        return { success: false, written_at: '', error: 'Invalid timestamp format' };
     }
 
-    const yyyy = dateObj.getFullYear();
-    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-    const dd = String(dateObj.getDate()).padStart(2, '0');
-    const dateStr = `${yyyy}-${mm}-${dd}`;
+    const yyyy = timestampParts ? timestampParts.year : dateObj!.getFullYear();
+    const mm = String(timestampParts ? timestampParts.month : dateObj!.getMonth() + 1).padStart(2, '0');
+    const dd = String(timestampParts ? timestampParts.day : dateObj!.getDate()).padStart(2, '0');
+    const dateStr = timestampParts ? formatDate(timestampParts) : `${yyyy}-${mm}-${dd}`;
 
-    const hours = String(dateObj.getHours()).padStart(2, '0');
-    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-    const seconds = String(dateObj.getSeconds()).padStart(2, '0');
-    const timeStr = `${hours}:${minutes}:${seconds}`;
+    const timeStr = timestampParts
+      ? formatTime(timestampParts)
+      : `${String(dateObj!.getHours()).padStart(2, '0')}:${String(dateObj!.getMinutes()).padStart(2, '0')}:${String(dateObj!.getSeconds()).padStart(2, '0')}`;
 
     // 2. World hooks
-    const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+    const isWeekend = timestampParts ? [0, 6].includes(dayOfWeek(timestampParts)) : dateObj!.getDay() === 0 || dateObj!.getDay() === 6;
     const weekday = !isWeekend;
     const holidayKey = getHoliday(`${yyyy}-${mm}-${dd}`);
 
