@@ -176,7 +176,10 @@ openclaw plugins install -l .
 - `docs/timeline-v2-refactor-plan.md`
 - `docs/timeline-v2-status.md`
 - `docs/timeline-v2-release-checklist.md`
+- `docs/timeline-v2-quickstart.md`
+- `docs/timeline-v2-migration.md`
 - `docs/timeline-resolve-interface.md`
+- `CHANGELOG.md`
 
 ---
 
