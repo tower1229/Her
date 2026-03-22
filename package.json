@@ -1,9 +1,30 @@
 {
   "name": "timeline-skill",
   "version": "1.0.0",
+  "description": "Factual timeline layer for OpenClaw agents. Retrieves or generates structured episode facts from memory and session history. Eliminates hallucinated locations, actions, and appearance drift.",
+  "keywords": [
+    "openclaw",
+    "skill",
+    "timeline",
+    "memory",
+    "ai-agent",
+    "episode",
+    "persona"
+  ],
+  "author": "",
+  "license": "MIT-0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tower1229/Her"
+  },
+  "homepage": "https://github.com/tower1229/Her#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "build": "tsc",
-    "test": "node node_modules/jest/bin/jest.js"
+    "test": "node node_modules/jest/bin/jest.js",
+    "release:clawhub": "node ./scripts/release-clawhub.mjs"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

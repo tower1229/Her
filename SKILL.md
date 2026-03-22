@@ -4,6 +4,11 @@ description: >
   Factual timeline layer. Given a time range, retrieves or generates
   structured episode facts from memory and session history.
   Returns a TimelineWindow JSON object. Writes new episodes to disk (Append-Only).
+metadata:
+  openclaw:
+    os: ["darwin", "linux", "win32"]
+    requires:
+      bins: ["node"]
 ---
 
 # timeline-skill
