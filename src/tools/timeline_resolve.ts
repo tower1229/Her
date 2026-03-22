@@ -1,6 +1,9 @@
 import { collectSources, TimelineSourceDependencies } from '../core/collect_sources';
 import { buildReadOnlyResult } from '../core/map_window';
+import { inferCandidate } from '../core/infer_candidate';
 import { buildTrace } from '../core/trace';
+import { parseMemoryFile } from '../../scripts/parse-memory';
+import { writeEpisode, WriteEpisodeInput, WriteResult } from '../../scripts/write-episode';
 import { resolveWindow } from '../core/resolve_window';
 
 export type TimelineResolveMode = 'read_only' | 'allow_generate';
@@ -55,7 +58,12 @@ export interface TimelineResolveOutput {
   notes: string[];
 }
 
-const defaultDependencies: TimelineSourceDependencies = {
+export interface TimelineRuntimeDependencies extends TimelineSourceDependencies {
+  writeEpisode?: (input: WriteEpisodeInput) => Promise<WriteResult>;
+  memoryFilePath?: (calendarDate: string) => string;
+}
+
+const defaultDependencies: TimelineRuntimeDependencies = {
   currentTime: async () => ({
     now: '2026-03-22T14:30:00+08:00',
     timezone: 'Asia/Shanghai',
@@ -63,11 +71,13 @@ const defaultDependencies: TimelineSourceDependencies = {
   sessionsHistory: async () => [],
   memoryGet: async () => '',
   memorySearch: async () => [],
+  writeEpisode,
+  memoryFilePath: (calendarDate: string) => `memory/${calendarDate}.md`,
 };
 
-let runtimeDependencies: TimelineSourceDependencies = defaultDependencies;
+let runtimeDependencies: TimelineRuntimeDependencies = defaultDependencies;
 
-export function setTimelineResolveDependencies(deps: Partial<TimelineSourceDependencies>): void {
+export function setTimelineResolveDependencies(deps: Partial<TimelineRuntimeDependencies>): void {
   runtimeDependencies = { ...runtimeDependencies, ...deps };
 }
 
@@ -81,16 +91,70 @@ export async function timelineResolve(
   const currentTime = await runtimeDependencies.currentTime();
   const window = resolveWindow(input, currentTime.now, input.timezone || currentTime.timezone);
   const sources = await collectSources(runtimeDependencies, window, input);
-  const output = buildReadOnlyResult(input, window, sources);
+  const parsedEpisodes = parseMemoryFile(sources.memoryContent);
+
+  let output = buildReadOnlyResult(input, window, sources);
+
+  if (input.mode === 'allow_generate' && parsedEpisodes.length === 0) {
+    const generated = inferCandidate(window, sources);
+    const filePath = runtimeDependencies.memoryFilePath
+      ? runtimeDependencies.memoryFilePath(window.calendar_date)
+      : `memory/${window.calendar_date}.md`;
+
+    const writeResult = runtimeDependencies.writeEpisode
+      ? await runtimeDependencies.writeEpisode({
+          timestamp: generated.parsed.timestamp,
+          location: generated.parsed.location,
+          action: generated.parsed.action,
+          emotionTags: generated.parsed.emotionTags,
+          appearance: generated.parsed.appearance,
+          internalMonologue: generated.parsed.internalMonologue,
+          naturalText: generated.parsed.naturalText,
+          filePath,
+          windowPreset: window.preset,
+          confidence: generated.parsed.confidence,
+        })
+      : { success: false, written_at: '', error: 'write dependency missing' };
+
+    output = {
+      ok: true,
+      schema_version: '1.0',
+      trace_id: '',
+      resolution_summary: {
+        mode: writeResult.success ? 'generated_new' : 'not_implemented',
+        writes_attempted: 1,
+        writes_succeeded: writeResult.success ? 1 : 0,
+        sources: sources.sourceOrder,
+        confidence_min: generated.parsed.confidence,
+        confidence_max: generated.parsed.confidence,
+      },
+      result: {
+        schema_version: '1.0',
+        document_type: 'timeline.window',
+        anchor: { now: window.end, timezone: window.timezone },
+        window: {
+          calendar_date: window.calendar_date,
+          preset: window.preset,
+          start: window.start,
+          end: window.end,
+          idempotency_key: generated.idempotencyKey,
+        },
+        resolution: {
+          mode: 'generated_new',
+          notes: writeResult.success ? 'generated candidate persisted via append-only writer' : writeResult.error,
+        },
+        episodes: [generated.episode],
+      },
+      notes: generated.notes.concat(
+        writeResult.success
+          ? [`Generated episode persisted to ${filePath}.`]
+          : [`Generation attempted but write failed: ${writeResult.error ?? 'unknown error'}.`],
+      ),
+    };
+  }
 
   const trace = buildTrace(input.target_time_range, window.preset, sources.sourceOrder, output.notes);
   output.trace_id = trace.trace_id;
-
-  if (input.mode === 'allow_generate' && output.resolution_summary.mode === 'generated_new') {
-    output.resolution_summary.mode = 'not_implemented';
-    output.notes.push('Generation/write path is not implemented yet in Milestone 2.');
-  }
-
   return output;
 }
 
