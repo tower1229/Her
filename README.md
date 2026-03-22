@@ -1,10 +1,13 @@
 # Timeline Plugin v2 for OpenClaw
 
+[中文版 README](./README_ZH.md)
+
 A v2 OpenClaw-native timeline runtime that moves temporal fact resolution out of
 prompt-only behavior and into a canonical `timeline_resolve` tool with hook support,
 append-only writes, trace logging, and bundled skill routing.
 
 This repository follows the native OpenClaw plugin shape:
+
 - `openclaw.plugin.json` provides discovery + config validation metadata;
 - `index.ts` exports the runtime plugin entry and registers tools/hooks;
 - `package.json` exposes the runtime entry through `openclaw.extensions`.
@@ -28,6 +31,7 @@ Legacy v1 prompt-era templates, reference docs, and old root skill files have be
 removed so the repo reflects the current plugin-first direction.
 
 See:
+
 - `docs/timeline-v2-refactor-plan.md`
 - `docs/timeline-v2-status.md`
 - `docs/timeline-v2-release-checklist.md`
