@@ -1,3 +1,8 @@
+import { collectSources, TimelineSourceDependencies } from '../core/collect_sources';
+import { buildReadOnlyResult } from '../core/map_window';
+import { buildTrace } from '../core/trace';
+import { resolveWindow } from '../core/resolve_window';
+
 export type TimelineResolveMode = 'read_only' | 'allow_generate';
 export type TimelineResolveReason =
   | 'current_status'
@@ -30,40 +35,63 @@ export interface TimelineResolveOutput {
     confidence_min: number;
     confidence_max: number;
   };
+  result?: {
+    schema_version: '1.0';
+    document_type: 'timeline.window';
+    anchor: { now: string; timezone: string };
+    window: {
+      calendar_date: string;
+      preset: string;
+      start: string;
+      end: string;
+      idempotency_key: string;
+    };
+    resolution: {
+      mode: 'read_only_hit' | 'generated_new';
+      notes?: string;
+    };
+    episodes: unknown[];
+  };
   notes: string[];
 }
 
-function makeTraceId(): string {
-  return `timeline-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+const defaultDependencies: TimelineSourceDependencies = {
+  currentTime: async () => ({
+    now: '2026-03-22T14:30:00+08:00',
+    timezone: 'Asia/Shanghai',
+  }),
+  sessionsHistory: async () => [],
+  memoryGet: async () => '',
+  memorySearch: async () => [],
+};
+
+let runtimeDependencies: TimelineSourceDependencies = defaultDependencies;
+
+export function setTimelineResolveDependencies(deps: Partial<TimelineSourceDependencies>): void {
+  runtimeDependencies = { ...runtimeDependencies, ...deps };
 }
 
-/**
- * Milestone-1 stub only.
- * This intentionally returns a traceable placeholder until the deterministic
- * runtime pipeline is implemented.
- */
+export function resetTimelineResolveDependencies(): void {
+  runtimeDependencies = defaultDependencies;
+}
+
 export async function timelineResolve(
   input: TimelineResolveInput,
 ): Promise<TimelineResolveOutput> {
-  return {
-    ok: true,
-    schema_version: '1.0',
-    trace_id: makeTraceId(),
-    resolution_summary: {
-      mode: 'not_implemented',
-      writes_attempted: 0,
-      writes_succeeded: 0,
-      sources: [],
-      confidence_min: 0,
-      confidence_max: 0,
-    },
-    notes: [
-      'Milestone-1 stub only.',
-      `Received target_time_range=${input.target_time_range}`,
-      `Received reason=${input.reason}`,
-      'Next implementation step: resolve window, collect sources, parse memory, fingerprint, map window.',
-    ],
-  };
+  const currentTime = await runtimeDependencies.currentTime();
+  const window = resolveWindow(input, currentTime.now, input.timezone || currentTime.timezone);
+  const sources = await collectSources(runtimeDependencies, window, input);
+  const output = buildReadOnlyResult(input, window, sources);
+
+  const trace = buildTrace(input.target_time_range, window.preset, sources.sourceOrder, output.notes);
+  output.trace_id = trace.trace_id;
+
+  if (input.mode === 'allow_generate' && output.resolution_summary.mode === 'generated_new') {
+    output.resolution_summary.mode = 'not_implemented';
+    output.notes.push('Generation/write path is not implemented yet in Milestone 2.');
+  }
+
+  return output;
 }
 
 export const timelineResolveToolSpec = {

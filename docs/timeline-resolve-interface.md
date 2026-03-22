@@ -276,6 +276,21 @@ Call either:
 Consume the emitted `trace_id` and trace payload, then store or forward it to the chosen
 observability sink.
 
+## 10.5 AGENTS / SOUL Integration Guidance
+
+`timeline_resolve` is designed to reduce manual prompt maintenance.
+
+Recommended guidance:
+
+- **AGENTS.md** should not be required to carry the full memory format protocol once the
+  tool owns validation and writing. If any AGENTS text remains, keep it short and policy-
+  level only (for example: do not write canonical daily log entries directly; use timeline
+  tooling).
+- **SOUL.md** may keep a compact routing reminder for temporal questions, but the tool
+  contract should remain correct even if SOUL details are minimal.
+- Bundled timeline skills should be the primary routing surface; manual AGENTS / SOUL
+  edits should be treated as compatibility aids, not core installation requirements.
+
 ## 11. Recommended Guardrails
 
 1. The bundled skill should instruct the model to call `timeline_resolve`, not to emulate
