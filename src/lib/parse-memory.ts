@@ -1,4 +1,5 @@
 import { ParsedEpisode, Episode } from './types';
+import { addHours, formatTimestamp, parseTimestampParts } from './time-utils';
 
 export function parseMemoryFile(content: string): ParsedEpisode[] {
   const episodes: ParsedEpisode[] = [];
@@ -84,6 +85,15 @@ export function parseMemoryFile(content: string): ParsedEpisode[] {
 }
 
 export function mapTimeOfDay(timestamp: string): string {
+  const parts = parseTimestampParts(timestamp);
+  if (parts) {
+    const hour = parts.hour;
+    if (hour >= 0 && hour <= 5) return 'night';
+    if (hour >= 6 && hour <= 11) return 'morning';
+    if (hour >= 12 && hour <= 17) return 'afternoon';
+    return 'evening';
+  }
+
   const dateObj = new Date(timestamp);
   if (isNaN(dateObj.getTime())) return 'unknown';
   const hour = dateObj.getHours();
@@ -107,25 +117,29 @@ export function mapToEpisode(
   parsed: ParsedEpisode, 
   worldHooks: { weekday: boolean; holiday_key: string | null },
   idempotencyKey: string,
-  writer = 'timeline-skill'
+  writer = 'openclaw-timeline-plugin'
 ): Episode {
   const timeOfDay = mapTimeOfDay(parsed.timestamp);
   
   // End time defaults to start + 1 hour as per spec (v1 default)
-  const startDate = new Date(parsed.timestamp);
   let endStr = parsed.timestamp;
-  if (!isNaN(startDate.getTime())) {
-    startDate.setHours(startDate.getHours() + 1);
-    const offsetMatcher = parsed.timestamp.match(/(Z|[+-]\d{2}:\d{2})$/);
-    const tzString = offsetMatcher ? offsetMatcher[1] : '';
-    // Generate ISO string locally matching original timezone format
-    const yyyy = startDate.getFullYear();
-    const mm = String(startDate.getMonth() + 1).padStart(2, '0');
-    const dd = String(startDate.getDate()).padStart(2, '0');
-    const hh = String(startDate.getHours()).padStart(2, '0');
-    const mins = String(startDate.getMinutes()).padStart(2, '0');
-    const secs = String(startDate.getSeconds()).padStart(2, '0');
-    endStr = `${yyyy}-${mm}-${dd}T${hh}:${mins}:${secs}${tzString}`;
+  const parts = parseTimestampParts(parsed.timestamp);
+  if (parts) {
+    endStr = formatTimestamp(addHours(parts, 1));
+  } else {
+    const startDate = new Date(parsed.timestamp);
+    if (!isNaN(startDate.getTime())) {
+      startDate.setHours(startDate.getHours() + 1);
+      const offsetMatcher = parsed.timestamp.match(/(Z|[+-]\d{2}:\d{2})$/);
+      const tzString = offsetMatcher ? offsetMatcher[1] : '';
+      const yyyy = startDate.getFullYear();
+      const mm = String(startDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(startDate.getDate()).padStart(2, '0');
+      const hh = String(startDate.getHours()).padStart(2, '0');
+      const mins = String(startDate.getMinutes()).padStart(2, '0');
+      const secs = String(startDate.getSeconds()).padStart(2, '0');
+      endStr = `${yyyy}-${mm}-${dd}T${hh}:${mins}:${secs}${tzString}`;
+    }
   }
 
   return {
