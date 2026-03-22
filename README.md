@@ -30,6 +30,7 @@ removed so the repo reflects the current plugin-first direction.
 See:
 - `docs/timeline-v2-refactor-plan.md`
 - `docs/timeline-v2-status.md`
+- `docs/timeline-v2-release-checklist.md`
 - `docs/timeline-resolve-interface.md`
 
 ## Development

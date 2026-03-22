@@ -34,10 +34,45 @@ describe('timelineResolve', () => {
     });
 
     expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected successful timeline resolve');
     expect(result.trace_id).toContain('timeline-');
     expect(result.resolution_summary.mode).toBe('read_only_hit');
     expect(result.resolution_summary.sources).toEqual(['sessions_history', 'memory_get']);
     expect(result.result?.window.calendar_date).toBe('2026-03-22');
     expect(result.result?.episodes).toHaveLength(1);
+  });
+
+  it('returns a contract error for natural_language requests without query', async () => {
+    const result = await timelineResolve({
+      target_time_range: 'natural_language',
+      mode: 'read_only',
+      reason: 'past_recall',
+      trace: true,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected contract error');
+    expect(result.error.code).toBe('INVALID_INPUT');
+    expect(result.error.message).toContain('requires query');
+    expect(result.trace_id).toContain('timeline-');
+  });
+
+  it('omits the trace payload when trace=false', async () => {
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
+      sessionsHistory: async () => ['User asked what are you doing right now?'],
+      memoryGet: async () => '',
+    });
+
+    const result = await timelineResolve({
+      target_time_range: 'now_today',
+      mode: 'allow_generate',
+      reason: 'current_status',
+      trace: false,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.trace).toBeUndefined();
+    expect(result.trace_id).toContain('timeline-');
   });
 });

@@ -1,8 +1,18 @@
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { resetTimelineResolveDependencies, setTimelineResolveDependencies, timelineResolve } from './timeline_resolve';
 
 describe('timelineResolve trace schema', () => {
+  const traceLogPath = path.join(os.tmpdir(), 'timeline-resolve-trace-test.log');
+
   beforeEach(() => {
     resetTimelineResolveDependencies();
+    fs.rmSync(traceLogPath, { force: true });
+  });
+
+  afterAll(() => {
+    fs.rmSync(traceLogPath, { force: true });
   });
 
   it('returns a richer trace for read-only hits', async () => {
@@ -17,6 +27,7 @@ describe('timelineResolve trace schema', () => {
 - Emotion_Tags: [专注, 灵光乍现]
 - Appearance: 浅灰色的舒适家居服，头发随意挽起
       `,
+      traceLogPath,
     });
 
     const result = await timelineResolve({
@@ -26,11 +37,13 @@ describe('timelineResolve trace schema', () => {
       trace: true,
     });
 
+    expect(result.ok).toBe(true);
     expect(result.trace?.source_order).toEqual(['sessions_history', 'memory_get']);
     expect(result.trace?.fingerprint.checked).toBe(true);
     expect(result.trace?.fingerprint.matched).toBe(true);
     expect(result.trace?.write.attempted).toBe(false);
     expect(result.trace?.source_summary.sessions_history_count).toBe(1);
+    expect(fs.existsSync(traceLogPath)).toBe(true);
   });
 
   it('returns write and appearance details for generated entries', async () => {
@@ -40,6 +53,7 @@ describe('timelineResolve trace schema', () => {
       memoryGet: async () => '',
       memoryFilePath: () => 'memory/2026-03-22.md',
       writeEpisode: async () => ({ success: true, written_at: '2026-03-22T14:30:01+08:00' }),
+      traceLogPath,
     });
 
     const result = await timelineResolve({
@@ -49,6 +63,7 @@ describe('timelineResolve trace schema', () => {
       trace: true,
     });
 
+    expect(result.ok).toBe(true);
     expect(result.trace?.write.attempted).toBe(true);
     expect(result.trace?.write.succeeded).toBe(true);
     expect(result.trace?.write.file_path).toBe('memory/2026-03-22.md');

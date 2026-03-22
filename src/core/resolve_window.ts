@@ -22,6 +22,17 @@ function makeNowToday(nowIso: string, timezone: string): ResolvedWindow {
   };
 }
 
+function parseWindowDate(iso: string, label: 'start' | 'end'): { date: string; epoch: number } {
+  const parts = parseTimestampParts(iso);
+  if (!parts) throw new Error(`Invalid explicit ${label}: ${iso}`);
+  const epoch = new Date(iso).getTime();
+  if (Number.isNaN(epoch)) throw new Error(`Invalid explicit ${label}: ${iso}`);
+  return {
+    date: `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`,
+    epoch,
+  };
+}
+
 export function resolveWindow(input: TimelineResolveInput, nowIso: string, timezone: string): ResolvedWindow {
   if (input.target_time_range === 'now_today') {
     return makeNowToday(nowIso, timezone);
@@ -43,13 +54,14 @@ export function resolveWindow(input: TimelineResolveInput, nowIso: string, timez
 
   if (input.target_time_range === 'explicit') {
     if (!input.start || !input.end) throw new Error('explicit range requires start and end');
-    const parts = parseTimestampParts(input.start);
-    if (!parts) throw new Error(`Invalid explicit start: ${input.start}`);
+    const start = parseWindowDate(input.start, 'start');
+    const end = parseWindowDate(input.end, 'end');
+    if (start.epoch > end.epoch) throw new Error('explicit range start must be earlier than or equal to end');
     return {
       preset: 'explicit',
       start: input.start,
       end: input.end,
-      calendar_date: `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`,
+      calendar_date: start.date,
       timezone,
     };
   }
