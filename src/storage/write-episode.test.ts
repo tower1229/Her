@@ -1,9 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { writeEpisode } from './write-episode';
-import { getHoliday } from './holidays';
+import { getHoliday } from '../lib/holidays';
 
-jest.mock('./holidays');
+jest.mock('../lib/holidays');
 
 describe('writeEpisode', () => {
   const tempFile = path.join(__dirname, 'mock_memory.md');
