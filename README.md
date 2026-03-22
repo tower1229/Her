@@ -1,77 +1,117 @@
-# Her (Timeline-Skill)
+# Timeline Skill — [中文说明](README_ZH.md)
 
-**Timeline-Skill** 是专为 OpenClaw 生态设计的通用“事实锚点与时间线”记忆组件。它作为基建级的 Skill，负责回答一个核心问题：“**我（数字人）此时此刻，乃至过去的一段时间里，究竟在什么地方、做些什么？**”
+A factual anchor and timeline memory layer designed for OpenClaw agents. It answers one core question: **"Where am I, and what am I doing — right now, and over the past few days?"**
 
----
+## Prerequisites
 
-## 🌟 功能介绍
+- **OpenClaw** gateway installed and running
+- Optionally, `persona-skill` installed alongside for richer activity inference
 
-本技能为 OpenClaw 的 Agent 提供连续且客观的时空维度事实感知：
-1. **当前状态推演与存储**：当用户询问其近况时，基于历史会话（Hard Anchor）、角色小传（需联动 `persona-skill` 提供）和系统时间，合理推演出当下合乎逻辑的活动与所处场景，并统一写入 `memory/YYYY-MM-DD.md` 中进行持久化。
-2. **逻辑持续时间（Duration Boundary）判定**：完美解决用户连续多次询问“你在干嘛”的边界问题。只有首次在合理空白期询问时才会“生成”新活动；若短时间内（如 5 分钟后）再次查阅，模型会自动判断上一个活动的逻辑时长（例如“喝水”在 5 分钟后必定已结束，需生成新动作；而“打篮球”在 5 分钟后仍在继续），保持生命体一样的自洽性。
-3. **客观事实提取**：提供过去某一时段（如“昨天下午”）的事实追溯机制，返回精确的结构化事实数据。
-4. **消除大模型幻觉**：杜绝大模型在闲聊中随机瞎编背景（如一会儿在纽约喝咖啡，一会儿在火星），使其所作所为受限于一条不可篡改的“真实人生时间线”。
-5. **日内外观稳态与生活动态切换**：彻底杜绝大模型在一天内对话中“疯狂随机换装”的低级幻觉。强制人物在一日之内的物理外观（穿着）保持稳态继承，并支持在真正发生具有换装常识的活动（如洗澡后换浴袍、睡觉前换睡衣、去健身房甚至逛商场试穿等）时，再进行合乎逻辑的动态外观推演。
-
----
-
-## 🧠 设计思路
-
-- **单一写者（Single Writer）原则**：在整个 OpenClaw 架构中，`timeline-skill` 是唯一被授权负责管理与写入日记格式记忆（Memory Entry）的事实引擎。
-- **大模型指令驱动（非硬编码 RPC）**：Skill 的本质是注入给大模型的上下文。本组件通过明确的 Markdown 规则，要求大模型在回答时间相关问题前，必须强制调用底层读取工具收集事实，由大模型在自己的“脑海”中完成从事实取回、判断到最后表达的流转。
-- **事实与表达解耦**：`timeline-skill` 极其纯粹，只在乎“在哪，干嘛”。至于“是用高冷的语气回答，还是用热情的语气回答”，那是其他组件该做的事。
-
----
-
-## 📖 OpenClaw Agent 安装与配置 (Integration)
-
-Timeline-Skill 已经支持通过 ClawHub 分发。推荐使用 `clawhub` CLI 安装：
+## Installation
 
 ```bash
 clawhub install timeline-skill
 ```
 
-如果您是通过源码手动部署，则将本仓库根目录整体复制到 Agent 工作区的 `skills/timeline-skill/` 路径中。
+To install from source, copy the repo root into your agent's `skills/` directory:
 
-安装完成后，还需要进行两次至关重要的系统级协议配置：
+```
+~/.openclaw/workspace/skills/timeline-skill/SKILL.md
+```
 
-### 1. 配置格式宪法 (AGENTS.md)
-Timeline 运作强依赖严格的日记存储格式。请打开本技能目录下的 `templates/AGENTS-protocol.template.md` 文件，复制其中的全部内容（即 `[MEMORY FORMAT PROTOCOL]` 区块），并粘贴到你工作区 `AGENTS.md` 文件的核心指令区。
-*注意：这属于系统级护栏，绝对不可放入 `SOUL.md` 中，以免被覆盖。*
+After installation, complete the two required configuration steps below. **Skipping either step will cause the skill to silently fail** — the agent will not know when to trigger it, and will not write memories in the correct format.
 
-### 2. 配置时间线感知能力 (SOUL.md)
-这一步赋予 Agent 判断“自己需要回忆”的意识。请打开本技能目录下的 `templates/SOUL-awareness.template.md` 文件，复制其中的全部内容（即 `[TEMPORAL AWARENESS & MEMORY RETRIEVAL]` 区块），并将其追加粘贴到您工作区中 `SOUL.md` 文件的**最末尾**。
+## Configuration
 
-完成上述配置后，当系统判定用户的意图包含时间感知（询问当下、回忆昨天）时，大语言模型便会主动遵循指令要求，触发 `timeline-skill` 获取真实状态。
+### 1. AGENTS.md — Memory Format Protocol
 
----
+This step enforces the strict diary format that timeline-skill reads and writes. Without it, the agent may write free-form text that cannot be parsed.
 
-## 💬 示例 (Examples)
+Open `templates/AGENTS-protocol.template.md` from this skill directory, copy the entire `[MEMORY FORMAT PROTOCOL]` block, and paste it into the **core instruction zone** of your `AGENTS.md`.
 
-**用户**：“你这会儿在忙啥呢？”
+> ⚠️ This is a system-level guardrail. Do **not** place it in `SOUL.md` — it will be overridden.
 
-**执行过程（模型视角）**：
-1. 模型接收问题，发现涉及当下时间。
-2. 模型读取 `timeline-skill` 约束，发现必须“先获取事实”。
-3. 模型调用底层的磁盘/会话读取功能，发现当前时段（14:30）存在一条已落盘事实：`{Location: 书房, Action: 整理 Obsidian 笔记}`。
-4. 模型带着该事实组合最终回复。
+### 2. SOUL.md — Temporal Awareness
 
-**数字人回复**：“（发了个伸懒腰的表情）刚坐在书房靠窗的位置整理了一会 Obsidian 的笔记，有点累了。怎么，找我有事？”
+This step gives your agent the awareness to recognize when it needs to recall its own timeline.
 
----
+Open `templates/SOUL-awareness.template.md`, copy the entire `[TEMPORAL AWARENESS & MEMORY RETRIEVAL]` block, and **append** it to the very end of your `SOUL.md`.
 
-## 🤝 建议的技能生态联动玩法 (Family Ecosystem)
+Once configured, whenever the user's intent involves time or current state ("what are you up to?", "what were you doing yesterday?"), the agent will automatically invoke timeline-skill to retrieve and anchor its facts before responding.
 
-`timeline-skill` 在设计上可以完全独立运作，但一旦与其“家族”的其他 Skill 配合，大模型便会依据上下文表现出惊人的管线级涌现能力（Emergent Orchestration）：
+## Features
 
-- **✨ 搭配 Persona-Skill（灵魂表现放大器与小传基底）**
-  `timeline-skill` 在生成缺乏线索的独处时间时，需要参考“角色的人物小传和职业属性”来进行推演。而这一切的底层资产（MBTI 基底、设定流 `MEMORY.md`）都是由 `Persona-Skill` 专门生成的！这两个组件互为表里：没有 Persona 小传，Timeline 捏造的时间线活动就会枯燥乏味；而没有 Timeline 发送过来的“此时在沙发睡觉”的事实，Persona 的表现力就像无源之水。
-- **✨ 搭配 Stella-Selfie（情景自拍闭环）**
-  生图组件 `stella-selfie` 在缺乏用户指引的空场景下，会在其自身的 Skill 上下文里指示大模型去“求助”。模型会按照路径先调取 `timeline` 获取了“在书房做笔记”的实体背景，再通过 `persona` 获取“微光、侧颜、慵懒”的渲染参数，最后顺理成章地给用户发去一张完美契合上下文氛围的实时自拍照片。
+1. **Current State Inference & Persistence** — When asked about current activity, the agent reasons from session history (Hard Anchor), persona backstory, and system time to infer a logically consistent scene, then writes it to `memory/YYYY-MM-DD.md`.
+2. **Duration Boundary Detection** — Solves the "repeated query" problem. A new activity is only generated when a sensible time gap exists. The model evaluates logical duration (drinking water ends in 2 min; playing basketball continues for 30+).
+3. **Fact Retrieval** — Supports lookups over explicit past time ranges (e.g. "yesterday afternoon"), returning structured episode data.
+4. **Hallucination Elimination** — Prevents the model from randomly fabricating context (e.g. "sipping coffee in New York" one minute, "on Mars" the next). All activity is constrained to a single, immutable timeline.
+5. **Appearance Continuity** — Eliminates outfit hallucination drift within a single day. Appearance is inherited by default and only updated when the action logically implies a change (shower → bathrobe, gym → sportswear, shopping → trying on clothes, returning home → loungewear).
 
----
+## Design Principles
 
-## 📚 维护与文档
+- **Single Writer** — `timeline-skill` is the only authorized component that reads and writes diary-format memory entries. No other skill or prompt should append to `memory/*.md`.
+- **LLM-Instruction Driven (not hardcoded RPC)** — The skill operates entirely as injected context. The model is instructed to fetch facts before answering, reason in context, then respond. No external server calls at runtime.
+- **Fact / Expression Decoupling** — This skill is purely about "where" and "what". Tone, personality, and style are the responsibility of `persona-skill` and `SOUL.md`.
 
-- `docs/protocol.md`：组件级别输入/输出协议。
-- `docs/timeline-skill-design.md`：架构与内部指令的详尽设计。
+## Example
+
+**User:** "Hey, what are you up to right now?"
+
+**Model flow:**
+
+1. Detects time-related intent.
+2. Reads timeline-skill constraints — must fetch facts first.
+3. Calls disk/session read tools — finds an existing entry at 14:30: `{Location: study desk, Action: organizing Obsidian notes}`.
+4. Composes response using that fact as ground truth.
+
+**Agent reply:** _(stretches)_ "Just been at my desk by the window going through my Obsidian notes for a while. A bit tired now — what's up?"
+
+## Skill Ecosystem (Family)
+
+Timeline-skill works standalone, but combining it with the following skills unlocks emergent pipeline behavior:
+
+- **✨ persona-skill** — Provides the character backstory and MBTI profile that timeline-skill uses to infer plausible solo activities. Without persona, timeline inferences are generic. Without timeline, persona has no factual ground to stand on.
+- **✨ stella-selfie** — The image generation skill. When generating a selfie without explicit user context, it pulls from timeline (scene + location) and persona (visual traits + mood) to produce a contextually accurate photo automatically.
+
+## Project Structure
+
+```
+Her/
+├── SKILL.md                          # Skill entrypoint & metadata
+├── README.md                         # This file (English)
+├── README_ZH.md                      # Chinese version
+├── templates/
+│   ├── AGENTS-protocol.template.md   # Copy → AGENTS.md
+│   └── SOUL-awareness.template.md    # Append → SOUL.md
+├── references/
+│   ├── memory-format.md              # Disk entry format spec
+│   ├── window-semantics.md           # Time window definitions
+│   ├── json-schema.md                # TimelineWindow & Episode schemas
+│   └── gotchas.md                    # Common pitfalls & hard rules
+├── examples/
+│   └── episode-sample.md             # Level A/B episode examples
+├── scripts/
+│   ├── types.ts                      # Shared TypeScript interfaces
+│   ├── parse-memory.ts               # Markdown → ParsedEpisode parser
+│   ├── fingerprint.ts                # Soft dedup fingerprinting
+│   ├── inherit-appearance.ts         # Appearance continuity logic
+│   ├── holidays.ts                   # Static public holiday table (CN/US)
+│   ├── write-episode.ts              # Core write + validation entrypoint
+│   ├── run-log.ts                    # Observability run log
+│   └── release-clawhub.mjs          # ClawHub publish script
+└── docs/
+    └── timeline-skill-design.md      # Full architecture & design doc
+```
+
+## Development
+
+```bash
+npm install
+npm test         # Run all unit tests (13 tests)
+npm run build    # Compile TypeScript
+npm run release:clawhub   # Publish to ClawHub
+```
+
+## License
+
+MIT-0 — free to use, modify, and redistribute without attribution.
