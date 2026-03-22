@@ -1,5 +1,10 @@
-import { HookSpec } from './plugin-spec';
 import { timelineResolveToolSpec } from './tools/timeline_resolve';
+
+export interface HookSpec {
+  name: string;
+  description: string;
+  event: string;
+}
 
 export interface PluginToolRegistration {
   name: string;

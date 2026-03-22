@@ -46,7 +46,7 @@ several placeholders, simplifications, and local stand-ins for future production
 Implemented:
 - `openclaw.plugin.json`
 - `index.ts`
-- local `src/plugin-spec.ts` skeleton
+- local `src/openclaw-sdk-compat.ts` compatibility facade
 - bundled skill at `skills/timeline/SKILL.md`
 
 Meaning:
@@ -82,7 +82,7 @@ Meaning:
 
 Implemented:
 - `src/core/infer_candidate.ts`
-- integration with `scripts/write-episode.ts`
+- integration with `src/storage/write-episode.ts`
 - conservative generation fallback in `timeline_resolve`
 
 Meaning:
@@ -187,8 +187,8 @@ Implication:
 ### 5.1 Real OpenClaw SDK alignment
 
 Missing:
-- replacing `src/plugin-spec.ts` with actual OpenClaw plugin SDK contracts;
-- real registration for tools/hooks if the platform API differs from the local skeleton.
+- replacing the local compatibility facade with actual OpenClaw SDK contracts if/when the published runtime API differs;
+- verifying the current tool/hook registration shape against a real OpenClaw runtime load.
 
 ### 5.2 Production-grade trace schema
 
@@ -303,7 +303,7 @@ Goal:
 - replace local assumptions with real OpenClaw integration points.
 
 Tasks:
-1. Replace `src/plugin-spec.ts` with actual OpenClaw SDK/plugin contracts.
+1. Replace the local compatibility facade with actual OpenClaw SDK/plugin contracts.
 2. Align `index.ts` and `openclaw.plugin.json` with the real plugin entry format.
 3. Verify how OpenClaw expects tools/hooks to be registered in production.
 4. Confirm whether bundled skills need any additional manifest wiring.

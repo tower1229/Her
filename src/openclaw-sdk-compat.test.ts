@@ -10,4 +10,14 @@ describe('timeline plugin entry compatibility shape', () => {
       'timeline_audit_trace',
     ]);
   });
+
+  it('keeps manifest, package, and runtime entry metadata aligned', () => {
+    const manifest = require('../openclaw.plugin.json');
+    const pkg = require('../package.json');
+
+    expect(manifest.id).toBe(timelinePluginEntry.id);
+    expect(manifest.entry).toBe(pkg.main);
+    expect(manifest.skills).toEqual(['skills/timeline']);
+    expect(pkg.openclaw.extensions).toEqual(['./index.ts']);
+  });
 });

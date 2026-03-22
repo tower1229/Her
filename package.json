@@ -1,7 +1,7 @@
 {
-  "name": "timeline-skill",
-  "version": "1.0.3",
-  "description": "Factual timeline layer for OpenClaw agents. Retrieves or generates structured episode facts from memory and session history. Eliminates hallucinated locations, actions, and appearance drift.",
+  "name": "openclaw-timeline-plugin",
+  "version": "2.0.0-draft",
+  "description": "Native OpenClaw timeline plugin with a canonical timeline_resolve tool, bundled skill routing, append-only writes, and lifecycle hooks.",
   "keywords": [
     "openclaw",
     "skill",

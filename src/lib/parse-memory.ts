@@ -117,7 +117,7 @@ export function mapToEpisode(
   parsed: ParsedEpisode, 
   worldHooks: { weekday: boolean; holiday_key: string | null },
   idempotencyKey: string,
-  writer = 'timeline-skill'
+  writer = 'openclaw-timeline-plugin'
 ): Episode {
   const timeOfDay = mapTimeOfDay(parsed.timestamp);
   

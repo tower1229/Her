@@ -1,4 +1,4 @@
-import { HookSpec } from '../plugin-spec';
+import { HookSpec } from '../openclaw-sdk-compat';
 import { appendTraceLog } from '../storage/trace_log';
 import { TimelineResolveOutput } from '../tools/timeline_resolve';
 

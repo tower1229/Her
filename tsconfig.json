@@ -10,7 +10,6 @@
   },
   "include": [
     "index.ts",
-    "src/**/*",
-    "scripts/**/*"
+    "src/**/*"
   ]
 }
