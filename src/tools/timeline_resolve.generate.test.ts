@@ -7,7 +7,7 @@ import {
 } from './timeline_resolve';
 
 const tmpDir = path.join(__dirname, '__tmp__');
-const tmpFile = path.join(tmpDir, '2026-03-22.md');
+const tmpFile = path.join(tmpDir, 'memory', '2026-03-22.md');
 
 beforeEach(() => {
   resetTimelineResolveDependencies();

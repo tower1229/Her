@@ -4,6 +4,8 @@ import { inferCandidate } from '../core/infer_candidate';
 import { buildTrace } from '../core/trace';
 import { parseMemoryFile } from '../../scripts/parse-memory';
 import { writeEpisode, WriteEpisodeInput, WriteResult } from '../../scripts/write-episode';
+import { assertCanonicalDailyLogPath } from '../storage/daily_log';
+import { withFileLock } from '../storage/lock';
 import { resolveWindow } from '../core/resolve_window';
 
 export type TimelineResolveMode = 'read_only' | 'allow_generate';
@@ -97,24 +99,34 @@ export async function timelineResolve(
 
   if (input.mode === 'allow_generate' && parsedEpisodes.length === 0) {
     const generated = inferCandidate(window, sources);
-    const filePath = runtimeDependencies.memoryFilePath
+    const requestedPath = runtimeDependencies.memoryFilePath
       ? runtimeDependencies.memoryFilePath(window.calendar_date)
       : `memory/${window.calendar_date}.md`;
 
-    const writeResult = runtimeDependencies.writeEpisode
-      ? await runtimeDependencies.writeEpisode({
-          timestamp: generated.parsed.timestamp,
-          location: generated.parsed.location,
-          action: generated.parsed.action,
-          emotionTags: generated.parsed.emotionTags,
-          appearance: generated.parsed.appearance,
-          internalMonologue: generated.parsed.internalMonologue,
-          naturalText: generated.parsed.naturalText,
-          filePath,
-          windowPreset: window.preset,
-          confidence: generated.parsed.confidence,
-        })
-      : { success: false, written_at: '', error: 'write dependency missing' };
+    let filePath = requestedPath;
+    let writeResult: WriteResult = { success: false, written_at: '', error: 'write dependency missing' };
+
+    try {
+      filePath = assertCanonicalDailyLogPath(requestedPath, window.calendar_date);
+      writeResult = runtimeDependencies.writeEpisode
+        ? await withFileLock(filePath, async () =>
+            runtimeDependencies.writeEpisode!({
+              timestamp: generated.parsed.timestamp,
+              location: generated.parsed.location,
+              action: generated.parsed.action,
+              emotionTags: generated.parsed.emotionTags,
+              appearance: generated.parsed.appearance,
+              internalMonologue: generated.parsed.internalMonologue,
+              naturalText: generated.parsed.naturalText,
+              filePath,
+              windowPreset: window.preset,
+              confidence: generated.parsed.confidence,
+            }),
+          )
+        : { success: false, written_at: '', error: 'write dependency missing' };
+    } catch (error: any) {
+      writeResult = { success: false, written_at: '', error: error.message };
+    }
 
     output = {
       ok: true,
