@@ -19,7 +19,7 @@
   },
   "homepage": "https://github.com/tower1229/Her#readme",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "build": "tsc",

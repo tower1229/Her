@@ -18,7 +18,7 @@ export const timelinePluginEntry = definePluginEntry({
   name: TIMELINE_PLUGIN_NAME,
   description: TIMELINE_PLUGIN_DESCRIPTION,
   register(api) {
-    api.registerTool(makeTimelineToolRegistration());
+    api.registerTool(makeTimelineToolRegistration(), { optional: true });
     api.registerTool(makeTimelineStatusToolRegistration());
     api.registerHook(preCompactionFlushHook);
     api.registerHook(sessionSnapshotHook);

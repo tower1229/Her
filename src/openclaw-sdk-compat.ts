@@ -7,11 +7,19 @@ export interface HookSpec {
   event: string;
 }
 
+export interface PluginToolResult {
+  content: Array<{
+    type: 'text';
+    text: string;
+  }>;
+  data?: unknown;
+}
+
 export interface PluginToolRegistration {
   name: string;
   description: string;
   parameters: Record<string, unknown>;
-  execute: (callId: string, params: unknown) => Promise<unknown>;
+  execute: (callId: string, params: unknown) => Promise<PluginToolResult>;
   optional?: boolean;
 }
 
@@ -63,13 +71,20 @@ export function materializePlugin(definition: PluginEntryDefinition): Registered
   };
 }
 
+function wrapToolData(data: unknown): PluginToolResult {
+  return {
+    content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
+    data,
+  };
+}
+
 export function makeTimelineToolRegistration(): PluginToolRegistration {
   return {
     name: timelineResolveToolSpec.name,
     description: timelineResolveToolSpec.description,
     parameters: timelineResolveToolSpec.inputSchema,
     async execute(_callId, params) {
-      return timelineResolveToolSpec.run(params as never);
+      return wrapToolData(await timelineResolveToolSpec.run(params as never));
     },
   };
 }
@@ -80,7 +95,7 @@ export function makeTimelineStatusToolRegistration(): PluginToolRegistration {
     description: timelineStatusToolSpec.description,
     parameters: timelineStatusToolSpec.inputSchema,
     async execute(_callId, params) {
-      return timelineStatusToolSpec.run(params as never);
+      return wrapToolData(await timelineStatusToolSpec.run(params as never));
     },
   };
 }
