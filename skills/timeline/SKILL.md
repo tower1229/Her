@@ -72,6 +72,23 @@ Those belong to the runtime tool implementation.
 }
 ```
 
+
+## Where the generation logic actually lives
+
+The bundled skill only does **routing and calling**. The actual blank-memory generation logic lives in the runtime code:
+
+- `src/tools/timeline_resolve.ts`
+  - decides when generation should happen (`mode=allow_generate` and no reusable canon hit);
+  - loads `SOUL`, `MEMORY`, and `IDENTITY` through runtime dependencies;
+  - writes the generated canon entry through the append-only writer.
+- `src/core/infer_candidate.ts`
+  - turns `SOUL` / `MEMORY` / `IDENTITY` + recent anchors + real-world time context into a plausible memory candidate;
+  - chooses location / action / emotion / appearance / internal monologue for blank-memory windows.
+- `src/core/collect_sources.ts`
+  - collects the source context used by generation, including `sessions_history`, `memory_get`, `memory_search`, and the core persona files.
+
+So if you are looking for the **generation algorithm itself**, read `src/core/infer_candidate.ts` first, then `src/tools/timeline_resolve.ts`.
+
 ## Design intent reminder
 
 Timeline is not just a logging helper. Its purpose is to let OpenClaw feel like a person with continuous autobiographical recall.
