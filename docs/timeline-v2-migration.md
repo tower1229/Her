@@ -47,3 +47,33 @@ If you previously depended on prompt behavior:
 3. inspect `timeline_status` after the first runs;
 4. use `timeline_repair` before trusting old malformed logs;
 5. review the release checklist before treating the plugin as production-ready.
+
+
+## 6. Is empty-memory generation the same as v1?
+
+At the **design-goal level, yes**: the runtime is supposed to do the same job as the old timeline system — when memory is blank, it should still produce a plausible, persona-consistent memory so OpenClaw can chat naturally and downstream skills can consume a coherent current state.
+
+In the current v2 runtime, that means:
+- generation happens only when `mode=allow_generate`;
+- the runtime still prefers existing canon when parsed day-log episodes already exist;
+- when blank-memory generation is needed, it now explicitly consults `SOUL`, `MEMORY`, `IDENTITY`, recent conversational anchors, and real-world time cues such as weekday / holiday / time of day;
+- the generated result is meant to become part of the character's lived autobiographical reality rather than a throwaway placeholder.
+
+So the correct compatibility statement is: **v2 should preserve v1's core generation purpose, but implement it through deterministic runtime code instead of prompt-only conventions.**
+
+## 7. Did the structured output format change?
+
+Yes — the answer is **partly yes, partly no**.
+
+What stayed conceptually similar:
+- the core payload is still a structured timeline result;
+- the runtime still returns episode-oriented timeline data rather than free-form prose;
+- the result still uses `schema_version: "1.0"` and `document_type: "timeline.window"` for the main window payload.
+
+What changed:
+- the tool now returns a stronger **envelope contract** with `ok`, `trace_id`, `resolution_summary`, `notes`, optional `trace`, and structured `error` data;
+- the tool distinguishes `read_only_hit`, `generated_new`, and some draft fallback cases in the resolution summary;
+- diagnostics and traceability are now part of the contract, not just implicit behavior;
+- the response is explicitly shaped as a plugin tool contract rather than a prompt-era output convention.
+
+In short: the **episode/window core remains recognizable**, but the **top-level tool response format has definitely changed** in order to support deterministic runtime behavior and operator diagnostics.

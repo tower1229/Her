@@ -73,11 +73,17 @@ describe('timelineResolve trace schema', () => {
     expect(result.trace?.decision.resolution_mode).toBe('generated_new');
   });
 
-  it('refuses unsafe generation for non-now_today ranges and explains why in trace metadata', async () => {
+  it('can generate a persona-consistent entry for non-now_today ranges when memory is blank', async () => {
     setTimelineResolveDependencies({
       currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
       sessionsHistory: async () => [],
       memoryGet: async () => '',
+      coreFiles: async () => ({
+        soul: 'She likes taking realistic selfies and keeping a coherent sense of daily life.',
+        memory: 'She often spends weekends around cafes, notes, and reflective downtime.',
+        identity: 'A woman in her twenties living in Shanghai.',
+      }),
+      writeEpisode: async () => ({ success: true, written_at: '2026-03-22T14:30:01+08:00' }),
       traceLogPath,
     });
 
@@ -90,8 +96,9 @@ describe('timelineResolve trace schema', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('expected success envelope');
-    expect(result.resolution_summary.mode).toBe('not_implemented');
-    expect(result.trace?.write.guard).toBe('range_policy');
-    expect(result.trace?.decision.fallback_category).toBe('range_policy');
+    expect(result.resolution_summary.mode).toBe('generated_new');
+    expect(result.trace?.write.guard).toBe('canonical_path');
+    expect(result.trace?.decision.resolution_mode).toBe('generated_new');
+    expect(result.result?.episodes).toHaveLength(1);
   });
 });

@@ -197,6 +197,14 @@ The tool must execute the following stages in order.
 12. **Return structured response**
     - no natural-language prose from the tool itself.
 
+## 7.1 Compatibility note vs prompt-era behavior
+
+The current plugin contract should be read as a **runtime contract**, not a guarantee of prompt-era output parity.
+
+Two practical implications matter most:
+- **Empty-memory generation should preserve the old design goal.** When canon is blank, the runtime should still generate a plausible autobiographical memory by grounding itself in `SOUL`, `MEMORY`, `IDENTITY`, recent conversational anchors, and real-world time context instead of returning an empty shell.
+- **The structured response envelope is stronger than before, but the consumer-facing core should remain the timeline payload.** The tool returns a runtime contract with `ok`, `trace_id`, `resolution_summary`, `notes`, and optional `trace` / `error`, while the main payload remains a `timeline.window` structure for downstream consumers.
+
 ## 8. Behavioral Rules
 
 ### 8.1 Hard-anchor rule

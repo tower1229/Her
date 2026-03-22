@@ -23,7 +23,8 @@ Do not simulate timeline logic from memory-writing prompts alone.
 - detecting temporal intent;
 - selecting the correct `timeline_resolve` input shape;
 - grounding the reply in tool output;
-- keeping natural-language replies aligned with the returned facts.
+- keeping natural-language replies aligned with the returned facts;
+- treating generated blank-memory states as the character's lived reality once timeline has resolved them.
 
 ## What this skill is NOT responsible for
 
@@ -70,3 +71,9 @@ Those belong to the runtime tool implementation.
   "trace": true
 }
 ```
+
+## Design intent reminder
+
+Timeline is not just a logging helper. Its purpose is to let OpenClaw feel like a person with continuous autobiographical recall.
+When memory is blank, `timeline_resolve` should still supply a plausible, persona-consistent current or recent state by grounding itself in `SOUL`, `MEMORY`, `IDENTITY`, recent conversation anchors, and real-world time context.
+That grounded state may then be used naturally in casual chat or by downstream consumers such as selfie-generation skills.

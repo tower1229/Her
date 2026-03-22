@@ -1,11 +1,18 @@
 import { TimelineResolveInput } from '../tools/timeline_resolve';
 import { ResolvedWindow } from './resolve_window';
 
+export interface TimelineCoreContext {
+  soul: string;
+  memory: string;
+  identity: string;
+}
+
 export interface TimelineSourceDependencies {
   currentTime: () => Promise<{ now: string; timezone: string }>;
   sessionsHistory: (window: ResolvedWindow, input: TimelineResolveInput) => Promise<string[]>;
   memoryGet: (window: ResolvedWindow, input: TimelineResolveInput) => Promise<string>;
   memorySearch?: (window: ResolvedWindow, input: TimelineResolveInput) => Promise<string[]>;
+  coreFiles?: () => Promise<TimelineCoreContext>;
 }
 
 export interface CollectedSources {
@@ -13,6 +20,7 @@ export interface CollectedSources {
   sessionsHistory: string[];
   memoryContent: string;
   memorySearch: string[];
+  coreContext: TimelineCoreContext;
 }
 
 export async function collectSources(
@@ -34,5 +42,9 @@ export async function collectSources(
     memorySearch = await deps.memorySearch(window, input);
   }
 
-  return { sourceOrder, sessionsHistory, memoryContent, memorySearch };
+  const coreContext = deps.coreFiles
+    ? await deps.coreFiles()
+    : { soul: '', memory: '', identity: '' };
+
+  return { sourceOrder, sessionsHistory, memoryContent, memorySearch, coreContext };
 }

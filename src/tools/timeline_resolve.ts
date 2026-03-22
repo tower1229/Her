@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { collectSources, TimelineSourceDependencies } from '../core/collect_sources';
@@ -99,6 +100,14 @@ export interface TimelineRuntimeDependencies extends TimelineSourceDependencies 
   traceLogPath?: string;
 }
 
+function readOptionalTextFile(filePath: string): string {
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
 const defaultDependencies: TimelineRuntimeDependencies = {
   currentTime: async () => ({
     now: '2026-03-22T14:30:00+08:00',
@@ -107,6 +116,11 @@ const defaultDependencies: TimelineRuntimeDependencies = {
   sessionsHistory: async () => [],
   memoryGet: async () => '',
   memorySearch: async () => [],
+  coreFiles: async () => ({
+    soul: readOptionalTextFile(path.join(process.cwd(), 'SOUL.md')),
+    memory: readOptionalTextFile(path.join(process.cwd(), 'MEMORY.md')),
+    identity: readOptionalTextFile(path.join(process.cwd(), 'IDENTITY.md')) || readOptionalTextFile(path.join(process.cwd(), 'IDENTITY')),
+  }),
   writeEpisode,
   memoryFilePath: (calendarDate: string) => `memory/${calendarDate}.md`,
   traceLogPath: path.join(os.tmpdir(), 'openclaw-timeline-plugin-trace.log'),
@@ -227,55 +241,6 @@ export async function timelineResolve(
     };
 
     if (input.mode === 'allow_generate' && parsedEpisodes.length === 0) {
-      if (window.preset !== 'now_today') {
-        output = {
-          ok: true,
-          schema_version: '1.0',
-          trace_id: '',
-          resolution_summary: {
-            mode: 'not_implemented',
-            writes_attempted: 0,
-            writes_succeeded: 0,
-            sources: sources.sourceOrder,
-            confidence_min: 0,
-            confidence_max: 0,
-          },
-          result: {
-            schema_version: '1.0',
-            document_type: 'timeline.window',
-            anchor: { now: window.end, timezone: window.timezone },
-            window: {
-              calendar_date: window.calendar_date,
-              preset: window.preset,
-              start: window.start,
-              end: window.end,
-              idempotency_key: 'generation-disabled-for-range',
-            },
-            resolution: {
-              mode: 'generated_new',
-              notes: 'Generation is intentionally disabled for non-now_today ranges to avoid unsafe canon writes.',
-            },
-            episodes: [],
-          },
-          notes: ['Generation is intentionally disabled for non-now_today ranges to avoid unsafe canon writes.'],
-        };
-        traceWrite = {
-          attempted: false,
-          succeeded: false,
-          guard: 'range_policy',
-          writer: 'openclaw-timeline-plugin',
-        };
-        traceFingerprint = {
-          checked: true,
-          matched: false,
-          compared_episodes: 0,
-          fallback_reason: 'generation disabled by range policy for non-now_today windows',
-        };
-        decision = {
-          resolution_mode: output.resolution_summary.mode,
-          fallback_category: 'range_policy',
-        };
-      } else {
         const generated = inferCandidate(window, sources);
         traceAppearance = generated.appearance;
         const requestedPath = runtimeDependencies.memoryFilePath
@@ -366,7 +331,6 @@ export async function timelineResolve(
               : [`Generation attempted but write failed: ${writeResult.error ?? 'unknown error'}.`],
           ),
         };
-      }
     }
 
     if (parsedEpisodes.length > 0 && output.resolution_summary.mode === 'read_only_hit') {

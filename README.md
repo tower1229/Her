@@ -3,7 +3,7 @@
 [中文版 README](./README_ZH.md)
 
 Timeline is an OpenClaw plugin project for one very specific job:
-**help an agent answer time-related questions from a stable, inspectable, append-only memory model.**
+**help OpenClaw feel like a person with a continuous life, so it can chat naturally, recall its own recent past, and stay consistent when downstream skills (such as selfie generation) need a believable current state.**
 
 If you want your agent to answer questions like:
 - **What are you doing now?**
@@ -20,10 +20,11 @@ with more structure and less prompt drift, this repository is built for that use
 Timeline is not mainly about “v2 vs v1”.
 The underlying project goal is the same throughout:
 
-> Give the agent a trustworthy temporal memory layer so that timeline answers come from a canonical runtime path, not from loose prompt improvisation.
+> Give OpenClaw a believable autobiographical recall layer so that casual conversation, current-state answers, and downstream skills all draw from the same timeline reality instead of loose prompt improvisation.
 
 In practice, that means Timeline is trying to provide:
 - a **single canonical path** for temporal fact resolution;
+- a **human-like memory generation path** for blank windows, guided by `SOUL`, `MEMORY`, `IDENTITY`, and real-world time context;
 - a **deterministic read flow** over timeline sources;
 - **append-only memory writing** instead of arbitrary mutation;
 - **diagnostics and traces** so maintainers can explain surprising answers;
