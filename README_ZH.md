@@ -1,117 +1,192 @@
-# Timeline Skill（时间线技能）— [English](README.md)
+# OpenClaw Timeline Plugin v2（中文版）
 
-专为 OpenClaw Agent 设计的事实锚点与时间线记忆组件。它负责回答一个核心问题：**"我此时此刻，乃至过去这段时间，究竟在哪里、在做什么？"**
+[English README](./README.md)
 
-## 先决条件
+这是一个面向 OpenClaw 的草案版时间线插件：
+它把时间相关事实解析从 prompt 约定迁移到代码里的 canonical runtime，
+让“现在在做什么”“最近在做什么”“某天发生了什么”这类问题可以由插件统一处理，
+而不是依赖 prompt 临场发挥。
 
-- 已安装并运行 **OpenClaw** 网关
-- 可选：同时安装 `persona-skill` 以获得更丰富的活动推演能力
+如果你希望 agent 对时间线问题给出**结构化、可追踪、可追加写入、可排查**的答案，
+这个仓库就是为这种场景设计的。
 
-## 安装
+---
+
+## 你是否需要安装这个插件？
+
+### 适合安装的场景
+- 你需要一个 **canonical timeline tool**，而不是 prompt-only 的记忆行为；
+- 你希望 timeline 写入走 **append-only + canonical path + lock** 的受控路径；
+- 你需要 **状态检查 / 修复诊断工具**（`timeline_status`、`timeline_repair`）；
+- 你希望 timeline 结果带有 **trace**，方便回看“为什么得到这个答案”；
+- 你希望 temporal intent 能通过 bundled skill 自动路由到 runtime。
+
+### 不一定适合的场景
+- 你只需要一个普通聊天 persona，不需要结构化 timeline memory；
+- 你只想做自由写作式日记，不想接受 canonical 写路径约束；
+- 你现在就需要一个完全稳定的正式版插件 —— 当前仓库仍是 **`2.0.0-draft`**。
+
+---
+
+## 这个插件解决什么问题
+
+纯 prompt 时代的 timeline memory 很容易出现这些问题：
+- “现在在做什么”依赖上下文猜测，而不是 canonical source；
+- 外观 / 地点 / 行为细节在多轮对话后漂移；
+- 新生成事实可能未经足够约束就写回 memory；
+- 一旦 timeline 回答异常，很难追溯到底是哪一步出了问题。
+
+Timeline Plugin v2 的目标就是把这些逻辑交回 runtime 代码，让插件自己负责：
+- 时间窗口解析；
+- 数据源读取顺序；
+- Markdown 日志解析；
+- fingerprint 复用还是生成；
+- append-only 写入；
+- repair / status 诊断；
+- 生命周期 trace。
+
+---
+
+## 核心能力
+
+### `timeline_resolve`
+时间相关事实检索与（在允许时）append-only canon 生成的 canonical 入口。
+
+### `timeline_status`
+用于查看插件注册信息与最近一次 runtime 快照的轻量诊断工具。
+
+### `timeline_repair`
+用于检查 malformed daily log、canonical path 异常，以及最近 run / trace 日志的维护工具。
+
+### 生命周期 hooks
+仓库还提供了这些 hook helper：
+- pre-compaction flush；
+- session snapshot；
+- audit trace persistence。
+
+---
+
+## 常见使用场景
+
+### 1）当前状态回答
+例如：
+- “你现在在做什么？”
+- “你现在在哪？”
+- “你今天都在忙什么？”
+
+### 2）最近活动回忆
+适用于对近期时间窗口做回顾总结，同时尽量优先复用已有 canon。
+
+### 3）安全的 timeline 写入
+适用于希望 timeline 事实只能走受控写路径、而不是任意 memory mutation 的场景。
+
+### 4）时间线排查与修复
+当 daily log 格式异常、trace 可疑、写入路径有问题时，可使用 `timeline_status` 与 `timeline_repair`。
+
+---
+
+## 工作原理
+
+整体流程大致如下：
+
+1. 先把用户请求归一化成时间窗口；
+2. 按固定顺序读取数据源（`sessions_history -> memory_get -> memory_search`）；
+3. 把 Markdown 日志解析成结构化 episode；
+4. 能复用 canon 就复用；
+5. 只有在策略允许时才保守生成；
+6. 所有写入都走 timeline 自己的 append-only 路径；
+7. 最后产出 trace 与运行时诊断信息。
+
+---
+
+## 安装方式
+
+> 当前仓库更适合被看作 **draft plugin project / 本地插件项目**。
+> 目前最现实的使用方式是本地开发安装或在你自己控制的 OpenClaw 环境里侧载。
+
+### 方案 A：从本地代码仓安装
 
 ```bash
-clawhub install timeline-skill
+git clone https://github.com/tower1229/Her.git
+cd Her
+npm install
+npm run build
+openclaw plugins install -l .
 ```
 
-如需从源码手动部署，将仓库根目录整体复制到 Agent 工作区的 `skills/` 目录中：
+### 方案 B：手动指向插件入口
 
-```
-~/.openclaw/workspace/skills/timeline-skill/SKILL.md
-```
+该仓库通过以下文件暴露插件入口：
+- `openclaw.plugin.json`
+- `package.json` 中的 `openclaw.extensions`
+- `index.ts`
 
-安装完成后，请完成以下两步必要配置。**跳过任一步骤都会导致技能静默失败** —— Agent 将不知道何时触发它，也无法以正确的格式写入记忆。
+如果你的 OpenClaw 环境使用本地插件路径模式，可以直接把这个仓库接入，
+并确保运行时能够解析到构建后的插件入口。
 
-## 配置
+### 配置项
 
-### 1. AGENTS.md — 记忆格式协议
+当前 draft manifest 暴露了这些插件配置：
+- `enableTrace`
+- `traceLogPath`
+- `canonicalMemoryRoot`
 
-这一步强制执行 timeline-skill 读写所依赖的严格日记格式。若跳过，Agent 可能以自由文本写入记忆，导致无法被解析。
+这些配置会挂在 `timeline-plugin` 对应的 OpenClaw 插件配置项下面。
 
-打开本技能目录下的 `templates/AGENTS-protocol.template.md`，复制其中 `[MEMORY FORMAT PROTOCOL]` 区块的全部内容，粘贴到你工作区 `AGENTS.md` 的**核心指令区**。
+---
 
-> ⚠️ 这是系统级护栏，**不可**放入 `SOUL.md` —— 否则会被其他内容覆盖。
+## 快速开始
 
-### 2. SOUL.md — 时间线感知能力
+安装完成后建议这样验证：
 
-这一步赋予 Agent 识别"我需要回忆自己时间线"的意识。
+1. 在 OpenClaw 环境里启用该插件；
+2. 确认插件可以访问你期望的 `memory/` 目录；
+3. 发起一个明显的时间相关问题，让 skill 把请求路由到 timeline runtime；
+4. 用 `timeline_status` 查看是否成功注册以及最近一次运行状态；
+5. 如果日志格式异常或写路径可疑，用 `timeline_repair` 做诊断。
 
-打开 `templates/SOUL-awareness.template.md`，复制 `[TEMPORAL AWARENESS & MEMORY RETRIEVAL]` 区块的全部内容，**追加至**你工作区 `SOUL.md` 的**最末尾**。
+示例问题：
+- “你现在在做什么？”
+- “你最近都在做什么？”
+- “2026-03-22 发生了什么？”
+- “帮我检查今天的 timeline 日志有没有格式问题。”
 
-完成以上配置后，每当用户意图涉及时间或当前状态（"你在干嘛"、"昨天下午你在哪"），Agent 便会自动调用 timeline-skill 获取真实事实，再基于事实给出回复。
+---
 
-## 功能特性
+## 仓库结构
 
-1. **当前状态推演与存储** —— 当用户询问角色的近况时，基于会话历史（硬锚）、人物小传和系统时间，合理推演出当下逻辑自洽的活动，并写入 `memory/YYYY-MM-DD.md` 持久化保存。
-2. **逻辑持续时间判定** —— 解决"连续询问"边界问题。只有当时间间隔足够合理时，才会生成新的活动事件。模型会评估逻辑时长（喝水 2 分钟结束；打篮球持续 30 分钟以上）。
-3. **历史事实提取** —— 支持对明确时间段（如"昨天下午"）的结构化事实查询，返回精准的 Episode 数据。
-4. **消除大模型幻觉** —— 防止模型随意捏造背景（一会儿在纽约喝咖啡，一会儿在火星），使所有活动都受制于一条不可篡改的真实人生时间线。
-5. **外观日内稳态与动态切换** —— 消除单日对话中的"随机换装"幻觉。外观默认按日继承，仅当 Action 字段包含换装信号时才更新（如洗澡→浴袍、健身→运动服、购物→试穿新装、回家→居家服）。
+- `openclaw.plugin.json` —— 插件 manifest
+- `index.ts` —— 插件入口注册逻辑
+- `skills/timeline/` —— 时间意图路由 skill
+- `src/tools/` —— canonical 工具（`timeline_resolve`、`timeline_status`、`timeline_repair`）
+- `src/core/` —— 确定性的运行时主流程
+- `src/hooks/` —— 生命周期 hooks
+- `src/storage/` —— 写入保护、trace log、runtime status、run log
+- `src/lib/` —— 解析 / 指纹 / 时间 / 继承等共享工具
+- `docs/` —— 设计、接口、路线图、状态和发布检查文档
 
-## 设计思路
+---
 
-- **单一写者原则** —— `timeline-skill` 是唯一被授权读写日记格式记忆的组件。任何其他 Skill 或 Prompt 不应直接追加内容到 `memory/*.md`。
-- **大模型指令驱动（非硬编码 RPC）** —— 本技能完全以注入上下文的方式运作。模型被指示在回答前必须先获取事实，在上下文中完成推理，再给出表达。运行时无外部服务调用。
-- **事实与表达解耦** —— 本技能只关心"在哪里"和"在干什么"。语气、人格和风格由 `persona-skill` 和 `SOUL.md` 负责。
+## 当前状态
 
-## 示例
+仓库现在只保留 v2 plugin-first 方向相关内容。
+它已经能作为一个确定性的本地 runtime slice 使用，但仍未达到最终 GA 正式版。
 
-**用户**："你这会儿在干啥呢？"
+如果你想先了解成熟度与后续路线，建议阅读：
+- `docs/timeline-v2-refactor-plan.md`
+- `docs/timeline-v2-status.md`
+- `docs/timeline-v2-release-checklist.md`
+- `docs/timeline-v2-quickstart.md`
+- `docs/timeline-v2-migration.md`
+- `docs/timeline-resolve-interface.md`
+- `CHANGELOG.md`
 
-**模型执行过程**：
-
-1. 检测到时间相关意图。
-2. 读取 timeline-skill 约束 —— 必须先获取事实。
-3. 调用磁盘/会话读取工具 —— 发现 14:30 时段已有落盘事实：`{Location: 书房, Action: 整理 Obsidian 笔记}`。
-4. 以该事实为基准组合最终回复。
-
-**Agent 回复**："（发了个伸懒腰的表情）刚在书房靠窗的位置整理了一会 Obsidian 的笔记，有点累了。怎么，找我有事？"
-
-## 技能生态联动
-
-timeline-skill 可以完全独立运作，但与以下技能配合会产生惊人的管线级涌现：
-
-- **✨ persona-skill** —— 提供角色小传和 MBTI 基底，作为 timeline-skill 推演独处活动的依据。没有 persona，推演出的活动会平淡乏味；没有 timeline，persona 的表现力就像无源之水。
-- **✨ stella-selfie** —— 图像生成技能。在用户未提供具体场景时，它会先从 timeline 获取实体背景（场景+地点），再从 persona 获取视觉参数（神态+氛围），最终自动生成一张高度契合上下文的自拍照片。
-
-## 项目结构
-
-```
-Her/
-├── SKILL.md                          # Skill 入口文件及元数据
-├── README.md                         # 英文说明
-├── README_ZH.md                      # 本文件（中文）
-├── templates/
-│   ├── AGENTS-protocol.template.md   # 复制 → AGENTS.md
-│   └── SOUL-awareness.template.md    # 追加 → SOUL.md
-├── references/
-│   ├── memory-format.md              # 磁盘记忆格式规范
-│   ├── window-semantics.md           # 时间窗口语义定义
-│   ├── json-schema.md                # TimelineWindow & Episode JSON Schema
-│   └── gotchas.md                    # 常见陷阱与硬性规则
-├── examples/
-│   └── episode-sample.md             # Level A/B Episode 示例
-├── scripts/
-│   ├── types.ts                      # 共享 TypeScript 类型定义
-│   ├── parse-memory.ts               # Markdown → ParsedEpisode 解析器
-│   ├── fingerprint.ts                # 软指纹去重逻辑
-│   ├── inherit-appearance.ts         # 日内外观继承逻辑
-│   ├── holidays.ts                   # 内置节假日表（CN/US 2025-2027）
-│   ├── write-episode.ts              # 核心写入与校验入口
-│   ├── run-log.ts                    # 可观测性运行日志
-│   └── release-clawhub.mjs          # ClawHub 发布脚本
-└── docs/
-    └── timeline-skill-design.md      # 完整架构与设计文档
-```
+---
 
 ## 开发
 
 ```bash
 npm install
-npm test         # 运行全部单元测试（13 个）
-npm run build    # 编译 TypeScript
-npm run release:clawhub   # 发布到 ClawHub
+npm run build
+npm test
 ```
-
-## 许可证
-
-MIT-0 —— 可自由使用、修改和再分发，无需署名。
