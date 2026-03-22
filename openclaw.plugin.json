@@ -1,0 +1,27 @@
+{
+  "id": "timeline-plugin",
+  "name": "Timeline Plugin",
+  "version": "2.0.0-draft",
+  "description": "Draft OpenClaw plugin skeleton for timeline v2 with a bundled skill, canonical timeline_resolve tool, and lifecycle hook placeholders.",
+  "entry": "dist/index.js",
+  "skills": ["skills/timeline"],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "enableTrace": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable trace emission for timeline runs."
+      },
+      "traceLogPath": {
+        "type": "string",
+        "description": "Optional path for append-only timeline trace logs."
+      },
+      "canonicalMemoryRoot": {
+        "type": "string",
+        "description": "Optional override for the canonical timeline memory root."
+      }
+    },
+    "additionalProperties": false
+  }
+}
