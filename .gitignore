@@ -1,4 +1,4 @@
 node_modules/
 dist/
-timeline-skill/scripts/.cache/
+scripts/.cache/
 test-out.txt
