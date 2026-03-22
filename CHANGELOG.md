@@ -17,4 +17,5 @@
 
 ### Notes
 - The project remains in `2.0.0-draft` status.
-- See `docs/timeline-v2-release-checklist.md` before treating the plugin as production-ready.
+- The biggest remaining GA gaps are real OpenClaw runtime validation, stronger write-path guarantees, richer operability/observability, and higher-confidence generated writes.
+- See `docs/timeline-v2-release-checklist.md` and `docs/timeline-v2-status.md` before treating the plugin as production-ready.

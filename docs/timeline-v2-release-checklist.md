@@ -31,7 +31,16 @@
 - [ ] Single-writer guarantees are enforced beyond the timeline runtime code path.
 - [ ] Trace schema captures enough detail to explain surprising runs without reproducing them locally.
 
-## E. Release decision rule
+## E. Current GA blocker snapshot
+
+As of the current `2.0.0-draft` state, the main release blockers are:
+
+1. **Real platform validation is still missing.** The code uses a local compatibility facade and has not yet been proven inside a real OpenClaw runtime.
+2. **Write-path guarantees are still timeline-local.** Locking and path validation exist, but stronger single-writer enforcement and explicit conflict semantics are not yet platform-wide.
+3. **Operability is still only the first slice.** `timeline_status` and `timeline_repair` exist, but they are not yet rich enough for full production triage / guided recovery.
+4. **Generated writes are still conservative but not deeply trustworthy.** Candidate inference needs stronger duration, conflict, and confidence reasoning before GA.
+
+## F. Release decision rule
 
 Call the current codebase **Timeline v2 released** only when:
 
@@ -39,3 +48,4 @@ Call the current codebase **Timeline v2 released** only when:
 2. Section B is fully complete.
 3. Section C has `timeline_status` and `timeline_repair` both complete and exercised.
 4. Section D is complete enough that generated writes and trace review are operationally trustworthy.
+5. The blocker snapshot above no longer contains any unresolved release-blocking item.

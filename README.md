@@ -181,11 +181,13 @@ Useful example prompts:
 
 This repo is intentionally focused on the v2 plugin shape only.
 It is already useful as a deterministic local runtime slice, but it is still not a final
-GA release.
+GA release. The main remaining gaps are real OpenClaw runtime validation, stronger
+write-path guarantees, richer operability/observability, and better generated-write
+quality.
 
 Start here if you want to understand maturity and roadmap:
 - `docs/timeline-v2-refactor-plan.md`
-- `docs/timeline-v2-status.md`
+- `docs/timeline-v2-status.md` (includes a refreshed GA gap inventory)
 - `docs/timeline-v2-release-checklist.md`
 - `docs/timeline-v2-quickstart.md`
 - `docs/timeline-v2-migration.md`

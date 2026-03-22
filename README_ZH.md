@@ -171,10 +171,12 @@ openclaw plugins install -l .
 
 仓库现在只保留 v2 plugin-first 方向相关内容。
 它已经能作为一个确定性的本地 runtime slice 使用，但仍未达到最终 GA 正式版。
+当前距离正式发布的主要差距，集中在：真实 OpenClaw runtime 验证、
+更强的写入安全/单写者保障、更完整的可观测性与运维能力，以及更可靠的生成写入质量。
 
 如果你想先了解成熟度与后续路线，建议阅读：
 - `docs/timeline-v2-refactor-plan.md`
-- `docs/timeline-v2-status.md`
+- `docs/timeline-v2-status.md`（含最新 GA 差距盘点）
 - `docs/timeline-v2-release-checklist.md`
 - `docs/timeline-v2-quickstart.md`
 - `docs/timeline-v2-migration.md`

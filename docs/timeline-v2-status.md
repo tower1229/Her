@@ -424,7 +424,59 @@ If real SDK alignment is blocked, then the fallback next step is:
 2. add trace assertions to existing tests;
 3. follow the first `timeline_repair` slice with guided repair actions and richer trace readers.
 
-## 15. Final status statement
+## 15. GA gap re-inventory
+
+If the question is **"what still prevents an official release today?"**, the answer is now clearer than before.
+
+### 15.1 Release blockers (must finish before GA)
+
+1. **Real OpenClaw runtime validation**
+   - The plugin still relies on a local compatibility facade.
+   - Tool and hook registration have not been validated end-to-end inside a real OpenClaw runtime.
+   - Packaging assumptions (`index.ts`, manifest wiring, lifecycle semantics) still need platform proof.
+
+2. **Write-path trust model is incomplete**
+   - Canonical-path checks and lock files exist, but they only protect the timeline-owned code path.
+   - Explicit conflict / write-denied error categories are still thin.
+   - Recovery semantics for interrupted writes and partial trace persistence need to be defined and tested.
+
+3. **Observability is not yet production-grade**
+   - Trace logs exist, but they still do not fully explain every surprising run from logs alone.
+   - `timeline_status` needs richer counters, recent trace summaries, and clearer operator-facing health reporting.
+   - `timeline_repair` still focuses more on diagnostics than guided recovery.
+
+4. **Generated write quality is not yet strong enough for GA trust**
+   - Candidate inference is intentionally conservative, but still weak on duration reasoning, conflict checks, and anchor selection.
+   - Low-information states can still fall back to generic output.
+   - Confidence explanations need to be stronger before operators should rely on generated writes in production.
+
+### 15.2 Important but likely post-blocker polish
+
+These items matter, but they are better treated as **GA polish or immediate post-GA follow-up** unless they reveal a harder architectural issue:
+
+- broader operator docs with failure playbooks;
+- richer examples of repair workflows;
+- more runtime metrics / dashboards if the host platform supports them;
+- packaging ergonomics for easier third-party installation.
+
+### 15.3 Recommended release sequence from here
+
+If the goal is to reach a credible formal release with minimum thrash, the best order is now:
+
+1. **Platform proof first** — validate the real OpenClaw registration/integration path.
+2. **Observability second** — make runtime outcomes explainable from traces and status tooling.
+3. **Write-path hardening third** — formalize conflict, denial, and recovery semantics.
+4. **Generation quality fourth** — improve candidate quality once the platform and diagnostics are trustworthy.
+
+### 15.4 Practical release call
+
+So the current repo is best treated as:
+
+> **a solid draft / pilotable local runtime slice, not yet an officially releasable GA plugin.**
+
+The main reason is not lack of code volume; it is that the remaining work sits exactly on the four areas that determine production trust: **platform validation, write safety, observability, and generated-write quality.**
+
+## 16. Final status statement
 
 Timeline v2 has moved from:
 - **idea** → **design docs** → **plugin skeleton** → **tested local runtime slice**.
@@ -437,5 +489,4 @@ It has **not yet** moved to:
 
 That means the project is now at a very useful intermediate point:
 
-> **The architecture is proven enough to keep building, but the next work should focus on
-> platform alignment and operational hardening, not on adding more speculative surface area.**
+> **The architecture is proven enough to keep building, but it should still be described as draft / pilot-ready rather than GA. The next work should focus on platform alignment, observability, and write-path hardening before expanding surface area further.**
