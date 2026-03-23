@@ -19,6 +19,10 @@
 4. 再打通下游 skill 联动
 5. 最后再围绕发布与运维做硬化
 
+同时增加一条执行约束：
+
+- 不允许把本应由 LLM 完成的语义工作，继续包装成脚本 fallback 保留在项目里。
+
 ## 2. 阶段划分
 
 ## 阶段 P0：冻结北极星目标与验收口径
@@ -98,19 +102,20 @@
 - 增加模型输出结构校验与归一化
 - 增加生成失败回退与置信度策略
 - 明确哪些情况下允许写盘，哪些情况下只返回不写
+- 删除脚本式人格化生成与相关 fallback 代码，而不是继续保留为“兜底”
 
 ### 建议实现切面
 
 - `src/core/generation_prompt.ts`
-- `src/core/infer_candidate.ts`
 - `src/tools/timeline_resolve.ts`
 - 新增 model-backed generation adapter
+- 删除或重写 `src/core/infer_candidate.ts`
 
 ### 完成标准
 
 - 空白窗口能生成更像真人的状态与回忆
 - 生成结果和 persona 文本有明显语义耦合
-- 不再需要继续往 heuristics 里堆大量关键词
+- 项目中不再保留脚本式人格化生成 fallback
 
 ## 阶段 P3：定义稳定消费协议与下游联动
 
@@ -219,6 +224,7 @@
 ## 4. 本阶段不应继续投入过多精力的方向
 
 - 继续往 heuristics 里堆大量关键词
+- 以“先留一个脚本 fallback 以防万一”为理由保留旧智能层代码
 - 围绕显式 tool call 成功反复做展示式测试
 - 在消费协议未定前，让下游 skill 直接依赖当前 trace/envelope 细节
 - 过早追求“文档看起来齐全”，却不收敛北极星目标

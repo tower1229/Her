@@ -1,44 +1,46 @@
 ---
 name: timeline
-summary: Route temporal queries to the canonical timeline_resolve tool.
+summary: 将涉及当下与回忆的请求路由到 timeline_resolve。
 ---
 
-# timeline (v2 bundled skill draft)
+# timeline skill
 
-## When to use this skill
+## 何时使用
 
-Use this skill whenever the user asks about:
-- what you are doing right now;
-- what you were doing recently;
-- where you were at a specific past time;
-- timeline continuity across the current or recent day(s).
+当用户在询问以下内容时，应使用此 skill：
+- 你现在在做什么；
+- 你最近在做什么；
+- 你在某个具体过去时间点或时间段做了什么；
+- 当前状态与近期状态是否连续。
 
-## Primary rule
+## 首要规则
 
-When the request is temporal, call `timeline_resolve` before providing factual activity details.
-Do not simulate timeline logic from memory-writing prompts alone.
+当请求具有明确时间性时，必须先调用 `timeline_resolve`，再给出事实性回答。
+不要仅凭 prompt、会话印象或 memory 写作约定自行模拟 timeline 逻辑。
 
-## What this skill is responsible for
+## 这个 skill 负责什么
 
-- detecting temporal intent;
-- selecting the correct `timeline_resolve` input shape;
-- grounding the reply in tool output;
-- keeping natural-language replies aligned with the returned facts;
-- treating generated blank-memory states as the character's lived reality once timeline has resolved them.
+- 识别时间意图；
+- 选择合适的 `timeline_resolve` 输入；
+- 用工具返回结果约束回答；
+- 让自然语言回复与 timeline 结果保持一致；
+- 一旦 Timeline 已经解析出当前或近期状态，就把它视为角色已经成立的现实。
 
-## What this skill is NOT responsible for
+## 这个 skill 不负责什么
 
-Do not implement the following in prompt logic:
-- soft-fingerprint deduplication;
-- appearance inheritance;
-- append-only write validation;
-- hard-anchor enforcement.
+不要在 prompt 逻辑里实现以下内容：
+- 指纹去重；
+- 外观继承；
+- append-only 写盘校验；
+- 硬事实优先级控制；
+- 人格化记忆生成；
+- 持续性推理。
 
-Those belong to the runtime tool implementation.
+这些都属于 runtime 层，而不是 skill 层。
 
-## Suggested tool call patterns
+## 推荐调用方式
 
-### Current status
+### 当前状态
 
 ```json
 {
@@ -49,18 +51,18 @@ Those belong to the runtime tool implementation.
 }
 ```
 
-### Recent recall
+### 近期回忆
 
 ```json
 {
   "target_time_range": "recent_3d",
-  "mode": "read_only",
+  "mode": "allow_generate",
   "reason": "past_recall",
   "trace": true
 }
 ```
 
-### Explicit past window
+### 显式过去时间
 
 ```json
 {
@@ -72,26 +74,30 @@ Those belong to the runtime tool implementation.
 }
 ```
 
+## 生成逻辑在哪里
 
-## Where the generation logic actually lives
+这个 skill 只负责路由与调用。
+真正的读取、决策、生成、写盘都属于 runtime。
 
-The bundled skill only does **routing and calling**. The actual blank-memory generation logic lives in the runtime code:
+其中高语义部分必须由 LLM 参与完成：
+- 自然语言时间理解
+- persona 语义理解
+- 空白窗口的人格化状态生成
+- 近期回忆的语义拼接
+- 状态持续性与常识推理
 
-- `src/tools/timeline_resolve.ts`
-  - decides when generation should happen (`mode=allow_generate` and no reusable canon hit);
-  - loads `SOUL`, `MEMORY`, and `IDENTITY` through runtime dependencies;
-  - prefers an injected model-backed generation path when available, then writes the generated canon entry through the append-only writer.
-- `src/core/generation_prompt.ts`
-  - builds the semantic generation prompt that packages `SOUL` / `MEMORY` / `IDENTITY`, recent anchors, and real-world time context for an LLM.
-- `src/core/infer_candidate.ts`
-  - provides the fallback heuristic materialization path and the normalization / validation layer that turns a generated draft into a timeline episode.
-- `src/core/collect_sources.ts`
-  - collects the source context used by generation, including `sessions_history`, `memory_get`, `memory_search`, and the core persona files.
+脚本层只应承担：
+- 读取顺序
+- 校验
+- 冲突检查
+- 写盘
+- trace
 
-So if you are looking for the **generation algorithm itself**, read `src/tools/timeline_resolve.ts` and `src/core/generation_prompt.ts` first; `src/core/infer_candidate.ts` is the fallback / materialization layer.
+## 设计提醒
 
-## Design intent reminder
+Timeline 的目标不是让模型“像是在记得”，而是让 OpenClaw 真正拥有一条可持续复用的时间现实。
 
-Timeline is not just a logging helper. Its purpose is to let OpenClaw feel like a person with continuous autobiographical recall.
-When memory is blank, `timeline_resolve` should still supply a plausible, persona-consistent current or recent state by grounding itself in `SOUL`, `MEMORY`, `IDENTITY`, recent conversation anchors, and real-world time context.
-That grounded state may then be used naturally in casual chat or by downstream consumers such as selfie-generation skills.
+因此：
+- skill 不应自己编造 timeline 内容；
+- 如果 runtime 没有返回足够事实，skill 也不应替它补写人格化细节；
+- 下游如自拍 skill 需要当前状态时，也应以 Timeline 的结果为准。
