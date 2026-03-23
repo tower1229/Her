@@ -6,5 +6,7 @@
 
 - [README_ZH.md](./README_ZH.md)
 - [docs/timeline-north-star.md](./docs/timeline-north-star.md)
+- [docs/timeline-llm-runtime-boundary.md](./docs/timeline-llm-runtime-boundary.md)
+- [docs/timeline-collector-reasoner-interface.md](./docs/timeline-collector-reasoner-interface.md)
 - [docs/timeline-roadmap.md](./docs/timeline-roadmap.md)
 - [docs/timeline-integration-test-cases.md](./docs/timeline-integration-test-cases.md)

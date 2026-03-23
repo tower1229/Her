@@ -213,6 +213,8 @@ openclaw plugins install -l .
 
 如果你要快速了解成熟度和下一步路线，建议优先阅读：
 - `docs/timeline-north-star.md`
+- `docs/timeline-llm-runtime-boundary.md`
+- `docs/timeline-collector-reasoner-interface.md`
 - `docs/timeline-roadmap.md`
 - `docs/timeline-integration-test-cases.md`
 - `CHANGELOG.md`

@@ -20,6 +20,8 @@ export interface TimelineWindow {
   window: {
     calendar_date: string;
     preset: string; // "now_today" | "recent_3d" | "explicit"
+    semantic_target?: string;
+    collection_scope?: string;
     start: string;
     end: string;
     idempotency_key: string;

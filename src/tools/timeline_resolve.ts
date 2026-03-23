@@ -71,6 +71,8 @@ export interface TimelineWindowResult {
   window: {
     calendar_date: string;
     preset: string;
+    semantic_target?: string;
+    collection_scope?: string;
     start: string;
     end: string;
     idempotency_key: string;
@@ -310,7 +312,7 @@ export async function timelineResolve(
       write_outcome: traceWrite.outcome,
     };
 
-    if (input.mode === 'allow_generate' && parsedEpisodes.length === 0) {
+    if (input.mode === 'allow_generate' && output.resolution_summary.mode === 'empty_window') {
         if (!runtimeDependencies.generateMemoryDraft) {
           throw new Error('LLM generation dependency missing');
         }
@@ -351,7 +353,7 @@ export async function timelineResolve(
                   internalMonologue: generated.parsed.internalMonologue,
                   naturalText: generated.parsed.naturalText,
                   filePath,
-                  windowPreset: window.preset,
+                  windowPreset: window.legacy_preset,
                   confidence: generated.parsed.confidence,
                 }),
               )
@@ -443,7 +445,9 @@ export async function timelineResolve(
             anchor: { now: window.end, timezone: window.timezone },
             window: {
               calendar_date: window.calendar_date,
-              preset: window.preset,
+              preset: window.legacy_preset,
+              semantic_target: window.semantic_target,
+              collection_scope: window.collection_scope,
               start: window.start,
               end: window.end,
               idempotency_key: normalizedWriteResult.idempotency_key || generated.idempotencyKey,
@@ -519,7 +523,7 @@ export async function timelineResolve(
 
     const trace = buildTrace({
       requested_range: input.target_time_range,
-      actual_range: window.preset,
+      actual_range: window.semantic_target,
       source_order: sources.sourceOrder,
       source_summary: {
         sessions_history_count: sources.sessionsHistory.length,

@@ -125,4 +125,66 @@ describe('timelineResolve', () => {
     expect(result.resolution_summary.mode).toBe('empty_window');
     expect(result.result?.episodes).toEqual([]);
   });
+
+  it('returns empty_window when the only parsed canon entry is stale for the current moment', async () => {
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
+      sessionsHistory: async () => ['User asked what are you doing right now?'],
+      memoryGet: async () => `
+### [09:00:00] 早餐
+- Timestamp: 2026-03-22 09:00:00
+- Location: 家里餐桌
+- Action: 慢慢吃早餐
+- Emotion_Tags: [平静, 清醒]
+- Appearance: 居家服
+      `,
+    });
+
+    const result = await timelineResolve({
+      target_time_range: 'now_today',
+      mode: 'read_only',
+      reason: 'current_status',
+      trace: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected empty-window success envelope');
+    expect(result.resolution_summary.mode).toBe('empty_window');
+  });
+
+  it('selects a query-matching parsed episode instead of blindly reusing the latest one', async () => {
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
+      sessionsHistory: async () => ['User asked about the morning gym visit.'],
+      memoryGet: async () => `
+### [09:00:00] 健身
+- Timestamp: 2026-03-22 09:00:00
+- Location: 小区健身房
+- Action: 上午去健身房练腿
+- Emotion_Tags: [投入, 累]
+- Appearance: 运动装
+
+### [11:30:00] 咖啡
+- Timestamp: 2026-03-22 11:30:00
+- Location: 街角咖啡馆
+- Action: 在咖啡馆慢慢坐着发呆
+- Emotion_Tags: [放松, 平静]
+- Appearance: 休闲外套
+      `,
+    });
+
+    const result = await timelineResolve({
+      target_time_range: 'natural_language',
+      query: '你上午不是在健身吗',
+      mode: 'read_only',
+      reason: 'past_recall',
+      trace: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected query-matched read-only hit');
+    expect(result.resolution_summary.mode).toBe('read_only_hit');
+    const episode: any = result.result?.episodes[0];
+    expect(String(episode?.state_snapshot?.scene?.activity || '')).toContain('健身房');
+  });
 });

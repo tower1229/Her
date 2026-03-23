@@ -4,15 +4,17 @@ import { mapToEpisode, parseMemoryFile } from '../lib/parse-memory';
 import { dayOfWeek, formatDate, parseTimestampParts } from '../lib/time-utils';
 import { CollectedSources } from './collect_sources';
 import { ResolvedWindow } from './resolve_window';
+import { selectEpisodeForWindow } from './select_episode';
 import { TimelineResolveInput, TimelineResolveOutput } from '../tools/timeline_resolve';
 
 export function buildReadOnlyResult(
-  _input: TimelineResolveInput,
+  input: TimelineResolveInput,
   window: ResolvedWindow,
   sources: CollectedSources,
 ): TimelineResolveOutput {
   const parsedEpisodes = parseMemoryFile(sources.memoryContent);
-  const candidate = parsedEpisodes[parsedEpisodes.length - 1];
+  const selection = selectEpisodeForWindow(parsedEpisodes, window, input);
+  const candidate = selection.episode;
 
   if (!candidate) {
     return {
@@ -33,18 +35,20 @@ export function buildReadOnlyResult(
         anchor: { now: window.end, timezone: window.timezone },
         window: {
           calendar_date: window.calendar_date,
-          preset: window.preset,
+          preset: window.legacy_preset,
+          semantic_target: window.semantic_target,
+          collection_scope: window.collection_scope,
           start: window.start,
           end: window.end,
           idempotency_key: 'none',
         },
         resolution: {
           mode: 'empty_window',
-          notes: 'no parsed episodes found for the requested window',
+          notes: selection.reason,
         },
         episodes: [],
       },
-      notes: ['No parsed episodes found in memory_get output for the requested window.'],
+      notes: [selection.reason],
     };
   }
 
@@ -85,19 +89,19 @@ export function buildReadOnlyResult(
       anchor: { now: window.end, timezone: window.timezone },
       window: {
         calendar_date: window.calendar_date,
-        preset: window.preset,
+        preset: window.legacy_preset,
+        semantic_target: window.semantic_target,
+        collection_scope: window.collection_scope,
         start: window.start,
         end: window.end,
         idempotency_key: fp,
       },
       resolution: {
         mode: 'read_only_hit',
-        notes: hit.hit
-          ? 'reused the latest parsed memory entry inside the requested window'
-          : 'reused the latest parsed memory entry inside the requested window',
+        notes: selection.reason,
       },
       episodes: [episode],
     },
-    notes: ['Read-only hit returned from the latest parsed daily log entry.'],
+    notes: [selection.reason],
   };
 }

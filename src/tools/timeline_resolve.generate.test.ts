@@ -132,4 +132,43 @@ describe('timelineResolve generation path', () => {
     expect(result.trace?.write.guard).toBe('conflict');
   });
 
+  it('can generate a fresh current-state entry when older same-day canon no longer matches the current window', async () => {
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
+      sessionsHistory: async () => ['User asked what are you doing right now?'],
+      memoryGet: async () => `
+### [09:00:00] 早餐
+- Timestamp: 2026-03-22 09:00:00
+- Location: 家里餐桌
+- Action: 慢慢吃早餐
+- Emotion_Tags: [平静, 清醒]
+- Appearance: 居家服
+      `,
+      generateMemoryDraft: async () => ({
+        location: '家里书房靠窗的桌子',
+        action: '继续整理下午的工作内容',
+        emotionTags: ['专注', '平静'],
+        appearance: '舒适的家居服，头发随意挽起',
+        internalMonologue: '早餐那一段早就过去了，现在应该以当下状态为准。',
+        naturalText: '她现在正在家里书房继续下午的工作内容。',
+        confidence: 0.81,
+        reason: 'llm gap-fill for stale current-state canon',
+      }),
+      memoryFilePath: () => tmpFile,
+    });
+
+    const result = await timelineResolve({
+      target_time_range: 'now_today',
+      mode: 'allow_generate',
+      reason: 'current_status',
+      trace: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected generated success envelope');
+    expect(result.resolution_summary.mode).toBe('generated_new');
+    const episode: any = result.result?.episodes[0];
+    expect(String(episode?.state_snapshot?.scene?.activity || '')).toContain('下午的工作内容');
+  });
+
 });
