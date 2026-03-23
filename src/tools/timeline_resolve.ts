@@ -3,7 +3,8 @@ import * as os from 'os';
 import * as path from 'path';
 import { collectSources, TimelineSourceDependencies } from '../core/collect_sources';
 import { buildReadOnlyResult } from '../core/map_window';
-import { inferCandidate } from '../core/infer_candidate';
+import { inferCandidate, materializeGeneratedCandidate, TimelineGeneratedDraft } from '../core/infer_candidate';
+import { buildTimelineGenerationPrompt, TimelineGenerationRequest } from '../core/generation_prompt';
 import { buildTrace, TimelineTrace } from '../core/trace';
 import { parseMemoryFile } from '../lib/parse-memory';
 import { assertCanonicalDailyLogPath } from '../storage/daily_log';
@@ -98,6 +99,7 @@ export interface TimelineRuntimeDependencies extends TimelineSourceDependencies 
   writeEpisode?: (input: WriteEpisodeInput) => Promise<WriteResult>;
   memoryFilePath?: (calendarDate: string) => string;
   traceLogPath?: string;
+  generateMemoryDraft?: (input: TimelineGenerationRequest) => Promise<TimelineGeneratedDraft | null>;
 }
 
 function readOptionalTextFile(filePath: string): string {
@@ -241,7 +243,16 @@ export async function timelineResolve(
     };
 
     if (input.mode === 'allow_generate' && parsedEpisodes.length === 0) {
-        const generated = inferCandidate(window, sources);
+        const modelDraft = runtimeDependencies.generateMemoryDraft
+          ? await runtimeDependencies.generateMemoryDraft({
+              window,
+              sources,
+              prompt: buildTimelineGenerationPrompt(window, sources),
+            })
+          : null;
+        const generated = modelDraft
+          ? materializeGeneratedCandidate(window, sources, modelDraft, modelDraft.reason || 'llm-guided semantic timeline synthesis')
+          : inferCandidate(window, sources);
         traceAppearance = generated.appearance;
         const requestedPath = runtimeDependencies.memoryFilePath
           ? runtimeDependencies.memoryFilePath(window.calendar_date)

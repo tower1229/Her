@@ -7,6 +7,17 @@ import { getHoliday } from '../lib/holidays';
 import { CollectedSources } from './collect_sources';
 import { ResolvedWindow } from './resolve_window';
 
+export interface TimelineGeneratedDraft {
+  location: string;
+  action: string;
+  emotionTags: string[];
+  appearance: string;
+  internalMonologue: string;
+  naturalText: string;
+  confidence: number;
+  reason?: string;
+}
+
 export interface GeneratedCandidateResult {
   parsed: ParsedEpisode;
   episode: ReturnType<typeof mapToEpisode>;
@@ -36,17 +47,6 @@ interface PersonaProfile {
     photography: boolean;
     homebody: boolean;
   };
-}
-
-interface CandidateChoice {
-  location: string;
-  action: string;
-  emotionTags: string[];
-  internalMonologue: string;
-  naturalText: string;
-  appearanceDefault: string;
-  confidence: number;
-  reason: string;
 }
 
 function extractAge(text: string): number | undefined {
@@ -160,7 +160,7 @@ function styleAppearance(style: PersonaProfile['style'], base: 'home' | 'outdoor
   return map[style][base];
 }
 
-function chooseTemplate(window: ResolvedWindow, sources: CollectedSources, profile: PersonaProfile): CandidateChoice {
+function chooseHeuristicDraft(window: ResolvedWindow, sources: CollectedSources, profile: PersonaProfile): TimelineGeneratedDraft {
   const dayEpisodes = parseMemoryFile(sources.memoryContent);
   const parts = parseTimestampParts(window.end);
   if (!parts) {
@@ -175,30 +175,28 @@ function chooseTemplate(window: ResolvedWindow, sources: CollectedSources, profi
   const priorEpisode = dayEpisodes[dayEpisodes.length - 1];
 
   if (anchor) {
-    const action = `following the thread of a real ongoing context: ${anchor.slice(0, 96)}`;
     return {
       location: priorEpisode?.location || profile.homeLabel,
-      action,
+      action: `following the thread of a real ongoing context: ${anchor.slice(0, 96)}`,
       emotionTags: ['focused', 'present'],
       internalMonologue: 'The current thread already has enough context, so I should stay consistent with it instead of improvising wildly.',
       naturalText: 'The current state is being inferred from a hard conversational anchor and aligned with the persona memory context.',
-      appearanceDefault: styleAppearance(profile.style, priorEpisode ? 'home' : 'cafe'),
+      appearance: styleAppearance(profile.style, priorEpisode ? 'home' : 'cafe'),
       confidence: 0.74,
       reason: 'sessions_history or semantic recall provided a usable hard anchor',
     };
   }
 
   if (priorEpisode) {
-    const continuing = timeBand === 'late_night'
-      ? `winding down after ${priorEpisode.action}`
-      : `continuing the thread of ${priorEpisode.action}`;
     return {
       location: priorEpisode.location,
-      action: continuing,
+      action: timeBand === 'late_night'
+        ? `winding down after ${priorEpisode.action}`
+        : `continuing the thread of ${priorEpisode.action}`,
       emotionTags: ['calm', 'focused'],
       internalMonologue: 'The day should feel continuous, so the safest move is to extend what was already happening rather than jump to a random new scene.',
       naturalText: 'The current moment is inferred as a continuation of the latest same-day canon state.',
-      appearanceDefault: priorEpisode.appearance === 'unknown' ? styleAppearance(profile.style, 'home') : priorEpisode.appearance,
+      appearance: priorEpisode.appearance === 'unknown' ? styleAppearance(profile.style, 'home') : priorEpisode.appearance,
       confidence: 0.68,
       reason: 'same-day canon continuity anchor available',
     };
@@ -211,7 +209,7 @@ function chooseTemplate(window: ResolvedWindow, sources: CollectedSources, profi
       emotionTags: ['sleepy', 'calm'],
       internalMonologue: 'Nothing dramatic is happening right now; the body just wants rest and quiet.',
       naturalText: 'With no stronger factual anchor and the current time deep into the night, the most reasonable non-empty state is sleep.',
-      appearanceDefault: styleAppearance(profile.style, 'sleep'),
+      appearance: styleAppearance(profile.style, 'sleep'),
       confidence: 0.7,
       reason: 'time-of-day strongly suggests sleep / night rest',
     };
@@ -224,7 +222,7 @@ function chooseTemplate(window: ResolvedWindow, sources: CollectedSources, profi
       emotionTags: ['energized', 'focused'],
       internalMonologue: 'A little movement clears my head and makes the rest of the day feel much more grounded.',
       naturalText: 'The generated memory follows the persona’s movement-oriented habits and the current real-world time window.',
-      appearanceDefault: styleAppearance(profile.style, 'sport'),
+      appearance: styleAppearance(profile.style, 'sport'),
       confidence: 0.67,
       reason: 'sport / routine signals from persona context matched the current time window',
     };
@@ -239,63 +237,78 @@ function chooseTemplate(window: ResolvedWindow, sources: CollectedSources, profi
       emotionTags: ['focused', 'inspired'],
       internalMonologue: 'This kind of quiet block is where scattered impressions finally begin to make sense.',
       naturalText: 'The generated memory aligns the persona’s creative tendencies with a realistic afternoon work rhythm.',
-      appearanceDefault: styleAppearance(profile.style, 'home'),
+      appearance: styleAppearance(profile.style, 'home'),
       confidence: 0.65,
       reason: 'creative / photography signals from SOUL, MEMORY, or IDENTITY matched the current day phase',
     };
   }
 
   if ((profile.traits.social || profile.traits.foodie) && (weekend || holiday || timeBand === 'evening')) {
-    const holidayLabel = holiday ? `because today is ${holiday}` : 'because the current time fits a social outing';
     return {
       location: 'a cozy neighborhood cafe with warm light and a low-key crowd',
       action: 'sitting with a drink, people-watching a little, and letting the conversation atmosphere settle in',
       emotionTags: ['relaxed', 'content'],
-      internalMonologue: `This kind of place makes it easy to feel present and human, ${holidayLabel}.`,
+      internalMonologue: `This kind of place makes it easy to feel present and human, ${holiday ? `because today is ${holiday}` : 'because the current time fits a social outing'}.`,
       naturalText: 'The generated memory uses persona social cues together with weekend / holiday context to avoid a blank state.',
-      appearanceDefault: styleAppearance(profile.style, 'cafe'),
+      appearance: styleAppearance(profile.style, 'cafe'),
       confidence: 0.63,
       reason: 'social / cafe-oriented persona cues combined with weekend, holiday, or evening timing',
     };
   }
 
-  const homeAction = weekend || holiday
-    ? 'moving slowly around the apartment, tidying small things, and enjoying a low-pressure day'
-    : 'making progress on small personal tasks and checking in with the day in a quiet, self-directed way';
-
   return {
     location: profile.homeLabel,
-    action: homeAction,
+    action: weekend || holiday
+      ? 'moving slowly around the apartment, tidying small things, and enjoying a low-pressure day'
+      : 'making progress on small personal tasks and checking in with the day in a quiet, self-directed way',
     emotionTags: profile.traits.introspective ? ['calm', 'self-contained'] : ['calm', 'steady'],
     internalMonologue: 'There is no strong external anchor right now, so the most believable state is a grounded, ordinary slice of life rather than a dramatic invention.',
     naturalText: 'The generated memory falls back to an ordinary persona-consistent daily moment instead of returning a blank response.',
-    appearanceDefault: styleAppearance(profile.style, 'home'),
+    appearance: styleAppearance(profile.style, 'home'),
     confidence: 0.58,
     reason: 'persona-guided low-information fallback using SOUL / MEMORY / IDENTITY plus real-world time context',
   };
 }
 
-export function inferCandidate(window: ResolvedWindow, sources: CollectedSources): GeneratedCandidateResult {
+export function normalizeGeneratedDraft(draft: TimelineGeneratedDraft): TimelineGeneratedDraft {
+  const emotionTags = (draft.emotionTags || []).map((tag) => String(tag).trim()).filter(Boolean);
+  return {
+    location: String(draft.location || 'unknown').trim() || 'unknown',
+    action: String(draft.action || 'staying in a low-information but non-empty state').trim(),
+    emotionTags: emotionTags.length > 0 ? emotionTags.slice(0, 3) : ['calm'],
+    appearance: String(draft.appearance || 'comfortable home clothes with a relaxed look').trim(),
+    internalMonologue: String(draft.internalMonologue || 'Keeping the generated memory grounded and persona-consistent.').trim(),
+    naturalText: String(draft.naturalText || 'A persona-consistent generated memory was used because no canon entry matched the requested window.').trim(),
+    confidence: Math.max(0.2, Math.min(1, Number.isFinite(draft.confidence) ? draft.confidence : 0.6)),
+    reason: draft.reason ? String(draft.reason).trim() : undefined,
+  };
+}
+
+export function materializeGeneratedCandidate(
+  window: ResolvedWindow,
+  sources: CollectedSources,
+  draft: TimelineGeneratedDraft,
+  reason = 'generated candidate from semantic memory synthesis',
+): GeneratedCandidateResult {
+  const normalized = normalizeGeneratedDraft(draft);
   const dayEpisodes = parseMemoryFile(sources.memoryContent);
   const timestampParts = parseTimestampParts(window.end);
   if (!timestampParts) {
     throw new Error(`Cannot infer candidate without parseable window end: ${window.end}`);
   }
 
-  const profile = buildProfile(sources);
-  const choice = chooseTemplate(window, sources, profile);
   const priorEpisode = dayEpisodes[dayEpisodes.length - 1];
-  const appearanceResolution = resolveAppearance(dayEpisodes, choice.action, choice.appearanceDefault);
+  const appearanceResolution = resolveAppearance(dayEpisodes, normalized.action, normalized.appearance);
   const parsed: ParsedEpisode = {
     timestamp: window.end,
-    location: choice.location,
-    action: choice.action,
-    emotionTags: choice.emotionTags,
+    location: normalized.location,
+    action: normalized.action,
+    emotionTags: normalized.emotionTags,
     appearance: appearanceResolution.appearance,
-    internalMonologue: choice.internalMonologue,
-    naturalText: choice.naturalText,
+    internalMonologue: normalized.internalMonologue,
+    naturalText: normalized.naturalText,
     parseLevel: 'A',
-    confidence: choice.confidence,
+    confidence: normalized.confidence,
   };
 
   const date = formatDate(timestampParts);
@@ -309,11 +322,11 @@ export function inferCandidate(window: ResolvedWindow, sources: CollectedSources
     parsed,
     episode: mapToEpisode(parsed, worldHooks, idempotencyKey),
     idempotencyKey,
-    confidenceReason: choice.reason,
+    confidenceReason: normalized.reason || reason,
     notes: [
       'No reusable canon entry found; generated a persona-consistent timeline memory.',
-      `Generation basis: ${choice.reason}`,
-      `Persona context loaded: ${profile.summaryText ? 'SOUL / MEMORY / IDENTITY signals available' : 'no explicit profile files found; used generic world-aware fallback'}`,
+      `Generation basis: ${normalized.reason || reason}`,
+      `Persona context loaded: ${sources.coreContext.soul || sources.coreContext.memory || sources.coreContext.identity ? 'SOUL / MEMORY / IDENTITY signals available' : 'no explicit profile files found; generation relied on weaker context'}`,
       `Appearance resolution: ${appearanceResolution.reason}`,
     ],
     appearance: {
@@ -322,4 +335,10 @@ export function inferCandidate(window: ResolvedWindow, sources: CollectedSources
       source_episode_timestamp: priorEpisode?.timestamp,
     },
   };
+}
+
+export function inferCandidate(window: ResolvedWindow, sources: CollectedSources): GeneratedCandidateResult {
+  const profile = buildProfile(sources);
+  const heuristicDraft = chooseHeuristicDraft(window, sources, profile);
+  return materializeGeneratedCandidate(window, sources, heuristicDraft, heuristicDraft.reason || 'heuristic persona-guided synthesis');
 }

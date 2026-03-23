@@ -201,6 +201,7 @@ openclaw plugins install -l .
 
 如果你要快速了解成熟度和下一步路线，建议优先阅读：
 - `docs/timeline-v2-status.md`
+- `docs/timeline-v2-implementation-review.md`
 - `docs/timeline-v2-release-checklist.md`
 - `docs/timeline-v2-quickstart.md`
 - `docs/timeline-v2-migration.md`

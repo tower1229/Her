@@ -80,14 +80,15 @@ The bundled skill only does **routing and calling**. The actual blank-memory gen
 - `src/tools/timeline_resolve.ts`
   - decides when generation should happen (`mode=allow_generate` and no reusable canon hit);
   - loads `SOUL`, `MEMORY`, and `IDENTITY` through runtime dependencies;
-  - writes the generated canon entry through the append-only writer.
+  - prefers an injected model-backed generation path when available, then writes the generated canon entry through the append-only writer.
+- `src/core/generation_prompt.ts`
+  - builds the semantic generation prompt that packages `SOUL` / `MEMORY` / `IDENTITY`, recent anchors, and real-world time context for an LLM.
 - `src/core/infer_candidate.ts`
-  - turns `SOUL` / `MEMORY` / `IDENTITY` + recent anchors + real-world time context into a plausible memory candidate;
-  - chooses location / action / emotion / appearance / internal monologue for blank-memory windows.
+  - provides the fallback heuristic materialization path and the normalization / validation layer that turns a generated draft into a timeline episode.
 - `src/core/collect_sources.ts`
   - collects the source context used by generation, including `sessions_history`, `memory_get`, `memory_search`, and the core persona files.
 
-So if you are looking for the **generation algorithm itself**, read `src/core/infer_candidate.ts` first, then `src/tools/timeline_resolve.ts`.
+So if you are looking for the **generation algorithm itself**, read `src/tools/timeline_resolve.ts` and `src/core/generation_prompt.ts` first; `src/core/infer_candidate.ts` is the fallback / materialization layer.
 
 ## Design intent reminder
 
