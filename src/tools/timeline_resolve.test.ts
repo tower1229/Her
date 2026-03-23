@@ -62,6 +62,17 @@ describe('timelineResolve', () => {
       currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
       sessionsHistory: async () => ['User asked what are you doing right now?'],
       memoryGet: async () => '',
+      generateMemoryDraft: async () => ({
+        location: '家里书房靠窗的桌子',
+        action: '整理下午的工作内容',
+        emotionTags: ['专注', '平静'],
+        appearance: '舒适的家居服，头发随意挽起',
+        internalMonologue: '先把眼前的工作整理完再说。',
+        naturalText: '她正在家里书房继续下午的工作。',
+        confidence: 0.74,
+      }),
+      writeEpisode: async () => ({ success: true, written_at: '2026-03-22T14:30:01+08:00' }),
+      memoryFilePath: () => 'memory/2026-03-22.md',
     });
 
     const result = await timelineResolve({
@@ -74,6 +85,25 @@ describe('timelineResolve', () => {
     expect(result.ok).toBe(true);
     expect(result.trace).toBeUndefined();
     expect(result.trace_id).toContain('timeline-');
+  });
+
+  it('returns an explicit generation_unavailable error when generation is allowed but no LLM is configured', async () => {
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
+      sessionsHistory: async () => ['User asked what are you doing right now?'],
+      memoryGet: async () => '',
+    });
+
+    const result = await timelineResolve({
+      target_time_range: 'now_today',
+      mode: 'allow_generate',
+      reason: 'current_status',
+      trace: true,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected generation-unavailable contract error');
+    expect(result.error.code).toBe('GENERATION_UNAVAILABLE');
   });
 
   it('returns an explicit empty_window contract when read-only canon is blank', async () => {

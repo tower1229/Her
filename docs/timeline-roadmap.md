@@ -109,7 +109,7 @@
 - `src/core/generation_prompt.ts`
 - `src/tools/timeline_resolve.ts`
 - 新增 model-backed generation adapter
-- 删除或重写 `src/core/infer_candidate.ts`
+- 不再保留旧的脚本式人格化生成模块，生成功能只保留 LLM draft 的结构化落盘路径
 
 ### 完成标准
 

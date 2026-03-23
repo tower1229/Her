@@ -52,6 +52,16 @@ describe('timelineResolve trace schema', () => {
       currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
       sessionsHistory: async () => ['Generated trace run.'],
       memoryGet: async () => '',
+      generateMemoryDraft: async () => ({
+        location: '家里书房靠窗的桌子',
+        action: '继续梳理当前这段对话对应的工作内容',
+        emotionTags: ['专注', '平静'],
+        appearance: '舒适的家居服，头发随意挽起',
+        internalMonologue: '把当前状态固定下来，后续回复才会稳。',
+        naturalText: '她正在家里书房继续梳理当前的工作内容。',
+        confidence: 0.79,
+        reason: 'llm generation for trace coverage',
+      }),
       memoryFilePath: () => 'memory/2026-03-22.md',
       writeEpisode: async () => ({ success: true, written_at: '2026-03-22T14:30:01+08:00' }),
       traceLogPath,
@@ -69,19 +79,24 @@ describe('timelineResolve trace schema', () => {
     expect(result.trace?.write.succeeded).toBe(true);
     expect(result.trace?.write.guard).toBe('canonical_path');
     expect(result.trace?.appearance.reason).toBeTruthy();
-    expect(result.trace?.fingerprint.fallback_reason).toBeTruthy();
+    expect(result.trace?.fingerprint.reason).toBeTruthy();
     expect(result.trace?.decision.resolution_mode).toBe('generated_new');
   });
 
-  it('can generate a persona-consistent entry for non-now_today ranges when memory is blank', async () => {
+  it('can materialize an llm-generated entry for non-now_today ranges when memory is blank', async () => {
     setTimelineResolveDependencies({
       currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
       sessionsHistory: async () => [],
       memoryGet: async () => '',
-      coreFiles: async () => ({
-        soul: 'She likes taking realistic selfies and keeping a coherent sense of daily life.',
-        memory: 'She often spends weekends around cafes, notes, and reflective downtime.',
-        identity: 'A woman in her twenties living in Shanghai.',
+      generateMemoryDraft: async () => ({
+        location: '安静的社区咖啡馆角落',
+        action: '回想最近几天里最值得提起的一段放松时刻',
+        emotionTags: ['轻松', '满足'],
+        appearance: '整洁的休闲穿搭，外套随手搭在椅背上',
+        internalMonologue: '最近并不喧闹，但这种安静的小片段其实很适合被记住。',
+        naturalText: '她想起最近几天里一个安静却很舒服的咖啡馆片段。',
+        confidence: 0.76,
+        reason: 'llm recent-recall synthesis',
       }),
       writeEpisode: async () => ({ success: true, written_at: '2026-03-22T14:30:01+08:00' }),
       traceLogPath,

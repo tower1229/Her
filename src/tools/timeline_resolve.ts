@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { collectSources, TimelineSourceDependencies } from '../core/collect_sources';
 import { buildReadOnlyResult } from '../core/map_window';
-import { inferCandidate, materializeGeneratedCandidate, TimelineGeneratedDraft } from '../core/infer_candidate';
+import { materializeGeneratedCandidate, TimelineGeneratedDraft } from '../core/materialize_generated_candidate';
 import { buildTimelineGenerationPrompt, TimelineGenerationRequest } from '../core/generation_prompt';
 import { buildTrace, TimelineTrace } from '../core/trace';
 import { parseMemoryFile } from '../lib/parse-memory';
@@ -27,6 +27,7 @@ export type TimelineResolveErrorCode =
   | 'INVALID_INPUT'
   | 'INVALID_RANGE'
   | 'SOURCE_FAILURE'
+  | 'GENERATION_UNAVAILABLE'
   | 'WRITE_BLOCKED'
   | 'WRITE_CONFLICT'
   | 'WRITE_FAILED'
@@ -164,6 +165,8 @@ function classifyTimelineResolveError(error: Error): TimelineResolveErrorCode {
   const message = error.message || 'Unknown timeline_resolve failure';
   if (message.includes('natural_language range requires query')) return 'INVALID_INPUT';
   if (message.includes('Invalid explicit') || message.includes('explicit range')) return 'INVALID_RANGE';
+  if (message.includes('LLM generation')) return 'GENERATION_UNAVAILABLE';
+  if (message.includes('Generated draft')) return 'GENERATION_UNAVAILABLE';
   if (message.includes('Canonical daily logs')) return 'WRITE_BLOCKED';
   if (message.includes('Lock already held')) return 'WRITE_CONFLICT';
   if (message.includes('write dependency missing')) return 'WRITE_BLOCKED';
@@ -300,7 +303,7 @@ export async function timelineResolve(
       compared_episodes: parsedEpisodes.length,
       idempotency_key: output.result?.window.idempotency_key,
       matched_episode_timestamp: parsedEpisodes[parsedEpisodes.length - 1]?.timestamp,
-      fallback_reason: parsedEpisodes.length === 0 ? 'no parsed episodes found in memory content' : undefined,
+      reason: parsedEpisodes.length === 0 ? 'no parsed episodes found in memory content' : undefined,
     };
     let decision: TimelineTrace['decision'] = {
       resolution_mode: output.resolution_summary.mode,
@@ -308,16 +311,18 @@ export async function timelineResolve(
     };
 
     if (input.mode === 'allow_generate' && parsedEpisodes.length === 0) {
-        const modelDraft = runtimeDependencies.generateMemoryDraft
-          ? await runtimeDependencies.generateMemoryDraft({
-              window,
-              sources,
-              prompt: buildTimelineGenerationPrompt(window, sources),
-            })
-          : null;
-        const generated = modelDraft
-          ? materializeGeneratedCandidate(window, sources, modelDraft, modelDraft.reason || 'llm-guided semantic timeline synthesis')
-          : inferCandidate(window, sources);
+        if (!runtimeDependencies.generateMemoryDraft) {
+          throw new Error('LLM generation dependency missing');
+        }
+        const modelDraft = await runtimeDependencies.generateMemoryDraft({
+          window,
+          sources,
+          prompt: buildTimelineGenerationPrompt(window, sources),
+        });
+        if (!modelDraft) {
+          throw new Error('LLM generation returned no draft');
+        }
+        const generated = materializeGeneratedCandidate(window, sources, modelDraft, modelDraft.reason || 'llm-guided semantic timeline synthesis');
         traceAppearance = generated.appearance;
         const requestedPath = runtimeDependencies.memoryFilePath
           ? runtimeDependencies.memoryFilePath(window.calendar_date)
@@ -411,12 +416,12 @@ export async function timelineResolve(
           matched: false,
           compared_episodes: 0,
           idempotency_key: normalizedWriteResult.idempotency_key || generated.idempotencyKey,
-          fallback_reason: generated.confidenceReason,
+          reason: generated.generationReason,
         };
         decision = {
           resolution_mode: resolutionMode,
           write_outcome: normalizedWriteResult.outcome,
-          fallback_category: normalizedWriteResult.success ? undefined : 'write_failure',
+          category: normalizedWriteResult.success ? undefined : 'write_failure',
           error_code: failedWrite?.errorCode,
         };
 
@@ -504,7 +509,7 @@ export async function timelineResolve(
         checked: false,
         matched: false,
         compared_episodes: 0,
-        fallback_reason: 'no parsed episodes found in memory content',
+        reason: 'no parsed episodes found in memory content',
       };
       decision = {
         resolution_mode: output.resolution_summary.mode,
@@ -553,7 +558,7 @@ export async function timelineResolve(
         checked: false,
         matched: false,
         compared_episodes: 0,
-        fallback_reason: timelineError.message,
+        reason: timelineError.message,
       },
       appearance: { inherited: false, reason: 'error' },
       write: {
@@ -566,6 +571,7 @@ export async function timelineResolve(
       decision: {
         resolution_mode: 'error',
         write_outcome: 'not_attempted',
+        category: 'error',
         error_code: errorCode,
       },
       notes: [timelineError.message],

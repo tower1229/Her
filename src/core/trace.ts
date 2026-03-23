@@ -19,7 +19,7 @@ export interface TimelineTrace {
     compared_episodes: number;
     idempotency_key?: string;
     matched_episode_timestamp?: string;
-    fallback_reason?: string;
+    reason?: string;
   };
   appearance: {
     inherited: boolean;
@@ -41,7 +41,7 @@ export interface TimelineTrace {
   decision: {
     resolution_mode: string;
     write_outcome?: string;
-    fallback_category?: string;
+    category?: string;
     error_code?: string;
   };
   notes: string[];

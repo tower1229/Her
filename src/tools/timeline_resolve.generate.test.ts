@@ -19,7 +19,7 @@ afterAll(() => {
 });
 
 describe('timelineResolve generation path', () => {
-  it('generates and persists a conservative candidate when no memory entry exists', async () => {
+  it('refuses to generate when no LLM generation dependency is configured', async () => {
     setTimelineResolveDependencies({
       currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
       sessionsHistory: async () => ['User just asked what are you doing right now?'],
@@ -39,32 +39,10 @@ describe('timelineResolve generation path', () => {
       trace: true,
     });
 
-    expect(result.ok).toBe(true);
-    expect(result.resolution_summary.mode).toBe('generated_new');
-    expect(result.resolution_summary.writes_attempted).toBe(1);
-    expect(result.resolution_summary.writes_succeeded).toBe(1);
-    expect(result.result?.episodes).toHaveLength(1);
-    const generatedEpisode: any = result.result?.episodes[0];
-    expect(generatedEpisode).toMatchObject({
-      state_snapshot: {
-        scene: {
-          location_label: expect.any(String),
-          activity: expect.any(String),
-        },
-        appearance: {
-          outfit_style: expect.any(String),
-        },
-      },
-      provenance: {
-        confidence: expect.any(Number),
-      },
-    });
-    expect(String(generatedEpisode?.state_snapshot?.scene?.activity || '')).not.toContain('resting quietly and staying in a low-information state');
-    expect(fs.existsSync(tmpFile)).toBe(true);
-
-    const content = fs.readFileSync(tmpFile, 'utf8');
-    expect(content).toContain('- Timestamp: 2026-03-22 14:30:00');
-    expect(content).toContain('- Emotion_Tags: [focused, inspired]');
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected generation-unavailable error');
+    expect(result.error.code).toBe('GENERATION_UNAVAILABLE');
+    expect(fs.existsSync(tmpFile)).toBe(false);
   });
 
   it('prefers an injected LLM-style generation path when available', async () => {
@@ -118,6 +96,16 @@ describe('timelineResolve generation path', () => {
         soul: 'She is introspective and likes a coherent autobiographical timeline.',
         memory: 'She often works quietly from home in the afternoon.',
         identity: 'A woman living in Shanghai.',
+      }),
+      generateMemoryDraft: async () => ({
+        location: '家里书房靠窗的桌子',
+        action: '继续整理下午的工作内容并回应当前状态询问',
+        emotionTags: ['专注', '平静'],
+        appearance: '舒适的家居服，头发随意挽起',
+        internalMonologue: '先把当前状态稳定下来，后面才不容易漂。',
+        naturalText: '她还在家里书房里继续下午的工作。',
+        confidence: 0.78,
+        reason: 'llm timeline generation for conflict-path validation',
       }),
       writeEpisode: async () => ({
         success: false,
