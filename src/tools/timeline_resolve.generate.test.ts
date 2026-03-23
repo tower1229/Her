@@ -41,7 +41,7 @@ describe('timelineResolve generation path', () => {
 
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('expected generation-unavailable error');
-    expect(result.error.code).toBe('GENERATION_UNAVAILABLE');
+    expect(result.error.code).toBe('REASONER_UNAVAILABLE');
     expect(fs.existsSync(tmpFile)).toBe(false);
   });
 
@@ -55,10 +55,29 @@ describe('timelineResolve generation path', () => {
         memory: 'She often writes in a reflective tone and prefers cozy evening scenes.',
         identity: 'A young woman living in Shanghai.',
       }),
-      generateMemoryDraft: async ({ prompt }) => {
-        expect(prompt).toContain('SOUL.md');
-        expect(prompt).toContain('IDENTITY');
+      reasonTimeline: async (collector) => {
+        expect(collector.persona_context.soul).toContain('customized');
+        expect(collector.persona_context.identity).toContain('Shanghai');
         return {
+          schema_version: '1.0',
+          request_id: collector.request_id,
+          request_type: 'current_status',
+          decision: {
+            action: 'generate_new_fact',
+            should_write_canon: true,
+          },
+          continuity: {
+            judged: true,
+            is_continuing: false,
+            reason: 'no canon fact covered the requested current moment',
+          },
+          rationale: {
+            summary: 'Generated a new evening fact from persona context.',
+            hard_fact_basis: [],
+            canon_basis: [],
+            persona_basis: ['soul', 'memory', 'identity'],
+          },
+          generated_fact: {
           location: 'a softly lit neighborhood cafe corner',
           action: 'writing down scattered thoughts while waiting for the evening to settle',
           emotionTags: ['calm', 'reflective'],
@@ -67,6 +86,7 @@ describe('timelineResolve generation path', () => {
           naturalText: 'She is spending the evening in a quiet cafe, letting the day taper into a reflective mood.',
           confidence: 0.83,
           reason: 'llm persona synthesis from customized soul and memory context',
+          },
         };
       },
       memoryFilePath: () => tmpFile,
@@ -97,15 +117,35 @@ describe('timelineResolve generation path', () => {
         memory: 'She often works quietly from home in the afternoon.',
         identity: 'A woman living in Shanghai.',
       }),
-      generateMemoryDraft: async () => ({
-        location: '家里书房靠窗的桌子',
-        action: '继续整理下午的工作内容并回应当前状态询问',
-        emotionTags: ['专注', '平静'],
-        appearance: '舒适的家居服，头发随意挽起',
-        internalMonologue: '先把当前状态稳定下来，后面才不容易漂。',
-        naturalText: '她还在家里书房里继续下午的工作。',
-        confidence: 0.78,
-        reason: 'llm timeline generation for conflict-path validation',
+      reasonTimeline: async (collector) => ({
+        schema_version: '1.0',
+        request_id: collector.request_id,
+        request_type: 'current_status',
+        decision: {
+          action: 'generate_new_fact',
+          should_write_canon: true,
+        },
+        continuity: {
+          judged: true,
+          is_continuing: false,
+          reason: 'generation is required for the current state',
+        },
+        rationale: {
+          summary: 'Generated a current-state fact for conflict-path validation.',
+          hard_fact_basis: [],
+          canon_basis: [],
+          persona_basis: ['soul', 'memory'],
+        },
+        generated_fact: {
+          location: '家里书房靠窗的桌子',
+          action: '继续整理下午的工作内容并回应当前状态询问',
+          emotionTags: ['专注', '平静'],
+          appearance: '舒适的家居服，头发随意挽起',
+          internalMonologue: '先把当前状态稳定下来，后面才不容易漂。',
+          naturalText: '她还在家里书房里继续下午的工作。',
+          confidence: 0.78,
+          reason: 'llm timeline generation for conflict-path validation',
+        },
       }),
       writeEpisode: async () => ({
         success: false,
@@ -144,15 +184,35 @@ describe('timelineResolve generation path', () => {
 - Emotion_Tags: [平静, 清醒]
 - Appearance: 居家服
       `,
-      generateMemoryDraft: async () => ({
-        location: '家里书房靠窗的桌子',
-        action: '继续整理下午的工作内容',
-        emotionTags: ['专注', '平静'],
-        appearance: '舒适的家居服，头发随意挽起',
-        internalMonologue: '早餐那一段早就过去了，现在应该以当下状态为准。',
-        naturalText: '她现在正在家里书房继续下午的工作内容。',
-        confidence: 0.81,
-        reason: 'llm gap-fill for stale current-state canon',
+      reasonTimeline: async (collector) => ({
+        schema_version: '1.0',
+        request_id: collector.request_id,
+        request_type: 'current_status',
+        decision: {
+          action: 'generate_new_fact',
+          should_write_canon: true,
+        },
+        continuity: {
+          judged: true,
+          is_continuing: false,
+          reason: 'the earlier breakfast fact is stale for the current moment',
+        },
+        rationale: {
+          summary: 'Generated a fresh current-state fact because stale canon should not be reused.',
+          hard_fact_basis: [],
+          canon_basis: ['canon:2026-03-22:0'],
+          persona_basis: [],
+        },
+        generated_fact: {
+          location: '家里书房靠窗的桌子',
+          action: '继续整理下午的工作内容',
+          emotionTags: ['专注', '平静'],
+          appearance: '舒适的家居服，头发随意挽起',
+          internalMonologue: '早餐那一段早就过去了，现在应该以当下状态为准。',
+          naturalText: '她现在正在家里书房继续下午的工作内容。',
+          confidence: 0.81,
+          reason: 'llm gap-fill for stale current-state canon',
+        },
       }),
       memoryFilePath: () => tmpFile,
     });

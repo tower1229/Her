@@ -2,11 +2,15 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { collectSources, TimelineSourceDependencies } from '../core/collect_sources';
-import { buildReadOnlyResult } from '../core/map_window';
-import { materializeGeneratedCandidate, TimelineGeneratedDraft } from '../core/materialize_generated_candidate';
-import { buildTimelineGenerationPrompt, TimelineGenerationRequest } from '../core/generation_prompt';
+import { buildTimelineCollectorOutput } from '../core/collect_timeline_request';
+import { materializeGeneratedCandidate } from '../core/materialize_generated_candidate';
+import { TimelineCollectorOutput, TimelineReasonerOutput } from '../core/timeline_reasoner_contract';
+import { validateTimelineReasonerOutput } from '../core/runtime_guard';
 import { buildTrace, TimelineTrace } from '../core/trace';
-import { parseMemoryFile } from '../lib/parse-memory';
+import { mapToEpisode } from '../lib/parse-memory';
+import { computeFingerprint } from '../lib/fingerprint';
+import { dayOfWeek, formatDate, parseTimestampParts } from '../lib/time-utils';
+import { getHoliday } from '../lib/holidays';
 import { assertCanonicalDailyLogPath } from '../storage/daily_log';
 import { FileLockError, withFileLock } from '../storage/lock';
 import { recordTimelineRuntimeStatus } from '../storage/runtime_status';
@@ -27,7 +31,9 @@ export type TimelineResolveErrorCode =
   | 'INVALID_INPUT'
   | 'INVALID_RANGE'
   | 'SOURCE_FAILURE'
+  | 'REASONER_UNAVAILABLE'
   | 'GENERATION_UNAVAILABLE'
+  | 'INVALID_REASONER_OUTPUT'
   | 'WRITE_BLOCKED'
   | 'WRITE_CONFLICT'
   | 'WRITE_FAILED'
@@ -114,7 +120,7 @@ export interface TimelineRuntimeDependencies extends TimelineSourceDependencies 
   writeEpisode?: (input: WriteEpisodeInput) => Promise<WriteResult>;
   memoryFilePath?: (calendarDate: string) => string;
   traceLogPath?: string;
-  generateMemoryDraft?: (input: TimelineGenerationRequest) => Promise<TimelineGeneratedDraft | null>;
+  reasonTimeline?: (collector: TimelineCollectorOutput) => Promise<TimelineReasonerOutput | null>;
 }
 
 function readOptionalTextFile(filePath: string): string {
@@ -167,8 +173,12 @@ function classifyTimelineResolveError(error: Error): TimelineResolveErrorCode {
   const message = error.message || 'Unknown timeline_resolve failure';
   if (message.includes('natural_language range requires query')) return 'INVALID_INPUT';
   if (message.includes('Invalid explicit') || message.includes('explicit range')) return 'INVALID_RANGE';
+  if (message.includes('Timeline reasoner dependency missing') || message.includes('Timeline reasoner returned no decision')) {
+    return 'REASONER_UNAVAILABLE';
+  }
   if (message.includes('LLM generation')) return 'GENERATION_UNAVAILABLE';
   if (message.includes('Generated draft')) return 'GENERATION_UNAVAILABLE';
+  if (message.includes('Invalid reasoner output')) return 'INVALID_REASONER_OUTPUT';
   if (message.includes('Canonical daily logs')) return 'WRITE_BLOCKED';
   if (message.includes('Lock already held')) return 'WRITE_CONFLICT';
   if (message.includes('write dependency missing')) return 'WRITE_BLOCKED';
@@ -276,6 +286,123 @@ function finalizeTimelineOutput(output: TimelineResolveOutput, input: TimelineRe
   return output;
 }
 
+function makeRequestId(): string {
+  return `timeline-request-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+}
+
+function buildWorldHooks(timestamp: string): { weekday: boolean; holiday_key: string | null } {
+  const parts = parseTimestampParts(timestamp);
+  if (!parts) {
+    return { weekday: true, holiday_key: null };
+  }
+  const date = formatDate(parts);
+  return {
+    weekday: ![0, 6].includes(dayOfWeek(parts)),
+    holiday_key: getHoliday(date),
+  };
+}
+
+function buildReadOnlyHitOutput(
+  selectedFact: NonNullable<ReturnType<typeof validateTimelineReasonerOutput>['selected_fact']>,
+  traceId: string,
+  window: ReturnType<typeof resolveWindow>,
+  collector: TimelineCollectorOutput,
+  reasoned: TimelineReasonerOutput,
+): TimelineResolveSuccessOutput {
+  const date = selectedFact.calendar_date;
+  const fp = computeFingerprint(date, selectedFact.location, selectedFact.action, selectedFact.timestamp);
+  const episode = mapToEpisode(
+    {
+      timestamp: selectedFact.timestamp,
+      location: selectedFact.location,
+      action: selectedFact.action,
+      emotionTags: selectedFact.emotion_tags,
+      appearance: selectedFact.appearance,
+      internalMonologue: selectedFact.internal_monologue,
+      naturalText: selectedFact.natural_text,
+      parseLevel: selectedFact.parse_level,
+      confidence: selectedFact.confidence,
+    },
+    buildWorldHooks(selectedFact.timestamp),
+    fp,
+  );
+
+  return {
+    ok: true,
+    schema_version: '1.0',
+    trace_id: traceId,
+    resolution_summary: {
+      mode: 'read_only_hit',
+      writes_attempted: 0,
+      writes_succeeded: 0,
+      sources: collector.source_order,
+      confidence_min: selectedFact.confidence,
+      confidence_max: selectedFact.confidence,
+    },
+    result: {
+      schema_version: '1.0',
+      document_type: 'timeline.window',
+      anchor: { now: window.end, timezone: window.timezone },
+      window: {
+        calendar_date: window.calendar_date,
+        preset: window.legacy_preset,
+        semantic_target: window.semantic_target,
+        collection_scope: window.collection_scope,
+        start: window.start,
+        end: window.end,
+        idempotency_key: fp,
+      },
+      resolution: {
+        mode: 'read_only_hit',
+        notes: reasoned.rationale.summary,
+      },
+      episodes: [episode],
+    },
+    notes: [reasoned.rationale.summary],
+  };
+}
+
+function buildEmptyOutput(
+  traceId: string,
+  window: ReturnType<typeof resolveWindow>,
+  collector: TimelineCollectorOutput,
+  reasoned: TimelineReasonerOutput,
+): TimelineResolveSuccessOutput {
+  return {
+    ok: true,
+    schema_version: '1.0',
+    trace_id: traceId,
+    resolution_summary: {
+      mode: 'empty_window',
+      writes_attempted: 0,
+      writes_succeeded: 0,
+      sources: collector.source_order,
+      confidence_min: 0,
+      confidence_max: 0,
+    },
+    result: {
+      schema_version: '1.0',
+      document_type: 'timeline.window',
+      anchor: { now: window.end, timezone: window.timezone },
+      window: {
+        calendar_date: window.calendar_date,
+        preset: window.legacy_preset,
+        semantic_target: window.semantic_target,
+        collection_scope: window.collection_scope,
+        start: window.start,
+        end: window.end,
+        idempotency_key: 'none',
+      },
+      resolution: {
+        mode: 'empty_window',
+        notes: reasoned.rationale.summary,
+      },
+      episodes: [],
+    },
+    notes: [reasoned.rationale.summary],
+  };
+}
+
 export async function timelineResolve(
   input: TimelineResolveInput,
 ): Promise<TimelineResolveOutput> {
@@ -288,9 +415,20 @@ export async function timelineResolve(
     const window = resolveWindow(input, currentTime.now, input.timezone || currentTime.timezone);
     const sources = await collectSources(runtimeDependencies, window, input);
     sourceOrder = sources.sourceOrder;
-    const parsedEpisodes = parseMemoryFile(sources.memoryContent);
+    const collector = buildTimelineCollectorOutput(makeRequestId(), input, window, sources);
+    if (!runtimeDependencies.reasonTimeline) {
+      throw new Error('Timeline reasoner dependency missing');
+    }
+    const reasoned = await runtimeDependencies.reasonTimeline(collector);
+    if (!reasoned) {
+      throw new Error('Timeline reasoner returned no decision');
+    }
+    const guard = validateTimelineReasonerOutput(collector, reasoned);
+    if (!guard.ok) {
+      throw new Error(`Invalid reasoner output: ${guard.block_reason}`);
+    }
 
-    let output = buildReadOnlyResult(input, window, sources) as TimelineResolveSuccessOutput;
+    let output: TimelineResolveSuccessOutput;
     let traceAppearance: TimelineTrace['appearance'] = { inherited: false, reason: 'not-applicable' };
     let traceWrite: TimelineTrace['write'] = {
       attempted: false,
@@ -300,31 +438,48 @@ export async function timelineResolve(
       writer: 'openclaw-timeline-plugin',
     };
     let traceFingerprint: TimelineTrace['fingerprint'] = {
-      checked: parsedEpisodes.length > 0,
-      matched: output.resolution_summary.mode === 'read_only_hit' && parsedEpisodes.length > 0,
-      compared_episodes: parsedEpisodes.length,
-      idempotency_key: output.result?.window.idempotency_key,
-      matched_episode_timestamp: parsedEpisodes[parsedEpisodes.length - 1]?.timestamp,
-      reason: parsedEpisodes.length === 0 ? 'no parsed episodes found in memory content' : undefined,
+      checked: collector.candidate_facts.length > 0,
+      matched: false,
+      compared_episodes: collector.candidate_facts.length,
+      reason: reasoned.rationale.summary,
     };
     let decision: TimelineTrace['decision'] = {
-      resolution_mode: output.resolution_summary.mode,
+      resolution_mode: guard.outcome === 'reuse_existing_fact'
+        ? 'read_only_hit'
+        : guard.outcome === 'generate_new_fact'
+          ? 'generated_new'
+          : 'empty_window',
       write_outcome: traceWrite.outcome,
+      category: reasoned.request_type,
     };
 
-    if (input.mode === 'allow_generate' && output.resolution_summary.mode === 'empty_window') {
-        if (!runtimeDependencies.generateMemoryDraft) {
-          throw new Error('LLM generation dependency missing');
-        }
-        const modelDraft = await runtimeDependencies.generateMemoryDraft({
+    if (guard.outcome === 'reuse_existing_fact' && guard.selected_fact) {
+      output = buildReadOnlyHitOutput(guard.selected_fact, '', window, collector, reasoned);
+      traceAppearance = {
+        inherited: false,
+        reason: 'existing canon reused after LLM reasoner selected a matching fact',
+        source_episode_timestamp: guard.selected_fact.timestamp,
+      };
+      traceFingerprint = {
+        checked: collector.candidate_facts.length > 0,
+        matched: true,
+        compared_episodes: collector.candidate_facts.length,
+        idempotency_key: output.result?.window.idempotency_key,
+        matched_episode_timestamp: guard.selected_fact.timestamp,
+        reason: reasoned.rationale.summary,
+      };
+      decision = {
+        resolution_mode: output.resolution_summary.mode,
+        write_outcome: traceWrite.outcome,
+        category: reasoned.request_type,
+      };
+    } else if (guard.outcome === 'generate_new_fact' && guard.generated_fact) {
+        const generated = materializeGeneratedCandidate(
           window,
           sources,
-          prompt: buildTimelineGenerationPrompt(window, sources),
-        });
-        if (!modelDraft) {
-          throw new Error('LLM generation returned no draft');
-        }
-        const generated = materializeGeneratedCandidate(window, sources, modelDraft, modelDraft.reason || 'llm-guided semantic timeline synthesis');
+          guard.generated_fact,
+          guard.generated_fact.reason || reasoned.rationale.summary || 'llm-guided semantic timeline synthesis',
+        );
         traceAppearance = generated.appearance;
         const requestedPath = runtimeDependencies.memoryFilePath
           ? runtimeDependencies.memoryFilePath(window.calendar_date)
@@ -416,14 +571,14 @@ export async function timelineResolve(
         traceFingerprint = {
           checked: true,
           matched: false,
-          compared_episodes: 0,
+          compared_episodes: collector.candidate_facts.length,
           idempotency_key: normalizedWriteResult.idempotency_key || generated.idempotencyKey,
           reason: generated.generationReason,
         };
         decision = {
           resolution_mode: resolutionMode,
           write_outcome: normalizedWriteResult.outcome,
-          category: normalizedWriteResult.success ? undefined : 'write_failure',
+          category: normalizedWriteResult.success ? reasoned.request_type : 'write_failure',
           error_code: failedWrite?.errorCode,
         };
 
@@ -469,35 +624,8 @@ export async function timelineResolve(
                 ],
           ),
         };
-    }
-
-    if (parsedEpisodes.length > 0 && output.resolution_summary.mode === 'read_only_hit') {
-      traceAppearance = {
-        inherited: false,
-        reason: 'existing canon reused',
-        source_episode_timestamp: parsedEpisodes[0]?.timestamp,
-      };
-      traceWrite = {
-        attempted: false,
-        succeeded: false,
-        guard: 'not_attempted',
-        outcome: 'not_attempted',
-        writer: 'openclaw-timeline-plugin',
-      };
-      traceFingerprint = {
-        checked: true,
-        matched: true,
-        compared_episodes: parsedEpisodes.length,
-        idempotency_key: output.result?.window.idempotency_key,
-        matched_episode_timestamp: parsedEpisodes[parsedEpisodes.length - 1]?.timestamp,
-      };
-      decision = {
-        resolution_mode: output.resolution_summary.mode,
-        write_outcome: traceWrite.outcome,
-      };
-    }
-
-    if (output.resolution_summary.mode === 'empty_window') {
+    } else {
+      output = buildEmptyOutput('', window, collector, reasoned);
       traceAppearance = {
         inherited: false,
         reason: 'no-canon-hit',
@@ -512,12 +640,13 @@ export async function timelineResolve(
       traceFingerprint = {
         checked: false,
         matched: false,
-        compared_episodes: 0,
-        reason: 'no parsed episodes found in memory content',
+        compared_episodes: collector.candidate_facts.length,
+        reason: reasoned.rationale.summary,
       };
       decision = {
         resolution_mode: output.resolution_summary.mode,
         write_outcome: traceWrite.outcome,
+        category: reasoned.request_type,
       };
     }
 
@@ -531,8 +660,8 @@ export async function timelineResolve(
         memory_chars: sources.memoryContent.length,
         memory_search_count: sources.memorySearch.length,
         memory_search_preview: sources.memorySearch.slice(0, 3),
-        parsed_episode_count: parsedEpisodes.length,
-        selected_episode_timestamp: output.result?.episodes.length ? parsedEpisodes[parsedEpisodes.length - 1]?.timestamp : undefined,
+        parsed_episode_count: collector.candidate_facts.length,
+        selected_episode_timestamp: guard.selected_fact?.timestamp,
       },
       fingerprint: traceFingerprint,
       appearance: traceAppearance,

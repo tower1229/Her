@@ -49,6 +49,25 @@ describe('timeline hook trace logging', () => {
       currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
       sessionsHistory: async () => ['Snapshot run.'],
       memoryGet: async () => '',
+      reasonTimeline: async (collector) => ({
+        schema_version: '1.0',
+        request_id: collector.request_id,
+        request_type: 'current_status',
+        decision: {
+          action: 'return_empty',
+          should_write_canon: false,
+        },
+        continuity: {
+          judged: true,
+          reason: 'no snapshot fact was available',
+        },
+        rationale: {
+          summary: 'No existing fact matched the snapshot request.',
+          hard_fact_basis: [],
+          canon_basis: [],
+          persona_basis: [],
+        },
+      }),
     });
 
     const result = await runSessionSnapshot(snapshotLog);

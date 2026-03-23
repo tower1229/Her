@@ -6,17 +6,7 @@ import { dayOfWeek, formatDate, parseTimestampParts } from '../lib/time-utils';
 import { getHoliday } from '../lib/holidays';
 import { CollectedSources } from './collect_sources';
 import { ResolvedWindow } from './resolve_window';
-
-export interface TimelineGeneratedDraft {
-  location: string;
-  action: string;
-  emotionTags: string[];
-  appearance: string;
-  internalMonologue: string;
-  naturalText: string;
-  confidence: number;
-  reason?: string;
-}
+import { TimelineGeneratedDraft } from './timeline_reasoner_contract';
 
 export interface GeneratedCandidateResult {
   parsed: ParsedEpisode;
