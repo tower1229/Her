@@ -109,4 +109,39 @@ describe('timelineResolve generation path', () => {
     expect(result.notes.join(' ')).toContain('llm persona synthesis');
   });
 
+  it('reports write_conflict with a recovery hint when the append-only writer detects an occupied bucket', async () => {
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
+      sessionsHistory: async () => ['The user wants the current state, but another writer already touched this slot.'],
+      memoryGet: async () => '',
+      coreFiles: async () => ({
+        soul: 'She is introspective and likes a coherent autobiographical timeline.',
+        memory: 'She often works quietly from home in the afternoon.',
+        identity: 'A woman living in Shanghai.',
+      }),
+      writeEpisode: async () => ({
+        success: false,
+        written_at: '',
+        outcome: 'conflict',
+        error_code: 'CONFLICT_EXISTS',
+        error: 'A different episode already occupies the same timeline bucket.',
+        recovery_hint: 'Inspect the existing daily log entry before retrying or writing a new canon episode.',
+      }),
+      memoryFilePath: () => tmpFile,
+    });
+
+    const result = await timelineResolve({
+      target_time_range: 'now_today',
+      mode: 'allow_generate',
+      reason: 'current_status',
+      trace: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected success envelope with conflict metadata');
+    expect(result.resolution_summary.mode).toBe('write_conflict');
+    expect(result.notes.join(' ')).toContain('Recovery hint');
+    expect(result.trace?.write.guard).toBe('conflict');
+  });
+
 });

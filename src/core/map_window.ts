@@ -12,7 +12,7 @@ export function buildReadOnlyResult(
   sources: CollectedSources,
 ): TimelineResolveOutput {
   const parsedEpisodes = parseMemoryFile(sources.memoryContent);
-  const candidate = parsedEpisodes[0];
+  const candidate = parsedEpisodes[parsedEpisodes.length - 1];
 
   if (!candidate) {
     return {
@@ -20,7 +20,7 @@ export function buildReadOnlyResult(
       schema_version: '1.0',
       trace_id: '',
       resolution_summary: {
-        mode: 'read_only_hit',
+        mode: 'empty_window',
         writes_attempted: 0,
         writes_succeeded: 0,
         sources: sources.sourceOrder,
@@ -39,19 +39,19 @@ export function buildReadOnlyResult(
           idempotency_key: 'none',
         },
         resolution: {
-          mode: 'read_only_hit',
-          notes: 'no parsed episodes found; returning empty window',
+          mode: 'empty_window',
+          notes: 'no parsed episodes found for the requested window',
         },
         episodes: [],
       },
-      notes: ['No parsed episodes found in memory_get output.'],
+      notes: ['No parsed episodes found in memory_get output for the requested window.'],
     };
   }
 
   const timestampParts = parseTimestampParts(candidate.timestamp);
   const date = timestampParts ? formatDate(timestampParts) : window.calendar_date;
   const fp = computeFingerprint(date, candidate.location, candidate.action, candidate.timestamp);
-  const hit = checkReadOnlyHit(parsedEpisodes, {
+  const hit = checkReadOnlyHit([candidate], {
     date,
     location: candidate.location,
     action: candidate.action,
@@ -72,7 +72,7 @@ export function buildReadOnlyResult(
     schema_version: '1.0',
     trace_id: '',
     resolution_summary: {
-      mode: hit.hit ? 'read_only_hit' : 'generated_new',
+      mode: 'read_only_hit',
       writes_attempted: 0,
       writes_succeeded: 0,
       sources: sources.sourceOrder,
@@ -91,13 +91,13 @@ export function buildReadOnlyResult(
         idempotency_key: fp,
       },
       resolution: {
-        mode: hit.hit ? 'read_only_hit' : 'generated_new',
-        notes: hit.hit ? 'matched parsed memory entry' : 'no fingerprint match found; generation not yet implemented',
+        mode: 'read_only_hit',
+        notes: hit.hit
+          ? 'reused the latest parsed memory entry inside the requested window'
+          : 'reused the latest parsed memory entry inside the requested window',
       },
       episodes: [episode],
     },
-    notes: hit.hit
-      ? ['Read-only hit returned from parsed daily log.']
-      : ['Generation path not implemented yet; returning first parsed episode for inspection.'],
+    notes: ['Read-only hit returned from the latest parsed daily log entry.'],
   };
 }

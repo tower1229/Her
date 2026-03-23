@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { resetTimelineRuntimeStatus } from '../storage/runtime_status';
 import { timelineStatus } from './timeline_status';
 import {
@@ -7,9 +9,17 @@ import {
 } from './timeline_resolve';
 
 describe('timelineStatus', () => {
+  const tmpDir = path.join(__dirname, '__status_tmp__');
+  const tmpFile = path.join(tmpDir, 'memory', '2026-03-22.md');
+
   beforeEach(() => {
     resetTimelineResolveDependencies();
     resetTimelineRuntimeStatus();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  afterAll(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   it('reports plugin registration and empty runtime state before any run', async () => {
@@ -25,6 +35,7 @@ describe('timelineStatus', () => {
       currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
       sessionsHistory: async () => ['User asked what are you doing right now?'],
       memoryGet: async () => '',
+      memoryFilePath: () => tmpFile,
     });
 
     const resolveResult = await timelineResolve({

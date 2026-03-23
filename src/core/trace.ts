@@ -11,12 +11,14 @@ export interface TimelineTrace {
     memory_search_count: number;
     memory_search_preview: string[];
     parsed_episode_count: number;
+    selected_episode_timestamp?: string;
   };
   fingerprint: {
     checked: boolean;
     matched: boolean;
     compared_episodes: number;
     idempotency_key?: string;
+    matched_episode_timestamp?: string;
     fallback_reason?: string;
   };
   appearance: {
@@ -28,12 +30,17 @@ export interface TimelineTrace {
     attempted: boolean;
     succeeded: boolean;
     file_path?: string;
+    lock_path?: string;
+    outcome?: string;
+    error_code?: string;
     error?: string;
-    guard: 'not_attempted' | 'canonical_path' | 'range_policy' | 'lock';
+    recovery_hint?: string;
+    guard: 'not_attempted' | 'canonical_path' | 'range_policy' | 'lock' | 'conflict' | 'write_dependency';
     writer: 'openclaw-timeline-plugin';
   };
   decision: {
     resolution_mode: string;
+    write_outcome?: string;
     fallback_category?: string;
     error_code?: string;
   };

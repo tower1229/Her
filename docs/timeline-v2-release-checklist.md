@@ -5,10 +5,10 @@
 
 ## A. Platform alignment
 
-- [ ] Plugin loads in a real OpenClaw runtime without local compatibility-only assumptions.
-- [ ] `openclaw.plugin.json`, `package.json`, and `index.ts` agree on entrypoint and plugin identity.
-- [ ] Tool registration is verified for both `timeline_resolve` and `timeline_status`.
-- [ ] Hook registration is verified for pre-compaction flush, session snapshot, and audit trace.
+- [x] Plugin loads in a real OpenClaw runtime without local compatibility-only assumptions.
+- [x] `openclaw.plugin.json`, `package.json`, and `index.ts` agree on entrypoint and plugin identity.
+- [x] Tool registration is verified for both `timeline_resolve` and `timeline_status`.
+- [x] Hook registration is verified for pre-compaction flush, session snapshot, and audit trace.
 
 ## B. `timeline_resolve` contract
 
@@ -35,10 +35,9 @@
 
 As of the current `2.0.0-draft` state, the main release blockers are:
 
-1. **Real platform validation is still missing.** The code uses a local compatibility facade and has not yet been proven inside a real OpenClaw runtime.
-2. **Write-path guarantees are still timeline-local.** Locking and path validation exist, but stronger single-writer enforcement and explicit conflict semantics are not yet platform-wide.
-3. **Operability is still only the first slice.** `timeline_status` and `timeline_repair` exist, but they are not yet rich enough for full production triage / guided recovery.
-4. **Generated writes are still conservative but not deeply trustworthy.** Candidate inference needs stronger duration, conflict, and confidence reasoning before GA.
+1. **Write-path guarantees still need broader enforcement.** The plugin now distinguishes append, noop, lock, and conflict outcomes, but cross-runtime single-writer guarantees are not yet platform-wide.
+2. **Operability is still only the first slice.** `timeline_status` and `timeline_repair` exist, but they are not yet rich enough for full production triage / guided recovery.
+3. **Generated writes are still conservative but not deeply trustworthy.** Candidate inference still needs stronger duration, conflict, and confidence reasoning before GA.
 
 ## F. Release decision rule
 

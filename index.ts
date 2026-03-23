@@ -6,6 +6,7 @@ import {
 } from './src/plugin_metadata';
 import {
   definePluginEntry,
+  getTimelineHookRegistrations,
   makeTimelineRepairToolRegistration,
   makeTimelineStatusToolRegistration,
   makeTimelineToolRegistration,
@@ -20,6 +21,9 @@ export const timelinePluginEntry = definePluginEntry({
     api.registerTool(makeTimelineToolRegistration(), { optional: true });
     api.registerTool(makeTimelineStatusToolRegistration());
     api.registerTool(makeTimelineRepairToolRegistration(), { optional: true });
+    for (const hook of getTimelineHookRegistrations()) {
+      api.registerHook(hook);
+    }
   },
 });
 
@@ -32,10 +36,27 @@ const openClawTimelinePlugin = {
   description: TIMELINE_PLUGIN_DESCRIPTION,
   register(api: {
     registerTool: (tool: ReturnType<typeof makeTimelineToolRegistration>, options?: { optional?: boolean }) => void;
+    registerHook?: (
+      events: string | string[],
+      handler: (...args: unknown[]) => unknown,
+      options?: { name?: string; description?: string },
+    ) => void;
   }) {
     api.registerTool(makeTimelineToolRegistration(), { optional: true });
     api.registerTool(makeTimelineStatusToolRegistration());
     api.registerTool(makeTimelineRepairToolRegistration(), { optional: true });
+    if (typeof api.registerHook === 'function') {
+      for (const hook of getTimelineHookRegistrations()) {
+        api.registerHook(
+          hook.event,
+          async () => undefined,
+          {
+            name: hook.name,
+            description: hook.description,
+          },
+        );
+      }
+    }
   },
 };
 

@@ -3,12 +3,14 @@ export interface TimelineRuntimeStatusSnapshot {
   ok: boolean;
   requested_range?: string;
   resolution_mode?: string;
+  write_outcome?: string;
   trace_id: string;
   trace_persisted: boolean;
   trace_log_path?: string;
   writes_attempted: number;
   writes_succeeded: number;
   write_path?: string;
+  recovery_hint?: string;
   error_code?: string;
   error_message?: string;
 }

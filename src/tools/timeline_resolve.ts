@@ -8,7 +8,7 @@ import { buildTimelineGenerationPrompt, TimelineGenerationRequest } from '../cor
 import { buildTrace, TimelineTrace } from '../core/trace';
 import { parseMemoryFile } from '../lib/parse-memory';
 import { assertCanonicalDailyLogPath } from '../storage/daily_log';
-import { withFileLock } from '../storage/lock';
+import { FileLockError, withFileLock } from '../storage/lock';
 import { recordTimelineRuntimeStatus } from '../storage/runtime_status';
 import { appendTraceLog } from '../storage/trace_log';
 import { writeEpisode, WriteEpisodeInput, WriteResult } from '../storage/write-episode';
@@ -28,8 +28,20 @@ export type TimelineResolveErrorCode =
   | 'INVALID_RANGE'
   | 'SOURCE_FAILURE'
   | 'WRITE_BLOCKED'
+  | 'WRITE_CONFLICT'
+  | 'WRITE_FAILED'
   | 'PARSE_ERROR'
   | 'INTERNAL';
+
+export type TimelineResolutionMode =
+  | 'read_only_hit'
+  | 'empty_window'
+  | 'generated_new'
+  | 'already_present'
+  | 'write_blocked'
+  | 'write_conflict'
+  | 'write_failed'
+  | 'error';
 
 export interface TimelineResolveInput {
   target_time_range: 'now_today' | 'recent_3d' | 'explicit' | 'natural_language';
@@ -43,7 +55,7 @@ export interface TimelineResolveInput {
 }
 
 export interface TimelineResolutionSummary {
-  mode: 'read_only_hit' | 'generated_new' | 'not_implemented';
+  mode: TimelineResolutionMode;
   writes_attempted: number;
   writes_succeeded: number;
   sources: string[];
@@ -63,7 +75,7 @@ export interface TimelineWindowResult {
     idempotency_key: string;
   };
   resolution: {
-    mode: 'read_only_hit' | 'generated_new';
+    mode: TimelineResolutionMode;
     notes?: string;
   };
   episodes: unknown[];
@@ -153,11 +165,59 @@ function classifyTimelineResolveError(error: Error): TimelineResolveErrorCode {
   if (message.includes('natural_language range requires query')) return 'INVALID_INPUT';
   if (message.includes('Invalid explicit') || message.includes('explicit range')) return 'INVALID_RANGE';
   if (message.includes('Canonical daily logs')) return 'WRITE_BLOCKED';
+  if (message.includes('Lock already held')) return 'WRITE_CONFLICT';
+  if (message.includes('write dependency missing')) return 'WRITE_BLOCKED';
   if (message.includes('parse')) return 'PARSE_ERROR';
   if (message.includes('sessions_history') || message.includes('memory_get') || message.includes('memory_search')) {
     return 'SOURCE_FAILURE';
   }
   return 'INTERNAL';
+}
+
+function classifyWriteFailure(writeResult: WriteResult): {
+  mode: TimelineResolutionMode;
+  errorCode: TimelineResolveErrorCode;
+  guard: TimelineTrace['write']['guard'];
+  recoveryHint?: string;
+} {
+  if (writeResult.error_code === 'CONFLICT_EXISTS') {
+    return {
+      mode: 'write_conflict',
+      errorCode: 'WRITE_CONFLICT',
+      guard: 'conflict',
+      recoveryHint: writeResult.recovery_hint,
+    };
+  }
+  if (writeResult.error_code === 'LOCK_EXISTS') {
+    return {
+      mode: 'write_conflict',
+      errorCode: 'WRITE_CONFLICT',
+      guard: 'lock',
+      recoveryHint: writeResult.recovery_hint ?? 'Retry once the current timeline writer releases the file lock.',
+    };
+  }
+  if (writeResult.error === 'write dependency missing') {
+    return {
+      mode: 'write_blocked',
+      errorCode: 'WRITE_BLOCKED',
+      guard: 'write_dependency',
+      recoveryHint: 'Configure the timeline writer dependencies before allowing generated writes.',
+    };
+  }
+  if ((writeResult.error || '').includes('Canonical daily logs')) {
+    return {
+      mode: 'write_blocked',
+      errorCode: 'WRITE_BLOCKED',
+      guard: 'canonical_path',
+      recoveryHint: writeResult.recovery_hint ?? 'Use the canonical memory/YYYY-MM-DD.md path before allowing generated writes.',
+    };
+  }
+  return {
+    mode: 'write_failed',
+    errorCode: 'WRITE_FAILED',
+    guard: 'canonical_path',
+    recoveryHint: writeResult.recovery_hint,
+  };
 }
 
 function persistTraceIfRequested(output: TimelineResolveOutput, input: TimelineResolveInput): boolean {
@@ -189,12 +249,14 @@ function recordRuntimeStatus(output: TimelineResolveOutput, input: TimelineResol
     ok: output.ok,
     requested_range: input.target_time_range,
     resolution_mode: output.resolution_summary.mode,
+    write_outcome: output.trace?.write.outcome,
     trace_id: output.trace_id,
     trace_persisted: tracePersisted,
     trace_log_path: runtimeDependencies.traceLogPath,
     writes_attempted: output.resolution_summary.writes_attempted,
     writes_succeeded: output.resolution_summary.writes_succeeded,
     write_path: output.trace?.write.file_path,
+    recovery_hint: output.trace?.write.recovery_hint,
     error_code: output.ok ? undefined : output.error.code,
     error_message: output.ok ? undefined : output.error.message,
   });
@@ -229,6 +291,7 @@ export async function timelineResolve(
       attempted: false,
       succeeded: false,
       guard: 'not_attempted',
+      outcome: 'not_attempted',
       writer: 'openclaw-timeline-plugin',
     };
     let traceFingerprint: TimelineTrace['fingerprint'] = {
@@ -236,10 +299,12 @@ export async function timelineResolve(
       matched: output.resolution_summary.mode === 'read_only_hit' && parsedEpisodes.length > 0,
       compared_episodes: parsedEpisodes.length,
       idempotency_key: output.result?.window.idempotency_key,
+      matched_episode_timestamp: parsedEpisodes[parsedEpisodes.length - 1]?.timestamp,
       fallback_reason: parsedEpisodes.length === 0 ? 'no parsed episodes found in memory content' : undefined,
     };
     let decision: TimelineTrace['decision'] = {
       resolution_mode: output.resolution_summary.mode,
+      write_outcome: traceWrite.outcome,
     };
 
     if (input.mode === 'allow_generate' && parsedEpisodes.length === 0) {
@@ -259,7 +324,13 @@ export async function timelineResolve(
           : `memory/${window.calendar_date}.md`;
 
         let filePath = requestedPath;
-        let writeResult: WriteResult = { success: false, written_at: '', error: 'write dependency missing' };
+        let writeResult: WriteResult = {
+          success: false,
+          written_at: '',
+          outcome: 'failed',
+          error: 'write dependency missing',
+          recovery_hint: 'Configure the timeline writer dependencies before allowing generated writes.',
+        };
         let writeGuard: TimelineTrace['write']['guard'] = 'canonical_path';
 
         try {
@@ -279,19 +350,59 @@ export async function timelineResolve(
                   confidence: generated.parsed.confidence,
                 }),
               )
-            : { success: false, written_at: '', error: 'write dependency missing' };
+            : writeResult;
         } catch (error: any) {
-          writeResult = { success: false, written_at: '', error: error.message };
-          if (String(error.message || '').includes('EEXIST')) {
+          if (error instanceof FileLockError) {
             writeGuard = 'lock';
+            writeResult = {
+              success: false,
+              written_at: '',
+              outcome: 'conflict',
+              error_code: 'LOCK_EXISTS',
+              error: error.message,
+              recovery_hint: 'Retry once the current timeline writer releases the file lock.',
+            };
+          } else {
+            writeResult = {
+              success: false,
+              written_at: '',
+              outcome: 'failed',
+              error_code: String(error.message || '').includes('Canonical daily logs') ? 'IO_ERROR' : undefined,
+              error: error.message,
+              recovery_hint: String(error.message || '').includes('Canonical daily logs')
+                ? 'Use the canonical memory/YYYY-MM-DD.md path before allowing generated writes.'
+                : undefined,
+            };
           }
         }
 
+        const normalizedWriteResult: WriteResult = writeResult.success && !writeResult.outcome
+          ? { ...writeResult, outcome: 'appended' }
+          : writeResult;
+        const failedWrite = !normalizedWriteResult.success ? classifyWriteFailure(normalizedWriteResult) : null;
+        if (failedWrite) {
+          writeGuard = failedWrite.guard;
+        }
+
+        const resolutionMode: TimelineResolutionMode = normalizedWriteResult.success
+          ? normalizedWriteResult.outcome === 'noop_existing'
+            ? 'already_present'
+            : 'generated_new'
+          : failedWrite?.mode ?? 'write_failed';
+        const resolutionNotes = normalizedWriteResult.success
+          ? normalizedWriteResult.outcome === 'noop_existing'
+            ? 'a matching canon entry already existed, so the append-only writer skipped the write'
+            : 'generated candidate persisted via append-only writer'
+          : normalizedWriteResult.error;
+
         traceWrite = {
           attempted: true,
-          succeeded: writeResult.success,
+          succeeded: normalizedWriteResult.success && normalizedWriteResult.outcome === 'appended',
           file_path: filePath,
-          error: writeResult.success ? undefined : writeResult.error,
+          outcome: normalizedWriteResult.outcome,
+          error_code: normalizedWriteResult.error_code,
+          error: normalizedWriteResult.success ? undefined : normalizedWriteResult.error,
+          recovery_hint: normalizedWriteResult.recovery_hint,
           guard: writeGuard,
           writer: 'openclaw-timeline-plugin',
         };
@@ -299,12 +410,14 @@ export async function timelineResolve(
           checked: true,
           matched: false,
           compared_episodes: 0,
-          idempotency_key: generated.idempotencyKey,
+          idempotency_key: normalizedWriteResult.idempotency_key || generated.idempotencyKey,
           fallback_reason: generated.confidenceReason,
         };
         decision = {
-          resolution_mode: writeResult.success ? 'generated_new' : 'not_implemented',
-          fallback_category: writeResult.success ? undefined : 'write_failure',
+          resolution_mode: resolutionMode,
+          write_outcome: normalizedWriteResult.outcome,
+          fallback_category: normalizedWriteResult.success ? undefined : 'write_failure',
+          error_code: failedWrite?.errorCode,
         };
 
         output = {
@@ -312,9 +425,9 @@ export async function timelineResolve(
           schema_version: '1.0',
           trace_id: '',
           resolution_summary: {
-            mode: writeResult.success ? 'generated_new' : 'not_implemented',
+            mode: resolutionMode,
             writes_attempted: 1,
-            writes_succeeded: writeResult.success ? 1 : 0,
+            writes_succeeded: normalizedWriteResult.success && normalizedWriteResult.outcome === 'appended' ? 1 : 0,
             sources: sources.sourceOrder,
             confidence_min: generated.parsed.confidence,
             confidence_max: generated.parsed.confidence,
@@ -328,18 +441,23 @@ export async function timelineResolve(
               preset: window.preset,
               start: window.start,
               end: window.end,
-              idempotency_key: generated.idempotencyKey,
+              idempotency_key: normalizedWriteResult.idempotency_key || generated.idempotencyKey,
             },
             resolution: {
-              mode: 'generated_new',
-              notes: writeResult.success ? 'generated candidate persisted via append-only writer' : writeResult.error,
+              mode: resolutionMode,
+              notes: resolutionNotes,
             },
             episodes: [generated.episode],
           },
           notes: generated.notes.concat(
-            writeResult.success
-              ? [`Generated episode persisted to ${filePath}.`]
-              : [`Generation attempted but write failed: ${writeResult.error ?? 'unknown error'}.`],
+            normalizedWriteResult.success
+              ? normalizedWriteResult.outcome === 'noop_existing'
+                ? [`A matching canon entry was already present at ${filePath}; append skipped.`]
+                : [`Generated episode persisted to ${filePath}.`]
+              : [
+                  `Generation attempted but write failed: ${normalizedWriteResult.error ?? 'unknown error'}.`,
+                  ...(normalizedWriteResult.recovery_hint ? [`Recovery hint: ${normalizedWriteResult.recovery_hint}`] : []),
+                ],
           ),
         };
     }
@@ -354,6 +472,7 @@ export async function timelineResolve(
         attempted: false,
         succeeded: false,
         guard: 'not_attempted',
+        outcome: 'not_attempted',
         writer: 'openclaw-timeline-plugin',
       };
       traceFingerprint = {
@@ -361,9 +480,35 @@ export async function timelineResolve(
         matched: true,
         compared_episodes: parsedEpisodes.length,
         idempotency_key: output.result?.window.idempotency_key,
+        matched_episode_timestamp: parsedEpisodes[parsedEpisodes.length - 1]?.timestamp,
       };
       decision = {
         resolution_mode: output.resolution_summary.mode,
+        write_outcome: traceWrite.outcome,
+      };
+    }
+
+    if (output.resolution_summary.mode === 'empty_window') {
+      traceAppearance = {
+        inherited: false,
+        reason: 'no-canon-hit',
+      };
+      traceWrite = {
+        attempted: false,
+        succeeded: false,
+        guard: 'not_attempted',
+        outcome: 'not_attempted',
+        writer: 'openclaw-timeline-plugin',
+      };
+      traceFingerprint = {
+        checked: false,
+        matched: false,
+        compared_episodes: 0,
+        fallback_reason: 'no parsed episodes found in memory content',
+      };
+      decision = {
+        resolution_mode: output.resolution_summary.mode,
+        write_outcome: traceWrite.outcome,
       };
     }
 
@@ -378,6 +523,7 @@ export async function timelineResolve(
         memory_search_count: sources.memorySearch.length,
         memory_search_preview: sources.memorySearch.slice(0, 3),
         parsed_episode_count: parsedEpisodes.length,
+        selected_episode_timestamp: output.result?.episodes.length ? parsedEpisodes[parsedEpisodes.length - 1]?.timestamp : undefined,
       },
       fingerprint: traceFingerprint,
       appearance: traceAppearance,
@@ -414,10 +560,12 @@ export async function timelineResolve(
         attempted: false,
         succeeded: false,
         guard: 'not_attempted',
+        outcome: 'not_attempted',
         writer: 'openclaw-timeline-plugin',
       },
       decision: {
-        resolution_mode: 'not_implemented',
+        resolution_mode: 'error',
+        write_outcome: 'not_attempted',
         error_code: errorCode,
       },
       notes: [timelineError.message],
@@ -428,7 +576,7 @@ export async function timelineResolve(
       schema_version: '1.0',
       trace_id: trace.trace_id,
       resolution_summary: {
-        mode: 'not_implemented',
+        mode: 'error',
         writes_attempted: 0,
         writes_succeeded: 0,
         sources: sourceOrder,

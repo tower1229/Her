@@ -2,7 +2,7 @@
   "id": "timeline-plugin",
   "name": "Timeline Plugin",
   "version": "2.0.0-draft",
-  "description": "Draft OpenClaw plugin skeleton for timeline v2 with a bundled skill, canonical timeline_resolve tool, and lifecycle hook placeholders.",
+  "description": "OpenClaw timeline v2 runtime with canonical timeline_resolve, operator diagnostics, guarded append-only writes, and lifecycle hooks.",
   "entry": "dist/index.js",
   "skills": ["skills/timeline"],
   "configSchema": {

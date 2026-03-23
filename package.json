@@ -23,7 +23,12 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "node node_modules/jest/bin/jest.js"
+    "typecheck": "tsc --noEmit",
+    "test": "node node_modules/jest/bin/jest.js --runInBand",
+    "test:unit": "node node_modules/jest/bin/jest.js --runInBand",
+    "test:smoke": "node ./scripts/run-openclaw-smoke.mjs",
+    "verify": "npm run typecheck && npm run build && npm run test:unit",
+    "pack:plugin": "npm pack"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
@@ -33,9 +38,17 @@
     "typescript": "^5.x"
   },
   "main": "dist/index.js",
+  "files": [
+    "dist",
+    "skills",
+    "openclaw.plugin.json",
+    "README.md",
+    "README_ZH.md",
+    "CHANGELOG.md"
+  ],
   "openclaw": {
     "extensions": [
-      "./index.ts"
+      "./dist/index.js"
     ]
   }
 }

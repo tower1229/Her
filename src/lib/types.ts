@@ -25,7 +25,7 @@ export interface TimelineWindow {
     idempotency_key: string;
   };
   resolution: {
-    mode: 'read_only_hit' | 'generated_new';
+    mode: 'read_only_hit' | 'empty_window' | 'generated_new' | 'already_present' | 'write_blocked' | 'write_conflict' | 'write_failed' | 'error';
     notes?: string;
   };
   episodes: Episode[];

@@ -21,7 +21,7 @@ describe('timelineResolve canonical path guard', () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(result.resolution_summary.mode).toBe('not_implemented');
+    expect(result.resolution_summary.mode).toBe('write_blocked');
     expect(result.resolution_summary.writes_succeeded).toBe(0);
     expect(result.notes.join(' ')).toContain('Canonical daily logs must live under a memory/ directory');
   });

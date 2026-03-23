@@ -32,6 +32,13 @@ Timeline 从头到尾想完成的核心目标其实一直没变：
 
 当前仓库只是用新的 OpenClaw 插件架构来实现这个目标。
 
+## 文档语言约定
+
+从当前版本开始，项目中的新增设计文档、路线图、实现说明、验收说明统一使用中文撰写。
+
+这条约定的目的不是形式统一，而是降低设计讨论和实现协作中的语义漂移。
+历史上已经存在的英文文档暂不在本次统一范围内；后续如需保留英文版本，应以中文文档为准再做派生。
+
 ---
 
 ## 为什么需要 Timeline
@@ -200,6 +207,8 @@ openclaw plugins install -l .
 - 更高可信度的生成写入行为。
 
 如果你要快速了解成熟度和下一步路线，建议优先阅读：
+- `docs/timeline-north-star.md`
+- `docs/timeline-roadmap.md`
 - `docs/timeline-v2-status.md`
 - `docs/timeline-v2-implementation-review.md`
 - `docs/timeline-v2-release-checklist.md`

@@ -75,4 +75,24 @@ describe('timelineResolve', () => {
     expect(result.trace).toBeUndefined();
     expect(result.trace_id).toContain('timeline-');
   });
+
+  it('returns an explicit empty_window contract when read-only canon is blank', async () => {
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
+      sessionsHistory: async () => ['User asked for a timeline snapshot.'],
+      memoryGet: async () => '',
+    });
+
+    const result = await timelineResolve({
+      target_time_range: 'now_today',
+      mode: 'read_only',
+      reason: 'current_status',
+      trace: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected empty-window success envelope');
+    expect(result.resolution_summary.mode).toBe('empty_window');
+    expect(result.result?.episodes).toEqual([]);
+  });
 });

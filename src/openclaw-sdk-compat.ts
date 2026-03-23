@@ -1,3 +1,6 @@
+import { auditTraceHook } from './hooks/audit_trace';
+import { preCompactionFlushHook } from './hooks/pre_compaction_flush';
+import { sessionSnapshotHook } from './hooks/session_snapshot';
 import { timelineResolveToolSpec } from './tools/timeline_resolve';
 import { timelineRepairToolSpec } from './tools/timeline_repair';
 import { timelineStatusToolSpec } from './tools/timeline_status';
@@ -110,4 +113,12 @@ export function makeTimelineRepairToolRegistration(): PluginToolRegistration {
       return wrapToolData(await timelineRepairToolSpec.run(params as never));
     },
   };
+}
+
+export function getTimelineHookRegistrations(): PluginHookRegistration[] {
+  return [
+    { ...preCompactionFlushHook },
+    { ...sessionSnapshotHook },
+    { ...auditTraceHook },
+  ];
 }
