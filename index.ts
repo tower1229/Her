@@ -1,10 +1,8 @@
-import { auditTraceHook } from './src/hooks/audit_trace';
-import { preCompactionFlushHook } from './src/hooks/pre_compaction_flush';
-import { sessionSnapshotHook } from './src/hooks/session_snapshot';
 import {
   TIMELINE_PLUGIN_DESCRIPTION,
   TIMELINE_PLUGIN_ID,
   TIMELINE_PLUGIN_NAME,
+  TIMELINE_PLUGIN_VERSION,
 } from './src/plugin_metadata';
 import {
   definePluginEntry,
@@ -22,12 +20,23 @@ export const timelinePluginEntry = definePluginEntry({
     api.registerTool(makeTimelineToolRegistration(), { optional: true });
     api.registerTool(makeTimelineStatusToolRegistration());
     api.registerTool(makeTimelineRepairToolRegistration(), { optional: true });
-    api.registerHook(preCompactionFlushHook);
-    api.registerHook(sessionSnapshotHook);
-    api.registerHook(auditTraceHook);
   },
 });
 
 export const timelinePlugin = materializePlugin(timelinePluginEntry);
 
-export default timelinePluginEntry;
+const openClawTimelinePlugin = {
+  id: TIMELINE_PLUGIN_ID,
+  name: TIMELINE_PLUGIN_NAME,
+  version: TIMELINE_PLUGIN_VERSION,
+  description: TIMELINE_PLUGIN_DESCRIPTION,
+  register(api: {
+    registerTool: (tool: ReturnType<typeof makeTimelineToolRegistration>, options?: { optional?: boolean }) => void;
+  }) {
+    api.registerTool(makeTimelineToolRegistration(), { optional: true });
+    api.registerTool(makeTimelineStatusToolRegistration());
+    api.registerTool(makeTimelineRepairToolRegistration(), { optional: true });
+  },
+};
+
+export default openClawTimelinePlugin;
