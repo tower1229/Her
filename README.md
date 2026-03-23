@@ -1,117 +1,221 @@
-# Timeline Skill — [中文说明](README_ZH.md)
+# Timeline Plugin for OpenClaw
 
-A factual anchor and timeline memory layer designed for OpenClaw agents. It answers one core question: **"Where am I, and what am I doing — right now, and over the past few days?"**
+[中文版 README](./README_ZH.md)
 
-## Prerequisites
+Timeline is an OpenClaw plugin project for one very specific job:
+**help OpenClaw feel like a person with a continuous life, so it can chat naturally, recall its own recent past, and stay consistent when downstream skills (such as selfie generation) need a believable current state.**
 
-- **OpenClaw** gateway installed and running
-- Optionally, `persona-skill` installed alongside for richer activity inference
+If you want your agent to answer questions like:
+- **What are you doing now?**
+- **What have you been doing recently?**
+- **What happened on a specific day?**
+- **Can you check whether this timeline log is malformed?**
+
+with more structure and less prompt drift, this repository is built for that use case.
+
+---
+
+## What Timeline is trying to achieve
+
+Timeline is not mainly about “v2 vs v1”.
+The underlying project goal is the same throughout:
+
+> Give OpenClaw a believable autobiographical recall layer so that casual conversation, current-state answers, and downstream skills all draw from the same timeline reality instead of loose prompt improvisation.
+
+In practice, that means Timeline is trying to provide:
+- a **single canonical path** for temporal fact resolution;
+- a **human-like memory generation path** for blank windows, guided by `SOUL`, `MEMORY`, `IDENTITY`, and real-world time context;
+- a **deterministic read flow** over timeline sources;
+- **append-only memory writing** instead of arbitrary mutation;
+- **diagnostics and traces** so maintainers can explain surprising answers;
+- **operator tools** for status inspection and malformed-log repair.
+
+The current repository implements that goal using a plugin-first OpenClaw architecture.
+
+---
+
+## Why this matters
+
+Without a dedicated timeline runtime, agents often answer temporal questions by mixing:
+- recent chat context;
+- vague memory fragments;
+- prompt conventions;
+- and model guesses.
+
+That tends to create familiar problems:
+- “now” answers drift over time;
+- location / action / appearance details become inconsistent;
+- facts may be written back without enough guardrails;
+- debugging a bad answer becomes difficult because there is no durable trace.
+
+Timeline exists to reduce those failures by moving the important logic into code.
+
+---
+
+## Typical scenarios
+
+### 1. Current-state grounding
+Use Timeline when the agent should answer questions such as:
+- “What are you doing right now?”
+- “Where are you now?”
+- “What have you been doing today?”
+
+### 2. Recent activity recall
+Use Timeline when you want a bounded summary of the recent past, while still preferring canonical memory over improvisation.
+
+### 3. Safer memory writing
+Use Timeline when timeline facts should only be written through a guarded append-only path instead of ad-hoc memory edits.
+
+### 4. Timeline maintenance and debugging
+Use Timeline when operators need to inspect registration state, recent runs, malformed day logs, or trace behavior.
+
+---
+
+## Core capabilities
+
+### `timeline_resolve`
+The canonical tool for timeline retrieval and, when allowed by policy, conservative append-only generation.
+
+### `timeline_status`
+A lightweight operator view of plugin metadata, registered tools/hooks, and the latest runtime snapshot.
+
+### `timeline_repair`
+A diagnostic tool for malformed daily logs, canonical-path validation, and recent run / trace inspection.
+
+### Lifecycle helpers
+The plugin also includes hook helpers for:
+- pre-compaction flush;
+- session snapshot;
+- audit trace persistence.
+
+---
+
+## How Timeline works
+
+At a high level, the runtime does this:
+
+1. normalize a request into a time window;
+2. read timeline-related sources in deterministic order;
+3. parse Markdown day logs into structured episodes;
+4. reuse canonical memory when possible;
+5. generate conservatively only when policy allows;
+6. write append-only through the timeline-owned path;
+7. emit trace and runtime-status diagnostics.
+
+The point is not just to answer a question once.
+The point is to make the answer path **repeatable, inspectable, and safer to maintain**.
+
+---
+
+## Should you install this?
+
+### Good fit
+Install this project if you need:
+- a dedicated timeline runtime for OpenClaw;
+- more trustworthy answers to temporal questions;
+- append-only timeline writing with path checks and lock protection;
+- status / repair tooling for operators;
+- a plugin that pushes timeline behavior into code instead of prompts alone.
+
+### Probably not the right fit
+This may not be the best fit if:
+- you only need a general chat persona;
+- you want free-form journaling rather than canonical timeline memory;
+- you do not need diagnostic / traceability features;
+- you need a fully finalized GA plugin immediately.
+
+---
 
 ## Installation
 
+> The project is currently best treated as a **draft local plugin / pilotable runtime slice**.
+> The most realistic installation path today is local development or side-loading into an OpenClaw environment you control.
+
+### Install from a local checkout
+
 ```bash
-clawhub install timeline-skill
+git clone https://github.com/tower1229/Her.git
+cd Her
+npm install
+npm run build
+openclaw plugins install -l .
 ```
 
-To install from source, copy the repo root into your agent's `skills/` directory:
+### Plugin entrypoints
 
-```
-~/.openclaw/workspace/skills/timeline-skill/SKILL.md
-```
+This repository exposes the plugin through:
+- `openclaw.plugin.json`
+- `package.json` → `openclaw.extensions`
+- `index.ts`
 
-After installation, complete the two required configuration steps below. **Skipping either step will cause the skill to silently fail** — the agent will not know when to trigger it, and will not write memories in the correct format.
+### Draft config fields
 
-## Configuration
+The current manifest exposes:
+- `enableTrace`
+- `traceLogPath`
+- `canonicalMemoryRoot`
 
-### 1. AGENTS.md — Memory Format Protocol
+---
 
-This step enforces the strict diary format that timeline-skill reads and writes. Without it, the agent may write free-form text that cannot be parsed.
+## Quick start
 
-Open `templates/AGENTS-protocol.template.md` from this skill directory, copy the entire `[MEMORY FORMAT PROTOCOL]` block, and paste it into the **core instruction zone** of your `AGENTS.md`.
+After installation:
 
-> ⚠️ This is a system-level guardrail. Do **not** place it in `SOUL.md` — it will be overridden.
+1. enable the plugin in your OpenClaw environment;
+2. make sure it can access the canonical `memory/` directory you intend to use;
+3. ask a clearly temporal question;
+4. inspect `timeline_status` to confirm registration / recent runtime state;
+5. run `timeline_repair` if a daily log looks malformed or a write path looks suspicious.
 
-### 2. SOUL.md — Temporal Awareness
+Example prompts:
+- “What are you doing right now?”
+- “What have you been doing recently?”
+- “What happened on 2026-03-22?”
+- “Check whether today’s timeline log is malformed.”
 
-This step gives your agent the awareness to recognize when it needs to recall its own timeline.
+---
 
-Open `templates/SOUL-awareness.template.md`, copy the entire `[TEMPORAL AWARENESS & MEMORY RETRIEVAL]` block, and **append** it to the very end of your `SOUL.md`.
+## Repository layout
 
-Once configured, whenever the user's intent involves time or current state ("what are you up to?", "what were you doing yesterday?"), the agent will automatically invoke timeline-skill to retrieve and anchor its facts before responding.
+- `openclaw.plugin.json` — plugin manifest
+- `index.ts` — plugin entry wiring
+- `skills/timeline/` — bundled routing skill
+- `src/tools/` — runtime tools (`timeline_resolve`, `timeline_status`, `timeline_repair`)
+- `src/core/` — deterministic timeline pipeline
+- `src/hooks/` — lifecycle helpers
+- `src/storage/` — write guards, trace logs, runtime status, run logs
+- `src/lib/` — parsing / fingerprint / time / inheritance helpers
+- `docs/` — interface, roadmap, migration, status, and release docs
 
-## Features
+---
 
-1. **Current State Inference & Persistence** — When asked about current activity, the agent reasons from session history (Hard Anchor), persona backstory, and system time to infer a logically consistent scene, then writes it to `memory/YYYY-MM-DD.md`.
-2. **Duration Boundary Detection** — Solves the "repeated query" problem. A new activity is only generated when a sensible time gap exists. The model evaluates logical duration (drinking water ends in 2 min; playing basketball continues for 30+).
-3. **Fact Retrieval** — Supports lookups over explicit past time ranges (e.g. "yesterday afternoon"), returning structured episode data.
-4. **Hallucination Elimination** — Prevents the model from randomly fabricating context (e.g. "sipping coffee in New York" one minute, "on Mars" the next). All activity is constrained to a single, immutable timeline.
-5. **Appearance Continuity** — Eliminates outfit hallucination drift within a single day. Appearance is inherited by default and only updated when the action logically implies a change (shower → bathrobe, gym → sportswear, shopping → trying on clothes, returning home → loungewear).
+## Current project status
 
-## Design Principles
+The implementation has already moved beyond pure design notes: it includes a real plugin skeleton, canonical tools, deterministic read logic, guarded append-only writes, hooks, diagnostics, and tests.
 
-- **Single Writer** — `timeline-skill` is the only authorized component that reads and writes diary-format memory entries. No other skill or prompt should append to `memory/*.md`.
-- **LLM-Instruction Driven (not hardcoded RPC)** — The skill operates entirely as injected context. The model is instructed to fetch facts before answering, reason in context, then respond. No external server calls at runtime.
-- **Fact / Expression Decoupling** — This skill is purely about "where" and "what". Tone, personality, and style are the responsibility of `persona-skill` and `SOUL.md`.
+But this is still **not yet a final GA release**.
+The biggest remaining gaps are:
+- real OpenClaw runtime validation;
+- stronger write-path / single-writer guarantees;
+- richer observability and operator tooling;
+- higher-confidence generated-write behavior.
 
-## Example
+If you want to understand maturity and next steps, start with:
+- `docs/timeline-v2-status.md`
+- `docs/timeline-v2-implementation-review.md`
+- `docs/timeline-v2-release-checklist.md`
+- `docs/timeline-v2-quickstart.md`
+- `docs/timeline-v2-migration.md`
+- `docs/timeline-v2-refactor-plan.md`
+- `docs/timeline-resolve-interface.md`
+- `CHANGELOG.md`
 
-**User:** "Hey, what are you up to right now?"
-
-**Model flow:**
-
-1. Detects time-related intent.
-2. Reads timeline-skill constraints — must fetch facts first.
-3. Calls disk/session read tools — finds an existing entry at 14:30: `{Location: study desk, Action: organizing Obsidian notes}`.
-4. Composes response using that fact as ground truth.
-
-**Agent reply:** _(stretches)_ "Just been at my desk by the window going through my Obsidian notes for a while. A bit tired now — what's up?"
-
-## Skill Ecosystem (Family)
-
-Timeline-skill works standalone, but combining it with the following skills unlocks emergent pipeline behavior:
-
-- **✨ persona-skill** — Provides the character backstory and MBTI profile that timeline-skill uses to infer plausible solo activities. Without persona, timeline inferences are generic. Without timeline, persona has no factual ground to stand on.
-- **✨ stella-selfie** — The image generation skill. When generating a selfie without explicit user context, it pulls from timeline (scene + location) and persona (visual traits + mood) to produce a contextually accurate photo automatically.
-
-## Project Structure
-
-```
-Her/
-├── SKILL.md                          # Skill entrypoint & metadata
-├── README.md                         # This file (English)
-├── README_ZH.md                      # Chinese version
-├── templates/
-│   ├── AGENTS-protocol.template.md   # Copy → AGENTS.md
-│   └── SOUL-awareness.template.md    # Append → SOUL.md
-├── references/
-│   ├── memory-format.md              # Disk entry format spec
-│   ├── window-semantics.md           # Time window definitions
-│   ├── json-schema.md                # TimelineWindow & Episode schemas
-│   └── gotchas.md                    # Common pitfalls & hard rules
-├── examples/
-│   └── episode-sample.md             # Level A/B episode examples
-├── scripts/
-│   ├── types.ts                      # Shared TypeScript interfaces
-│   ├── parse-memory.ts               # Markdown → ParsedEpisode parser
-│   ├── fingerprint.ts                # Soft dedup fingerprinting
-│   ├── inherit-appearance.ts         # Appearance continuity logic
-│   ├── holidays.ts                   # Static public holiday table (CN/US)
-│   ├── write-episode.ts              # Core write + validation entrypoint
-│   ├── run-log.ts                    # Observability run log
-│   └── release-clawhub.mjs          # ClawHub publish script
-└── docs/
-    └── timeline-skill-design.md      # Full architecture & design doc
-```
+---
 
 ## Development
 
 ```bash
 npm install
-npm test         # Run all unit tests (13 tests)
-npm run build    # Compile TypeScript
-npm run release:clawhub   # Publish to ClawHub
+npm run build
+npm test
 ```
-
-## License
-
-MIT-0 — free to use, modify, and redistribute without attribution.
