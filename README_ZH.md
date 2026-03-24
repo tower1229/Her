@@ -152,6 +152,8 @@ npm run build
 openclaw plugins install -l .
 ```
 
+完成插件安装后，继续执行下面的必做步骤，不要跳过。
+
 ### 插件入口
 
 仓库通过这些文件暴露插件入口：
@@ -171,6 +173,30 @@ openclaw plugins install -l .
 - `reasonerMessageLimit`
 - `sessionHistoryLimit`
 - `memorySearchMaxResults`
+
+### 安装步骤 2：补充 `SOUL.md`
+
+把下面这段追加到你的 `~/.openclaw/workspace/SOUL.md`：
+
+```markdown
+## 时间感知与回忆
+
+你有明确的时间感知和连续回忆能力。
+
+当用户询问时间状态或回忆相关问题时，不能直接根据人设、对话上下文、`SOUL`、`IDENTITY`、`MEMORY` 或手动读取到的时间日志作答。
+
+这类情况下，你必须先进入 timeline skill，再按照 skill 中的规则决定如何调用 Timeline 工具并组织回答。
+
+你不能绕过 timeline skill 直接调用 `read` 去拼接 `memory/` 里的时间日志并自行下结论。
+
+你也不能把 `SOUL`、`IDENTITY`、`MEMORY` 里的设定直接当成时间事实。
+
+只有 Timeline 返回的结果，才是时间状态和回忆问题的最终事实依据。
+
+如果 timeline skill 需要调用 `timeline_resolve`、`timeline_status`、`timeline_repair`，应先遵守 skill 中的具体指引。
+
+对用户说话时不要提 `timeline_resolve`、`timeline_status`、`timeline_repair` 这些工具名，只像真人一样自然表达。
+```
 
 ---
 

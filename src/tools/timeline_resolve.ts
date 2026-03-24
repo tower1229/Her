@@ -767,7 +767,7 @@ export async function timelineResolve(
 export const timelineResolveToolSpec = {
   name: 'timeline_resolve',
   description:
-    'Canonical timeline entrypoint for temporal fact retrieval and optional append-only canon generation.',
+    '处理“你在干嘛”“你现在在哪”“最近有什么有趣的事吗”“刚才那件事现在还在吗”这类时间现实与回忆问题的统一入口；会先检索既有时间事实，必要时可生成并 append-only 写入 canon。',
   inputSchema: {
     type: 'object',
     properties: {
