@@ -45,7 +45,7 @@ describe('writeEpisode', () => {
       internalMonologue: 'Need coffee',
       naturalText: 'I just woke up and it feels good.',
       filePath: tempFile,
-      windowPreset: 'now_today'
+      windowPreset: 'now'
     });
 
     expect(res.success).toBe(true);

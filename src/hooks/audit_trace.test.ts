@@ -52,7 +52,7 @@ describe('timeline hook trace logging', () => {
       reasonTimeline: async (collector) => ({
         schema_version: '1.0',
         request_id: collector.request_id,
-        request_type: 'current_status',
+        request_type: 'now',
         decision: {
           action: 'return_empty',
           should_write_canon: false,

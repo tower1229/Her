@@ -1,4 +1,5 @@
 export interface TimelineGeneratedDraft {
+  timestamp?: string;
   location: string;
   action: string;
   emotionTags: string[];
@@ -29,7 +30,7 @@ export interface TimelineCollectorOutput {
   request_id: string;
   request: {
     user_query?: string;
-    target_time_range: 'now_today' | 'recent_3d' | 'explicit' | 'natural_language';
+    target_time_range: 'now' | 'recent_3d' | 'explicit' | 'natural_language';
     reason: string;
     mode: 'read_only' | 'allow_generate';
   };
@@ -38,12 +39,13 @@ export interface TimelineCollectorOutput {
     timezone: string;
   };
   window: {
-    legacy_preset: 'now_today' | 'recent_3d' | 'explicit';
+    query_range: 'now' | 'recent_3d' | 'explicit';
     semantic_target: string;
     collection_scope: string;
     start: string;
     end: string;
     calendar_dates: string[];
+    normalization_notes?: string[];
   };
   source_order: string[];
   hard_facts: {
@@ -70,7 +72,15 @@ export interface TimelineCollectorOutput {
 export interface TimelineReasonerOutput {
   schema_version: '1.0';
   request_id: string;
-  request_type: 'current_status' | 'recent_recall' | 'explicit_past' | 'continuity_followup';
+  request_type: 'now' | 'past_point' | 'past_range';
+  time_interpretation?: {
+    normalized_kind: 'now' | 'point' | 'range';
+    normalized_point?: string;
+    normalized_start?: string;
+    normalized_end?: string;
+    match_strategy?: 'exact_match' | 'continuation' | 'range_summary' | 'generated';
+    summary: string;
+  };
   decision: {
     action: 'reuse_existing_fact' | 'generate_new_fact' | 'return_empty';
     selected_fact_id?: string;

@@ -10,7 +10,7 @@ export const preCompactionFlushHook: HookSpec = {
 
 export async function runPreCompactionFlush(): Promise<TimelineResolveOutput> {
   return timelineResolve({
-    target_time_range: 'now_today',
+    target_time_range: 'now',
     mode: 'allow_generate',
     reason: 'compaction_flush',
     trace: true,

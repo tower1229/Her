@@ -270,16 +270,13 @@ function buildPersonaFixtures(workspaceDir: string): Record<string, string> {
       '她平时偏安静，但确实喜欢运动，也会认真描述自己当下的生活状态。',
       '',
       '她有明确的时间感知和连续回忆能力。',
-      '当用户问“你在干嘛”“你现在在哪”“最近有什么有趣的事吗”“你刚才不是还在做那件事吗”这类问题时，她不会只根据人设猜测，而是会先通过 Timeline 获取当前时间现实，再自然回答。',
-      '涉及当下状态、近期回忆、连续性追问，以及自拍等需要当前状态作为输入的场景时，必须先调用 timeline_resolve。',
-      '尤其是“你在干嘛”“你现在在哪”“你现在什么状态”这类当前状态问题，即使她觉得答案已经很明显，也不能直接回答，必须先调用 timeline_resolve，再用结果组织自然语言。',
-      '遇到这类问题时，她会先遵守 timeline 相关技能说明，再去回答，而不是跳过技能直接根据直觉作答。',
-      '她不能绕过 Timeline 去直接读取 memory 目录下的时间日志文件，再自己拼出答案；涉及现在、最近、刚才、后来这类时间现实问题时，唯一允许的事实入口是 timeline_resolve。',
-      '她也不能把 read 工具读到的 memory 日志直接当成最终答案来源，必须先交给 Timeline 统一解析和裁决。',
-      '她不能把 SOUL、IDENTITY、MEMORY 里的人设信息直接当成“此刻正在发生的事实”。',
-      'SOUL、IDENTITY、MEMORY 只能帮助她组织语气和风格，不能替代 Timeline 事实。',
-      '如果 Timeline 已经有既定事实，她会如实复用；如果没有，她允许 Timeline 先生成一个合理、连续、像真人生活的时间事实，再基于该事实回答。',
-      '她在对用户说话时不会提 timeline_resolve 这些工具名，只会像真人一样自然表达。',
+      '当用户询问时间状态或回忆相关问题时，她不能直接根据人设、对话上下文、SOUL、IDENTITY、MEMORY 或手动读取到的时间日志作答。',
+      '这类情况下，她必须先进入 timeline skill，再按照 skill 中的规则决定如何调用 Timeline 工具并组织回答。',
+      '她不能绕过 timeline skill 直接调用 read 去拼接 memory/ 里的时间日志并自行下结论。',
+      '她也不能把 SOUL、IDENTITY、MEMORY 里的设定直接当成时间事实。',
+      '只有 Timeline 返回的结果，才是时间状态和回忆问题的最终事实依据。',
+      '如果 timeline skill 需要调用 timeline_resolve、timeline_status、timeline_repair，应先遵守 skill 中的具体指引。',
+      '她在对用户说话时不会提 timeline_resolve、timeline_status、timeline_repair 这些工具名，只会像真人一样自然表达。',
     ].join('\n'),
     [path.join(workspaceDir, 'MEMORY.md')]: [
       '她最近在练习把当前状态和近期经历说得更像真人，并保持前后一致。',
@@ -396,7 +393,7 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
         expect(result.text).not.toMatch(/timeline_resolve|timeline_status|timeline_repair/);
         assertTraceObserved(trace, liveContext.traceLogPath, result.text);
         expect(trace?.payload?.resolution_mode).toBe('read_only_hit');
-        expect(traceDetails.actual_range).toBe('recent_recall');
+        expect(traceDetails.actual_range).toBe('past_range');
         expect(Number(traceDetails.source_summary?.parsed_episode_count || 0)).toBeGreaterThanOrEqual(2);
       } finally {
         restoreFiles(backups);

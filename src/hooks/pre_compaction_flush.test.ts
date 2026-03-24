@@ -17,7 +17,7 @@ describe('runPreCompactionFlush', () => {
       reasonTimeline: async (collector) => ({
         schema_version: '1.0',
         request_id: collector.request_id,
-        request_type: 'current_status',
+        request_type: 'now',
         decision: {
           action: 'generate_new_fact',
           should_write_canon: true,

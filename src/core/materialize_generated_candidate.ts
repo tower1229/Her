@@ -41,6 +41,7 @@ function normalizeGeneratedDraft(draft: TimelineGeneratedDraft): TimelineGenerat
   }
 
   return {
+    timestamp: draft.timestamp ? assertNonEmptyString(draft.timestamp, 'timestamp') : undefined,
     location: assertNonEmptyString(draft.location, 'location'),
     action: assertNonEmptyString(draft.action, 'action'),
     emotionTags: emotionTags.slice(0, 3),
@@ -63,17 +64,19 @@ export function materializeGeneratedCandidate(
   reason = 'llm-guided semantic timeline synthesis',
 ): GeneratedCandidateResult {
   const normalized = normalizeGeneratedDraft(draft);
-  const currentDayLog = sources.dailyLogs.find((entry) => entry.calendar_date === window.calendar_date);
-  const dayEpisodes = parseMemoryFile(currentDayLog?.raw_content || '');
-  const timestampParts = parseTimestampParts(window.end);
+  const candidateTimestamp = normalized.timestamp || window.end;
+  const timestampParts = parseTimestampParts(candidateTimestamp);
   if (!timestampParts) {
-    throw new Error(`Cannot materialize generated candidate without parseable window end: ${window.end}`);
+    throw new Error(`Cannot materialize generated candidate without parseable timestamp: ${candidateTimestamp}`);
   }
+  const materializedDate = formatDate(timestampParts);
+  const currentDayLog = sources.dailyLogs.find((entry) => entry.calendar_date === materializedDate);
+  const dayEpisodes = parseMemoryFile(currentDayLog?.raw_content || '');
 
   const priorEpisode = dayEpisodes[dayEpisodes.length - 1];
   const appearanceResolution = resolveAppearance(dayEpisodes, normalized.action, normalized.appearance);
   const parsed: ParsedEpisode = {
-    timestamp: window.end,
+    timestamp: candidateTimestamp,
     location: normalized.location,
     action: normalized.action,
     emotionTags: normalized.emotionTags,
@@ -84,11 +87,10 @@ export function materializeGeneratedCandidate(
     confidence: normalized.confidence,
   };
 
-  const date = formatDate(timestampParts);
-  const idempotencyKey = computeFingerprint(date, parsed.location, parsed.action, parsed.timestamp);
+  const idempotencyKey = computeFingerprint(materializedDate, parsed.location, parsed.action, parsed.timestamp);
   const worldHooks = {
     weekday: ![0, 6].includes(dayOfWeek(timestampParts)),
-    holiday_key: getHoliday(date, inferCountryFromOffset(timestampParts.offset)),
+    holiday_key: getHoliday(materializedDate, inferCountryFromOffset(timestampParts.offset)),
   };
 
   return {

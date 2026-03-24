@@ -13,7 +13,7 @@ describe('timelineResolve canonical path guard', () => {
       reasonTimeline: async (collector) => ({
         schema_version: '1.0',
         request_id: collector.request_id,
-        request_type: 'current_status',
+        request_type: 'now',
         decision: {
           action: 'generate_new_fact',
           should_write_canon: true,
@@ -42,7 +42,7 @@ describe('timelineResolve canonical path guard', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now_today',
+      target_time_range: 'now',
       mode: 'allow_generate',
       reason: 'current_status',
       trace: true,

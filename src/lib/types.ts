@@ -19,7 +19,7 @@ export interface TimelineWindow {
   };
   window: {
     calendar_date: string;
-    preset: string; // "now_today" | "recent_3d" | "explicit"
+    preset: string; // "now" | "recent_3d" | "explicit"
     semantic_target?: string;
     collection_scope?: string;
     start: string;

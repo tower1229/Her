@@ -3,7 +3,7 @@
 > 状态：面向北极星目标的执行路线图
 > 目的：把 Timeline 从“可调用 runtime”推进到“OpenClaw 的时间现实层”
 > 读者：项目维护者与实现者
-> 关联：`docs/timeline-north-star.md`
+> 关联：`docs/timeline-north-star.md`、`docs/timeline-query-semantics.md`
 
 ## 1. 路线图原则
 
@@ -63,7 +63,7 @@
 ### 当前主要问题
 
 - 命中策略仍偏向当天最后一条
-- `recent_3d` / `explicit` 的最终语义还未收口
+- `now / past_point / past_range` 的公开查询模型还未完全收口
 - 已有日内事实但当前窗口缺事实时，不会做 gap-fill generation
 - 连续性推理没有独立建模
 - 当前部分读取决策仍然试图用脚本承担语义判断
@@ -71,9 +71,11 @@
 ### 关键任务
 
 - 把窗口到候选 facts 的收集，与最终语义决策彻底拆开
+- 把公开查询模型收敛为 `now / past_point / past_range`
 - 让 episode 选择与连续性判断回到 LLM 决策层
 - 引入“目标窗口命中 / 窗口缺口 / 延续推理 / 新生成”四类决策
-- 把 `recent_3d` 和跨日 explicit 窗口正式建成多日结构
+- 把 `recent_3d` 收敛成 `past_range` 的内部特殊范围约定
+- 让“昨晚”“昨晚八点”“今天都在做什么”这类自然语言时间先被归一化，再进入检索或生成
 - 为事件持续性建立最小状态模型
 
 ### 建议实现切面
@@ -87,6 +89,7 @@
 ### 完成标准
 
 - “你在干嘛” 不再只是复用当天最后一条
+- 公开接口中不再把 `now` 暴露成 `now_today`
 - “最近在做什么” 能稳定按窗口组织结果
 - “五分钟前打球，五分钟后还在打球” 不再依赖脚本关键词或活动时长表
 
@@ -113,7 +116,6 @@
 
 ### 建议实现切面
 
-- `src/core/generation_prompt.ts`
 - `src/tools/timeline_resolve.ts`
 - `src/runtime/openclaw_timeline_runtime.ts`
 - 不再保留旧的脚本式人格化生成模块，生成功能只保留 LLM draft 的结构化落盘路径

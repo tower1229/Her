@@ -11,7 +11,7 @@ export const sessionSnapshotHook: HookSpec = {
 
 export async function runSessionSnapshot(logPath: string): Promise<TimelineResolveOutput> {
   const result = await timelineResolve({
-    target_time_range: 'now_today',
+    target_time_range: 'now',
     mode: 'read_only',
     reason: 'snapshot',
     trace: true,

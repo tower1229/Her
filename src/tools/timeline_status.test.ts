@@ -38,7 +38,7 @@ describe('timelineStatus', () => {
       reasonTimeline: async (collector) => ({
         schema_version: '1.0',
         request_id: collector.request_id,
-        request_type: 'current_status',
+        request_type: 'now',
         decision: {
           action: 'generate_new_fact',
           should_write_canon: true,
@@ -69,7 +69,7 @@ describe('timelineStatus', () => {
     });
 
     const resolveResult = await timelineResolve({
-      target_time_range: 'now_today',
+      target_time_range: 'now',
       mode: 'allow_generate',
       reason: 'current_status',
       trace: true,

@@ -33,7 +33,7 @@ describe('timelineResolve generation path', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now_today',
+      target_time_range: 'now',
       mode: 'allow_generate',
       reason: 'current_status',
       trace: true,
@@ -61,7 +61,7 @@ describe('timelineResolve generation path', () => {
         return {
           schema_version: '1.0',
           request_id: collector.request_id,
-          request_type: 'current_status',
+          request_type: 'now',
           decision: {
             action: 'generate_new_fact',
             should_write_canon: true,
@@ -93,7 +93,7 @@ describe('timelineResolve generation path', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now_today',
+      target_time_range: 'now',
       mode: 'allow_generate',
       reason: 'current_status',
       trace: true,
@@ -120,7 +120,7 @@ describe('timelineResolve generation path', () => {
       reasonTimeline: async (collector) => ({
         schema_version: '1.0',
         request_id: collector.request_id,
-        request_type: 'current_status',
+        request_type: 'now',
         decision: {
           action: 'generate_new_fact',
           should_write_canon: true,
@@ -159,7 +159,7 @@ describe('timelineResolve generation path', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now_today',
+      target_time_range: 'now',
       mode: 'allow_generate',
       reason: 'current_status',
       trace: true,
@@ -187,7 +187,7 @@ describe('timelineResolve generation path', () => {
       reasonTimeline: async (collector) => ({
         schema_version: '1.0',
         request_id: collector.request_id,
-        request_type: 'current_status',
+        request_type: 'now',
         decision: {
           action: 'generate_new_fact',
           should_write_canon: true,
@@ -218,7 +218,7 @@ describe('timelineResolve generation path', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now_today',
+      target_time_range: 'now',
       mode: 'allow_generate',
       reason: 'current_status',
       trace: true,
@@ -229,6 +229,61 @@ describe('timelineResolve generation path', () => {
     expect(result.resolution_summary.mode).toBe('generated_new');
     const episode: any = result.result?.episodes[0];
     expect(String(episode?.state_snapshot?.scene?.activity || '')).toContain('下午的工作内容');
+  });
+
+  it('writes a generated past-range memory to the generated timestamp day instead of window end day', async () => {
+    const olderDayFile = path.join(tmpDir, 'memory', '2026-03-20.md');
+    const currentDayFile = path.join(tmpDir, 'memory', '2026-03-22.md');
+
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-22T21:30:00+08:00', timezone: 'Asia/Shanghai' }),
+      sessionsHistory: async () => ['User asked: 最近有什么有趣的事吗？'],
+      memoryGet: async () => '',
+      reasonTimeline: async (collector) => ({
+        schema_version: '1.0',
+        request_id: collector.request_id,
+        request_type: 'past_range',
+        decision: {
+          action: 'generate_new_fact',
+          should_write_canon: true,
+        },
+        continuity: {
+          judged: true,
+          reason: 'range query has no reusable canon fact',
+        },
+        rationale: {
+          summary: 'Generated an interesting past-range fact and anchored it to a plausible evening slot inside the recent range.',
+          hard_fact_basis: [],
+          canon_basis: [],
+          persona_basis: ['soul', 'memory'],
+        },
+        generated_fact: {
+          timestamp: '2026-03-20T20:10:00+08:00',
+          location: '街角的小书店二层靠窗位置',
+          action: '翻到一本意外很喜欢的书，结果一口气坐着读了很久',
+          emotionTags: ['投入', '惊喜'],
+          appearance: '浅色针织上衣，外套随手搭在椅背上',
+          internalMonologue: '本来只是随便进去看看，没想到会被这本书拽住这么久。',
+          naturalText: '前两天晚上她在街角书店碰到一本很合胃口的书，结果一坐下就读了很久。',
+          confidence: 0.82,
+          reason: 'interesting-event synthesis inside the recent range',
+        },
+      }),
+      memoryFilePath: (calendarDate) => path.join(tmpDir, 'memory', `${calendarDate}.md`),
+    });
+
+    const result = await timelineResolve({
+      target_time_range: 'recent_3d',
+      mode: 'allow_generate',
+      reason: 'past_recall',
+      trace: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected generated past-range success envelope');
+    expect(fs.existsSync(olderDayFile)).toBe(true);
+    expect(fs.existsSync(currentDayFile)).toBe(false);
+    expect(result.trace?.write.file_path).toBe(olderDayFile);
   });
 
 });

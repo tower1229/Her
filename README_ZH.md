@@ -174,7 +174,45 @@ openclaw plugins install -l .
 - `sessionHistoryLimit`
 - `memorySearchMaxResults`
 
-### 安装步骤 2：补充 `SOUL.md`
+### 安装步骤 2：补充 `AGENTS.md`
+
+把下面这段追加到你的 `~/.openclaw/workspace/AGENTS.md`：
+
+```markdown
+## Timeline Daily Log 约定
+
+`memory/YYYY-MM-DD.md` 是按天组织的时间性记忆日志。
+
+当你要把“当前在做什么”“某个时间点发生了什么”“某段时间里在做什么”写入 daily log 时，必须使用 Timeline 的结构化格式，而不能自由散文式记录。
+
+daily log 中的单条时间记忆必须尽量包含以下字段：
+
+- `Timestamp`
+- `Location`
+- `Action`
+- `Emotion_Tags`
+- `Appearance`
+- `Internal_Monologue`（可选）
+
+推荐格式：
+
+    ### [09:30:00] 在书房整理今天的待办...
+
+    - Timestamp: 2026-03-24 09:30:00
+    - Location: 家里书房
+    - Action: 坐在书房里整理今天的待办事项，准备开始上午的工作
+    - Emotion_Tags: [calm, focused]
+    - Appearance: 浅色居家上衣，头发随手扎起，手边放着一杯刚泡好的咖啡
+    - Internal_Monologue: 想先把上午最重要的两件事做完，晚点如果顺利的话，晚上可以出去活动一下
+
+    刚坐下没多久，正准备把今天要做的事情顺一遍。
+
+不要把长期稳定事实写进 `memory/YYYY-MM-DD.md`；长期偏好、关系、长期决策仍应写入 `MEMORY.md`。
+
+不要在 daily log 里混用自由格式和 Timeline 格式；涉及时间状态与回忆的 daily memory，应优先写成 Timeline 可解析的格式。
+```
+
+### 安装步骤 3：补充 `SOUL.md`
 
 把下面这段追加到你的 `~/.openclaw/workspace/SOUL.md`：
 
@@ -249,6 +287,7 @@ openclaw plugins install -l .
 - `docs/timeline-north-star.md`
 - `docs/timeline-llm-runtime-boundary.md`
 - `docs/timeline-collector-reasoner-interface.md`
+- `docs/timeline-query-semantics.md`
 - `docs/timeline-roadmap.md`
 - `docs/timeline-integration-test-cases.md`
 - `CHANGELOG.md`

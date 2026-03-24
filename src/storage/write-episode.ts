@@ -16,7 +16,7 @@ export interface WriteEpisodeInput {
   internalMonologue?: string;
   naturalText?: string;
   filePath: string;
-  windowPreset?: string; // e.g., "now_today" for run-log
+  windowPreset?: string; // e.g., "now" for run-log
   confidence?: number;
 }
 

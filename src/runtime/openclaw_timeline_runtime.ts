@@ -150,14 +150,14 @@ function buildMemorySearchQuery(input: { query?: string; reason: string }, seman
   const explicit = readString(input.query);
   if (explicit) return explicit;
 
-  if (semanticTarget === 'recent_recall') {
+  if (semanticTarget === 'past_range' && input.reason === 'past_recall') {
     return '最近三天发生了什么，在忙什么，有什么有趣的事';
   }
-  if (semanticTarget === 'explicit_past') {
-    return '回忆指定时间段发生的事情';
+  if (semanticTarget === 'past_point') {
+    return '回忆指定时间点附近发生的事情，并考虑可持续覆盖到该时间点的活动';
   }
-  if (semanticTarget === 'today_summary') {
-    return '今天到目前为止做了什么';
+  if (semanticTarget === 'past_range') {
+    return '回忆指定时间范围发生的事情，并优先找更鲜活、值得提起的内容';
   }
   if (semanticTarget === 'now' || input.reason === 'current_status') {
     return '当前状态，现在在哪里，在做什么';
@@ -263,6 +263,13 @@ function buildTimelineReasonerSystemPrompt(): string {
     '4. 如果 decision.action 是 generate_new_fact，必须给出完整 generated_fact，并且 should_write_canon=true。',
     '5. 如果当前信息不足且不应复用或生成，才允许 return_empty。',
     '6. continuity 字段必须如实表达是否做了延续性判断，以及判断理由。',
+    '7. request_type 只能是 now、past_point、past_range。',
+    '8. recent_3d 只是口语“最近”的内部范围约定，本质属于 past_range。',
+    '9. continuity 不是独立请求类型；它只是 now 或 past_point 查询中的推理结果。',
+    '10. past_point 可以通过精确命中，或通过“较早事实自然持续到目标时间点”的方式命中。',
+    '11. past_range 需要先理解自然语言对应的时间范围，再从该范围内挑选最相关、最鲜活、最值得提的事实。',
+    '12. 如果用户在问“有趣”“好玩”“忙不忙”这类语义筛选词，必须先理解筛选语义，再决定复用什么事实或生成什么事实。',
+    '13. 如果为 past_point 或 past_range 生成新事实，generated_fact 应尽量提供一个合理的 timestamp，并保证它落在目标时间点或目标时间范围内，而不是默认落在当前时刻。',
   ].join('\n');
 }
 
@@ -273,7 +280,15 @@ function buildTimelineReasonerMessage(collector: TimelineCollectorOutput): strin
     JSON.stringify({
       schema_version: '1.0',
       request_id: collector.request_id,
-      request_type: 'current_status | recent_recall | explicit_past | continuity_followup',
+      request_type: 'now | past_point | past_range',
+      time_interpretation: {
+        normalized_kind: 'now | point | range',
+        normalized_point: 'optional',
+        normalized_start: 'optional',
+        normalized_end: 'optional',
+        match_strategy: 'exact_match | continuation | range_summary | generated',
+        summary: 'how you interpreted the user time semantics',
+      },
       decision: {
         action: 'reuse_existing_fact | generate_new_fact | return_empty',
         selected_fact_id: 'reuse_existing_fact 时必填',
@@ -292,6 +307,7 @@ function buildTimelineReasonerMessage(collector: TimelineCollectorOutput): strin
         uncertainty: 'optional',
       },
       generated_fact: {
+        timestamp: 'optional ISO-like timestamp when generation should land at a specific past point or past range',
         location: 'string',
         action: 'string',
         emotionTags: ['string'],

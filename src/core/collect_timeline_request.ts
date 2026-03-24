@@ -34,12 +34,13 @@ export function buildTimelineCollectorOutput(
       timezone: window.timezone,
     },
     window: {
-      legacy_preset: window.legacy_preset,
+      query_range: window.query_range,
       semantic_target: window.semantic_target,
       collection_scope: window.collection_scope,
       start: window.start,
       end: window.end,
       calendar_dates: enumerateCalendarDates(window.start, window.end),
+      normalization_notes: window.normalization_notes,
     },
     source_order: sources.sourceOrder,
     hard_facts: {

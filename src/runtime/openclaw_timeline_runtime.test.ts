@@ -95,7 +95,7 @@ describe('openclaw timeline runtime factories', () => {
             bodyText: JSON.stringify({
               schema_version: '1.0',
               request_id: latestReasonerRequestId,
-              request_type: 'current_status',
+              request_type: 'now',
               decision: {
                 action: 'reuse_existing_fact',
                 selected_fact_id: `canon:${today}:0`,
@@ -119,7 +119,7 @@ describe('openclaw timeline runtime factories', () => {
     });
 
     const result = await tool.execute('call-1', {
-      target_time_range: 'now_today',
+      target_time_range: 'now',
       mode: 'allow_generate',
       reason: 'current_status',
       trace: true,

@@ -51,7 +51,7 @@ export type TimelineResolutionMode =
   | 'error';
 
 export interface TimelineResolveInput {
-  target_time_range: 'now_today' | 'recent_3d' | 'explicit' | 'natural_language';
+  target_time_range: 'now' | 'recent_3d' | 'explicit' | 'natural_language';
   start?: string;
   end?: string;
   query?: string;
@@ -246,6 +246,21 @@ function classifyWriteFailure(writeResult: WriteResult): {
   };
 }
 
+function calendarDateFromTimestamp(timestamp: string): string {
+  const parts = parseTimestampParts(timestamp);
+  if (!parts) throw new Error(`Generated timestamp is not parseable: ${timestamp}`);
+  return formatDate(parts);
+}
+
+function buildReasonerNotes(reasoned: TimelineReasonerOutput): string[] {
+  const notes = [reasoned.rationale.summary];
+  const interpretation = reasoned.time_interpretation?.summary?.trim();
+  if (interpretation) {
+    notes.push(`Time interpretation: ${interpretation}`);
+  }
+  return notes;
+}
+
 function persistTraceIfRequested(
   output: TimelineResolveOutput,
   input: TimelineResolveInput,
@@ -369,7 +384,7 @@ function buildReadOnlyHitOutput(
       anchor: { now: window.end, timezone: window.timezone },
       window: {
         calendar_date: window.calendar_date,
-        preset: window.legacy_preset,
+        preset: window.query_range,
         semantic_target: window.semantic_target,
         collection_scope: window.collection_scope,
         start: window.start,
@@ -378,11 +393,11 @@ function buildReadOnlyHitOutput(
       },
       resolution: {
         mode: 'read_only_hit',
-        notes: reasoned.rationale.summary,
+        notes: buildReasonerNotes(reasoned).join(' | '),
       },
       episodes: [episode],
     },
-    notes: [reasoned.rationale.summary],
+    notes: buildReasonerNotes(reasoned),
   };
 }
 
@@ -410,7 +425,7 @@ function buildEmptyOutput(
       anchor: { now: window.end, timezone: window.timezone },
       window: {
         calendar_date: window.calendar_date,
-        preset: window.legacy_preset,
+        preset: window.query_range,
         semantic_target: window.semantic_target,
         collection_scope: window.collection_scope,
         start: window.start,
@@ -419,11 +434,11 @@ function buildEmptyOutput(
       },
       resolution: {
         mode: 'empty_window',
-        notes: reasoned.rationale.summary,
+        notes: buildReasonerNotes(reasoned).join(' | '),
       },
       episodes: [],
     },
-    notes: [reasoned.rationale.summary],
+    notes: buildReasonerNotes(reasoned),
   };
 }
 
@@ -507,9 +522,10 @@ export async function timelineResolve(
           guard.generated_fact.reason || reasoned.rationale.summary || 'llm-guided semantic timeline synthesis',
         );
         traceAppearance = generated.appearance;
+        const generatedCalendarDate = calendarDateFromTimestamp(generated.parsed.timestamp);
         const requestedPath = deps.memoryFilePath
-          ? deps.memoryFilePath(window.calendar_date)
-          : `memory/${window.calendar_date}.md`;
+          ? deps.memoryFilePath(generatedCalendarDate)
+          : `memory/${generatedCalendarDate}.md`;
 
         let filePath = requestedPath;
         let writeResult: WriteResult = {
@@ -524,7 +540,7 @@ export async function timelineResolve(
         try {
           filePath = assertCanonicalDailyLogPath(
             requestedPath,
-            window.calendar_date,
+            generatedCalendarDate,
             deps.canonicalRootName || 'memory',
           );
           writeResult = deps.writeEpisode
@@ -538,7 +554,7 @@ export async function timelineResolve(
                   internalMonologue: generated.parsed.internalMonologue,
                   naturalText: generated.parsed.naturalText,
                   filePath,
-                  windowPreset: window.legacy_preset,
+                  windowPreset: window.query_range,
                   confidence: generated.parsed.confidence,
                 }),
               )
@@ -629,8 +645,8 @@ export async function timelineResolve(
             document_type: 'timeline.window',
             anchor: { now: window.end, timezone: window.timezone },
             window: {
-              calendar_date: window.calendar_date,
-              preset: window.legacy_preset,
+              calendar_date: generatedCalendarDate,
+              preset: window.query_range,
               semantic_target: window.semantic_target,
               collection_scope: window.collection_scope,
               start: window.start,
@@ -639,11 +655,12 @@ export async function timelineResolve(
             },
             resolution: {
               mode: resolutionMode,
-              notes: resolutionNotes,
+              notes: [...buildReasonerNotes(reasoned), resolutionNotes].join(' | '),
             },
             episodes: [generated.episode],
           },
-          notes: generated.notes.concat(
+          notes: buildReasonerNotes(reasoned).concat(
+            generated.notes,
             normalizedWriteResult.success
               ? normalizedWriteResult.outcome === 'noop_existing'
                 ? [`A matching canon entry was already present at ${filePath}; append skipped.`]
@@ -773,7 +790,7 @@ export const timelineResolveToolSpec = {
     properties: {
       target_time_range: {
         type: 'string',
-        enum: ['now_today', 'recent_3d', 'explicit', 'natural_language'],
+        enum: ['now', 'recent_3d', 'explicit', 'natural_language'],
       },
       start: { type: 'string' },
       end: { type: 'string' },

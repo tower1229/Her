@@ -27,7 +27,12 @@ describe('timelineResolve', () => {
       reasonTimeline: async (collector) => ({
         schema_version: '1.0',
         request_id: collector.request_id,
-        request_type: 'current_status',
+        request_type: 'now',
+        time_interpretation: {
+          normalized_kind: 'now',
+          match_strategy: 'continuation',
+          summary: 'The user is asking about the current moment, so the request was normalized to now.',
+        },
         decision: {
           action: 'reuse_existing_fact',
           selected_fact_id: 'canon:2026-03-22:0',
@@ -48,7 +53,7 @@ describe('timelineResolve', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now_today',
+      target_time_range: 'now',
       mode: 'read_only',
       reason: 'current_status',
       trace: true,
@@ -61,6 +66,7 @@ describe('timelineResolve', () => {
     expect(result.resolution_summary.sources).toEqual(['sessions_history', 'memory_get']);
     expect(result.result?.window.calendar_date).toBe('2026-03-22');
     expect(result.result?.episodes).toHaveLength(1);
+    expect(result.notes.join(' ')).toContain('Time interpretation: The user is asking about the current moment');
   });
 
   it('returns a contract error for natural_language requests without query', async () => {
@@ -86,7 +92,7 @@ describe('timelineResolve', () => {
       reasonTimeline: async (collector) => ({
         schema_version: '1.0',
         request_id: collector.request_id,
-        request_type: 'current_status',
+        request_type: 'now',
         decision: {
           action: 'generate_new_fact',
           should_write_canon: true,
@@ -117,7 +123,7 @@ describe('timelineResolve', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now_today',
+      target_time_range: 'now',
       mode: 'allow_generate',
       reason: 'current_status',
       trace: false,
@@ -136,7 +142,7 @@ describe('timelineResolve', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now_today',
+      target_time_range: 'now',
       mode: 'allow_generate',
       reason: 'current_status',
       trace: true,
@@ -155,7 +161,7 @@ describe('timelineResolve', () => {
       reasonTimeline: async (collector) => ({
         schema_version: '1.0',
         request_id: collector.request_id,
-        request_type: 'current_status',
+        request_type: 'now',
         decision: {
           action: 'return_empty',
           should_write_canon: false,
@@ -174,7 +180,7 @@ describe('timelineResolve', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now_today',
+      target_time_range: 'now',
       mode: 'read_only',
       reason: 'current_status',
       trace: true,
@@ -201,7 +207,7 @@ describe('timelineResolve', () => {
       reasonTimeline: async (collector) => ({
         schema_version: '1.0',
         request_id: collector.request_id,
-        request_type: 'current_status',
+        request_type: 'now',
         decision: {
           action: 'return_empty',
           should_write_canon: false,
@@ -221,7 +227,7 @@ describe('timelineResolve', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now_today',
+      target_time_range: 'now',
       mode: 'read_only',
       reason: 'current_status',
       trace: true,
@@ -254,7 +260,7 @@ describe('timelineResolve', () => {
       reasonTimeline: async (collector) => ({
         schema_version: '1.0',
         request_id: collector.request_id,
-        request_type: 'explicit_past',
+        request_type: 'past_range',
         decision: {
           action: 'reuse_existing_fact',
           selected_fact_id: 'canon:2026-03-22:0',

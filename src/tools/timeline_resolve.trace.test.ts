@@ -30,7 +30,7 @@ describe('timelineResolve trace schema', () => {
       reasonTimeline: async (collector) => ({
         schema_version: '1.0',
         request_id: collector.request_id,
-        request_type: 'current_status',
+        request_type: 'now',
         decision: {
           action: 'reuse_existing_fact',
           selected_fact_id: 'canon:2026-03-22:0',
@@ -52,7 +52,7 @@ describe('timelineResolve trace schema', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now_today',
+      target_time_range: 'now',
       mode: 'read_only',
       reason: 'current_status',
       trace: true,
@@ -76,7 +76,7 @@ describe('timelineResolve trace schema', () => {
       reasonTimeline: async (collector) => ({
         schema_version: '1.0',
         request_id: collector.request_id,
-        request_type: 'current_status',
+        request_type: 'now',
         decision: {
           action: 'generate_new_fact',
           should_write_canon: true,
@@ -109,7 +109,7 @@ describe('timelineResolve trace schema', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now_today',
+      target_time_range: 'now',
       mode: 'allow_generate',
       reason: 'current_status',
       trace: true,
@@ -124,7 +124,7 @@ describe('timelineResolve trace schema', () => {
     expect(result.trace?.decision.resolution_mode).toBe('generated_new');
   });
 
-  it('can materialize an llm-generated entry for non-now_today ranges when memory is blank', async () => {
+  it('can materialize an llm-generated entry for non-now ranges when memory is blank', async () => {
     setTimelineResolveDependencies({
       currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
       sessionsHistory: async () => [],
@@ -132,7 +132,7 @@ describe('timelineResolve trace schema', () => {
       reasonTimeline: async (collector) => ({
         schema_version: '1.0',
         request_id: collector.request_id,
-        request_type: 'recent_recall',
+        request_type: 'past_range',
         decision: {
           action: 'generate_new_fact',
           should_write_canon: true,

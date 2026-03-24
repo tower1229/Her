@@ -33,6 +33,8 @@ function factToParsedEpisode(fact: CollectedTimelineFact): ParsedEpisode {
 function isValidGeneratedDraft(draft: TimelineGeneratedDraft | undefined): draft is TimelineGeneratedDraft {
   if (!draft) return false;
   return Boolean(
+    (draft.timestamp === undefined || String(draft.timestamp).trim())
+    &&
     String(draft.location || '').trim()
     && String(draft.action || '').trim()
     && Array.isArray(draft.emotionTags)
