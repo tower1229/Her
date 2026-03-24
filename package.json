@@ -22,6 +22,7 @@
     "node": ">=22.0.0"
   },
   "scripts": {
+    "prebuild": "rm -rf dist",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "node node_modules/jest/bin/jest.js --runInBand",

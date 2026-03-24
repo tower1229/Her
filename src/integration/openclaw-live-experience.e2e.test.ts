@@ -401,4 +401,99 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
     },
     240000,
   );
+
+  test(
+    '会在真实环境自然问法“昨晚八点你在做什么”下命中过去时间点，并允许连续性覆盖',
+    async () => {
+      const now = new Date();
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const yesterdayFilePath = path.join(liveContext.canonicalRootPath, `${formatDate(yesterday)}.md`);
+      const pointFactTime = new Date(yesterday.getTime());
+      pointFactTime.setHours(19, 50, 0, 0);
+      const backups = applyFixtures({
+        ...buildPersonaFixtures(liveContext.workspaceDir),
+        [yesterdayFilePath]: [
+          '### [Episode]',
+          `- Timestamp: ${formatTimestamp(pointFactTime)}`,
+          '- Location: 客厅沙发旁',
+          '- Action: 靠在沙发上看一部刚追到结尾的电视剧',
+          '- Emotion_Tags: [放松, 投入]',
+          '- Appearance: 宽松的居家上衣和长裤',
+          '- Internal_Monologue: 这集节奏终于起来了，再看一会儿就差不多。',
+          '她昨晚在客厅靠着沙发看电视剧，整个人都比较放松。',
+        ].join('\n'),
+      });
+
+      try {
+        const startedAtMs = Date.now();
+        const sessionId = `timeline-live-past-point-${startedAtMs}`;
+        const result = await runAgentTurn(sessionId, '昨晚八点你在做什么');
+        const trace = readLatestTimelineTrace(liveContext.traceLogPath, startedAtMs);
+        const traceDetails = getTraceDetails(trace);
+
+        expect(result.payload?.status).toBe('ok');
+        expect(result.text).toMatch(/客厅|沙发|电视剧|看剧/);
+        expect(result.text).not.toMatch(/timeline_resolve|timeline_status|timeline_repair/);
+        assertTraceObserved(trace, liveContext.traceLogPath, result.text);
+        expect(trace?.payload?.resolution_mode).toBe('read_only_hit');
+        expect(traceDetails.actual_range).toBe('past_point');
+      } finally {
+        restoreFiles(backups);
+      }
+    },
+    240000,
+  );
+
+  test(
+    '会在真实环境自然问法“昨晚在做什么”下命中过去时间范围，并组织成自然回忆',
+    async () => {
+      const now = new Date();
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const yesterdayFilePath = path.join(liveContext.canonicalRootPath, `${formatDate(yesterday)}.md`);
+      const firstFactTime = new Date(yesterday.getTime());
+      firstFactTime.setHours(19, 10, 0, 0);
+      const secondFactTime = new Date(yesterday.getTime());
+      secondFactTime.setHours(21, 0, 0, 0);
+      const backups = applyFixtures({
+        ...buildPersonaFixtures(liveContext.workspaceDir),
+        [yesterdayFilePath]: [
+          '### [Episode]',
+          `- Timestamp: ${formatTimestamp(firstFactTime)}`,
+          '- Location: 厨房和餐桌之间',
+          '- Action: 简单做了点晚饭，边吃边放空一会儿',
+          '- Emotion_Tags: [平静, 放松]',
+          '- Appearance: 浅色家居服，头发随手挽起',
+          '- Internal_Monologue: 晚上就想让自己慢一点。',
+          '她昨晚先在家里简单做了点晚饭。',
+          '',
+          '### [Episode]',
+          `- Timestamp: ${formatTimestamp(secondFactTime)}`,
+          '- Location: 客厅沙发旁',
+          '- Action: 靠在沙发上继续看电视剧',
+          '- Emotion_Tags: [放松, 投入]',
+          '- Appearance: 同样的宽松家居服',
+          '- Internal_Monologue: 这种晚上很安静，也很像自己的生活。',
+          '吃完饭后她又在客厅看了会儿电视剧。',
+        ].join('\n'),
+      });
+
+      try {
+        const startedAtMs = Date.now();
+        const sessionId = `timeline-live-past-range-${startedAtMs}`;
+        const result = await runAgentTurn(sessionId, '昨晚在做什么');
+        const trace = readLatestTimelineTrace(liveContext.traceLogPath, startedAtMs);
+        const traceDetails = getTraceDetails(trace);
+
+        expect(result.payload?.status).toBe('ok');
+        expect(result.text).toMatch(/晚饭|客厅|电视剧|家里/);
+        expect(result.text).not.toMatch(/timeline_resolve|timeline_status|timeline_repair/);
+        assertTraceObserved(trace, liveContext.traceLogPath, result.text);
+        expect(trace?.payload?.resolution_mode).toBe('read_only_hit');
+        expect(traceDetails.actual_range).toBe('past_range');
+      } finally {
+        restoreFiles(backups);
+      }
+    },
+    240000,
+  );
 });

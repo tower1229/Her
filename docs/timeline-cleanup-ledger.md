@@ -5,14 +5,14 @@
 
 ## 1. 已确认待处理
 
-- [docs/timeline-integration-test-cases.md](/Users/zangtao/Workspace/tower1229/Her/docs/timeline-integration-test-cases.md)
-  当前仍沿用旧的验收表述，尚未完全同步 `now / past_point / past_range` 查询模型，需要在后续语义重构完成后收口或删除旧内容。
+- 当前暂无已确认但未处理完的冗余文件。
 
 ## 2. 已完成清理
 
 - `now_today` 公开查询名已从代码主路径和文档主路径移除，改为公开 `now`。
 - [src/core/generation_prompt.ts](/Users/zangtao/Workspace/tower1229/Her/src/core/generation_prompt.ts) 已删除。
   该文件未接入任何主流程，继续保留只会制造“还有另一套生成路径”的误导。
+- [docs/timeline-integration-test-cases.md](/Users/zangtao/Workspace/tower1229/Her/docs/timeline-integration-test-cases.md) 已同步到 `now / past_point / past_range` 查询模型。
 
 ## 3. 清理原则
 
