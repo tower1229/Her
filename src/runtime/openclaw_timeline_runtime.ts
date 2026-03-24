@@ -367,6 +367,11 @@ function buildTimelineReasonerSystemPrompt(): string {
     '11. 如果用户在问“有趣”“好玩”“忙不忙”这类语义筛选词，必须先理解筛选语义，再决定复用什么事实或生成什么事实。',
     '12. 如果为 past_point 或 past_range 生成新事实，generated_fact 应尽量提供一个合理的 timestamp，并保证它落在目标时间点或目标时间范围内，而不是默认落在当前时刻。',
     '13. generated_fact 只输出结构化字段，不要输出自然正文、解释或额外叙述。',
+    '14. 如果 collector.persona_context.should_constrain_generation=true，则生成的新事实必须显式参考 SOUL / MEMORY / IDENTITY 中的稳定人格、语气、兴趣、生活习惯或长期约定，不能生成与这些内容冲突的生活片段。',
+    '15. 当 persona_context 中存在明确人格线索时，rationale.persona_basis 不能为空，且必须指出本次生成具体参考了哪些 persona 线索。',
+    '16. 当 persona_context 中存在明确人格线索时，rationale.constraint_basis 不能为空，且必须指出哪些长期约束限制了生成结果。',
+    '17. 不要生成通用、模板化、任何人格都能成立的空泛日常；应尽量让 location、action、emotion、appearance、internalMonologue 都体现该 persona 的生活连续性。',
+    '18. MEMORY 中的长期偏好、关系、生活节奏和与用户的长期约定，都是编织时间记忆时的重要约束；它们不是时间事实本身，但会限制什么样的生成是可信的。',
   ].join('\n');
 }
 
@@ -467,6 +472,7 @@ function buildTimelineReasonerMessage(collector: TimelineCollectorOutput): strin
         hard_fact_basis: ['...'],
         canon_basis: ['...'],
         persona_basis: ['...'],
+        constraint_basis: ['...'],
         uncertainty: 'optional',
       },
       generated_fact: {
@@ -608,10 +614,34 @@ function createTimelineResolveDependencies(
     },
     coreFiles: async () => ({
       soul: readWorkspaceTextFile(path.join(workspaceDir, 'SOUL.md')),
-      memory: readWorkspaceTextFile(path.join(workspaceDir, 'MEMORY.md')),
+      memory:
+        readWorkspaceTextFile(path.join(workspaceDir, 'MEMORY.md'))
+        || readWorkspaceTextFile(path.join(workspaceDir, 'memory.md')),
       identity:
         readWorkspaceTextFile(path.join(workspaceDir, 'IDENTITY.md'))
         || readWorkspaceTextFile(path.join(workspaceDir, 'IDENTITY')),
+      available_sources: [
+        readWorkspaceTextFile(path.join(workspaceDir, 'SOUL.md')).trim() ? 'soul' : '',
+        (
+          readWorkspaceTextFile(path.join(workspaceDir, 'MEMORY.md'))
+          || readWorkspaceTextFile(path.join(workspaceDir, 'memory.md'))
+        ).trim() ? 'memory' : '',
+        (
+          readWorkspaceTextFile(path.join(workspaceDir, 'IDENTITY.md'))
+          || readWorkspaceTextFile(path.join(workspaceDir, 'IDENTITY'))
+        ).trim() ? 'identity' : '',
+      ].filter(Boolean),
+      should_constrain_generation: Boolean(
+        readWorkspaceTextFile(path.join(workspaceDir, 'SOUL.md')).trim()
+        || (
+          readWorkspaceTextFile(path.join(workspaceDir, 'MEMORY.md'))
+          || readWorkspaceTextFile(path.join(workspaceDir, 'memory.md'))
+        ).trim()
+        || (
+          readWorkspaceTextFile(path.join(workspaceDir, 'IDENTITY.md'))
+          || readWorkspaceTextFile(path.join(workspaceDir, 'IDENTITY'))
+        ).trim(),
+      ),
     }),
     memoryFilePath: (calendarDate) => path.join(canonicalRootPath, `${calendarDate}.md`),
     canonicalRootName,

@@ -39,6 +39,8 @@ describe('buildTimelineCollectorOutput', () => {
           soul: '热爱运动，也喜欢和朋友聚会。',
           memory: '',
           identity: '',
+          available_sources: ['soul'],
+          should_constrain_generation: true,
         },
       },
     );

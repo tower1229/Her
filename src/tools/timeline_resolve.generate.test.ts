@@ -47,6 +47,8 @@ describe('timelineResolve generation path', () => {
         soul: 'She is introspective, creative, loves photography, and enjoys coffee shop afternoons.',
         memory: 'She often organizes notes, keeps a coherent selfie-ready appearance, and likes quiet focused work.',
         identity: 'A 26 years old woman living in Shanghai.',
+        available_sources: ['soul', 'memory', 'identity'],
+        should_constrain_generation: true,
       }),
       memoryFilePath: () => tmpFile,
     });
@@ -72,6 +74,8 @@ describe('timelineResolve generation path', () => {
         soul: 'She is highly customized, expressive, and likes to keep her selfie output grounded in lived memory.',
         memory: 'She often writes in a reflective tone and prefers cozy evening scenes.',
         identity: 'A young woman living in Shanghai.',
+        available_sources: ['soul', 'memory', 'identity'],
+        should_constrain_generation: true,
       }),
       reasonTimeline: async (collector) => {
         expect(collector.persona_context.soul).toContain('customized');
@@ -94,6 +98,7 @@ describe('timelineResolve generation path', () => {
             hard_fact_basis: [],
             canon_basis: [],
             persona_basis: ['soul', 'memory', 'identity'],
+            constraint_basis: ['stay grounded in customized soul', 'respect cozy reflective memory and identity'],
           },
         generated_fact: {
           location: 'a softly lit neighborhood cafe corner',
@@ -134,6 +139,8 @@ describe('timelineResolve generation path', () => {
         soul: 'She is introspective and likes a coherent autobiographical timeline.',
         memory: 'She often works quietly from home in the afternoon.',
         identity: 'A woman living in Shanghai.',
+        available_sources: ['soul', 'memory', 'identity'],
+        should_constrain_generation: true,
       }),
       reasonTimeline: async (collector) => ({
         schema_version: '1.0',
@@ -153,6 +160,7 @@ describe('timelineResolve generation path', () => {
           hard_fact_basis: [],
           canon_basis: [],
           persona_basis: ['soul', 'memory'],
+          constraint_basis: ['stay autobiographically coherent', 'respect quiet home-working routine'],
         },
         generated_fact: {
           location: '家里书房靠窗的桌子',
@@ -217,7 +225,8 @@ describe('timelineResolve generation path', () => {
           summary: 'Generated a fresh current-state fact because stale canon should not be reused.',
           hard_fact_basis: [],
           canon_basis: ['canon:2026-03-22:0'],
-          persona_basis: [],
+          persona_basis: ['afternoon work rhythm'],
+          constraint_basis: ['avoid contradicting stale breakfast canon', 'preserve plausible current-state continuity'],
         },
         generated_fact: {
           location: '家里书房靠窗的桌子',
@@ -270,6 +279,7 @@ describe('timelineResolve generation path', () => {
           hard_fact_basis: [],
           canon_basis: [],
           persona_basis: ['soul', 'memory'],
+          constraint_basis: ['keep recent event aligned with persona interests', 'keep generated recall plausible within recent life pattern'],
         },
         generated_fact: {
           timestamp: '2026-03-20T20:10:00+08:00',

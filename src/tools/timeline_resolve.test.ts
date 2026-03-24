@@ -84,6 +84,7 @@ describe('timelineResolve', () => {
           hard_fact_basis: [],
           canon_basis: ['canon:2026-03-22:0'],
           persona_basis: [],
+          constraint_basis: [],
         },
       }),
     });
@@ -98,7 +99,7 @@ describe('timelineResolve', () => {
     if (!result.ok) throw new Error('expected successful timeline resolve');
     expect(result.trace_id).toContain('timeline-');
     expect(result.resolution_summary.mode).toBe('read_only_hit');
-    expect(result.resolution_summary.sources).toEqual(['sessions_history', 'memory_get']);
+    expect(result.resolution_summary.sources).toEqual(['sessions_history', 'memory_get', 'memory_search']);
     expect(result.result?.window.calendar_date).toBe('2026-03-22');
     expect(result.result?.episodes).toHaveLength(1);
     expect(result.notes.join(' ')).toContain('Time interpretation: The user is asking about the current moment');
@@ -140,6 +141,7 @@ describe('timelineResolve', () => {
           hard_fact_basis: [],
           canon_basis: [],
           persona_basis: ['persona-context'],
+          constraint_basis: ['stay aligned with loaded persona context'],
         },
         generated_fact: {
           location: '家里书房靠窗的桌子',
@@ -148,6 +150,7 @@ describe('timelineResolve', () => {
           appearance: '舒适的家居服，头发随意挽起',
           internalMonologue: '先把眼前的工作整理完再说。',
           confidence: 0.74,
+          reason: 'persona-consistent current-state synthesis',
         },
       }),
       writeEpisode: async () => ({ success: true, written_at: '2026-03-22T14:30:01+08:00' }),
@@ -205,6 +208,7 @@ describe('timelineResolve', () => {
           hard_fact_basis: [],
           canon_basis: [],
           persona_basis: [],
+          constraint_basis: [],
         },
       }),
     });
@@ -251,6 +255,7 @@ describe('timelineResolve', () => {
           hard_fact_basis: [],
           canon_basis: ['canon:2026-03-22:0'],
           persona_basis: [],
+          constraint_basis: [],
         },
       }),
     });
@@ -303,6 +308,7 @@ describe('timelineResolve', () => {
           hard_fact_basis: [],
           canon_basis: ['canon:2026-03-22:0'],
           persona_basis: [],
+          constraint_basis: [],
         },
       }),
     });

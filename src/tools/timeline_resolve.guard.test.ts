@@ -33,7 +33,8 @@ describe('timelineResolve canonical path guard', () => {
           summary: 'Generated a current-state fact before path validation.',
           hard_fact_basis: [],
           canon_basis: [],
-          persona_basis: [],
+          persona_basis: ['current home-working persona'],
+          constraint_basis: ['keep generated state aligned with persona continuity'],
         },
         generated_fact: {
           location: '家里书房靠窗的桌子',
@@ -42,6 +43,7 @@ describe('timelineResolve canonical path guard', () => {
           appearance: '舒适的家居服，头发随意挽起',
           internalMonologue: '先验证写入路径，再决定是否落盘。',
           confidence: 0.72,
+          reason: 'persona-consistent pre-write generation',
         },
       }),
       memoryFilePath: () => 'notes/2026-03-22.md',

@@ -129,6 +129,7 @@ describe('openclaw timeline runtime factories', () => {
                 hard_fact_basis: ['user: 你现在在干嘛'],
                 canon_basis: ['canon:2026-03-22:0'],
                 persona_basis: [],
+                constraint_basis: [],
               },
             }),
           },

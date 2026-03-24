@@ -133,8 +133,18 @@ const defaultDependencies: TimelineRuntimeDependencies = {
   memorySearch: async () => [],
   coreFiles: async () => ({
     soul: readOptionalTextFile(path.join(process.cwd(), 'SOUL.md')),
-    memory: readOptionalTextFile(path.join(process.cwd(), 'MEMORY.md')),
+    memory: readOptionalTextFile(path.join(process.cwd(), 'MEMORY.md')) || readOptionalTextFile(path.join(process.cwd(), 'memory.md')),
     identity: readOptionalTextFile(path.join(process.cwd(), 'IDENTITY.md')) || readOptionalTextFile(path.join(process.cwd(), 'IDENTITY')),
+    available_sources: [
+      readOptionalTextFile(path.join(process.cwd(), 'SOUL.md')).trim() ? 'soul' : '',
+      (readOptionalTextFile(path.join(process.cwd(), 'MEMORY.md')) || readOptionalTextFile(path.join(process.cwd(), 'memory.md'))).trim() ? 'memory' : '',
+      (readOptionalTextFile(path.join(process.cwd(), 'IDENTITY.md')) || readOptionalTextFile(path.join(process.cwd(), 'IDENTITY'))).trim() ? 'identity' : '',
+    ].filter(Boolean),
+    should_constrain_generation: Boolean(
+      readOptionalTextFile(path.join(process.cwd(), 'SOUL.md')).trim()
+      || (readOptionalTextFile(path.join(process.cwd(), 'MEMORY.md')) || readOptionalTextFile(path.join(process.cwd(), 'memory.md'))).trim()
+      || (readOptionalTextFile(path.join(process.cwd(), 'IDENTITY.md')) || readOptionalTextFile(path.join(process.cwd(), 'IDENTITY'))).trim(),
+    ),
   }),
   writeEpisode,
   memoryFilePath: (calendarDate: string) => `memory/${calendarDate}.md`,

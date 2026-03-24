@@ -43,6 +43,15 @@ function isValidGeneratedDraft(draft: TimelineGeneratedDraft | undefined): draft
   );
 }
 
+function hasPersonaConstraints(collector: TimelineCollectorOutput): boolean {
+  return Boolean(
+    collector.persona_context.should_constrain_generation
+    || collector.persona_context.soul.trim()
+    || collector.persona_context.memory.trim()
+    || collector.persona_context.identity.trim(),
+  );
+}
+
 export function validateTimelineReasonerOutput(
   collector: TimelineCollectorOutput,
   reasoner: TimelineReasonerOutput,
@@ -98,6 +107,30 @@ export function validateTimelineReasonerOutput(
         outcome: 'blocked',
         write_allowed: false,
         block_reason: 'reasoner generated_fact payload is invalid',
+      };
+    }
+    if (hasPersonaConstraints(collector) && reasoner.rationale.persona_basis.length === 0) {
+      return {
+        ok: false,
+        outcome: 'blocked',
+        write_allowed: false,
+        block_reason: 'reasoner generated a new fact without persona grounding',
+      };
+    }
+    if (hasPersonaConstraints(collector) && reasoner.rationale.constraint_basis.length === 0) {
+      return {
+        ok: false,
+        outcome: 'blocked',
+        write_allowed: false,
+        block_reason: 'reasoner generated a new fact without explicit persona constraints',
+      };
+    }
+    if (hasPersonaConstraints(collector) && !String(reasoner.generated_fact.reason || '').trim()) {
+      return {
+        ok: false,
+        outcome: 'blocked',
+        write_allowed: false,
+        block_reason: 'reasoner generated a new fact without explaining persona-consistent generation',
       };
     }
     return {

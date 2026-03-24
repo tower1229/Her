@@ -61,6 +61,8 @@ export interface TimelineCollectorOutput {
     soul: string;
     memory: string;
     identity: string;
+    available_sources: string[];
+    should_constrain_generation: boolean;
   };
   candidate_facts: CollectedTimelineFact[];
 }
@@ -92,6 +94,7 @@ export interface TimelineReasonerOutput {
     hard_fact_basis: string[];
     canon_basis: string[];
     persona_basis: string[];
+    constraint_basis: string[];
     uncertainty?: string;
   };
   generated_fact?: TimelineGeneratedDraft;

@@ -65,6 +65,7 @@ describe('timelineResolve trace schema', () => {
           hard_fact_basis: [],
           canon_basis: ['canon:2026-03-22:0'],
           persona_basis: [],
+          constraint_basis: [],
         },
       }),
       traceLogPath,
@@ -77,7 +78,7 @@ describe('timelineResolve trace schema', () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(result.trace?.source_order).toEqual(['sessions_history', 'memory_get']);
+    expect(result.trace?.source_order).toEqual(['sessions_history', 'memory_get', 'memory_search']);
     expect(result.trace?.source_summary.parsed_episode_count).toBe(1);
     expect(result.trace?.fingerprint.checked).toBe(true);
     expect(result.trace?.fingerprint.compared_episodes).toBe(1);
@@ -108,7 +109,8 @@ describe('timelineResolve trace schema', () => {
           summary: 'Generated a current-state fact for trace coverage.',
           hard_fact_basis: [],
           canon_basis: [],
-          persona_basis: [],
+          persona_basis: ['current work-style context'],
+          constraint_basis: ['keep generated current state persona-consistent'],
         },
         generated_fact: {
           location: '家里书房靠窗的桌子',
@@ -161,7 +163,8 @@ describe('timelineResolve trace schema', () => {
           summary: 'Generated a recent-recall fact from the available context.',
           hard_fact_basis: [],
           canon_basis: [],
-          persona_basis: [],
+          persona_basis: ['recent persona context'],
+          constraint_basis: ['keep generated recall grounded in persona signals'],
         },
         generated_fact: {
           location: '安静的社区咖啡馆角落',

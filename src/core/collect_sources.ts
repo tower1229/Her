@@ -6,6 +6,8 @@ export interface TimelineCoreContext {
   soul: string;
   memory: string;
   identity: string;
+  available_sources: string[];
+  should_constrain_generation: boolean;
 }
 
 export interface TimelineSourceDependencies {
@@ -47,14 +49,20 @@ export async function collectSources(
   );
 
   let memorySearch: string[] = [];
-  if (deps.memorySearch && window.semantic_target !== 'now') {
+  if (deps.memorySearch) {
     sourceOrder.push('memory_search');
     memorySearch = await deps.memorySearch(window, input);
   }
 
   const coreContext = deps.coreFiles
     ? await deps.coreFiles()
-    : { soul: '', memory: '', identity: '' };
+    : {
+        soul: '',
+        memory: '',
+        identity: '',
+        available_sources: [],
+        should_constrain_generation: false,
+      };
 
   return { sourceOrder, sessionsHistory, dailyLogs, memorySearch, coreContext };
 }
