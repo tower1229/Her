@@ -1,4 +1,7 @@
 import { spawnSync } from 'node:child_process';
+import os from 'node:os';
+
+const runtimeTempDir = process.platform === 'win32' ? os.tmpdir() : '/tmp';
 
 const result = spawnSync(
   process.execPath,
@@ -7,6 +10,9 @@ const result = spawnSync(
     stdio: 'inherit',
     env: {
       ...process.env,
+      TMPDIR: runtimeTempDir,
+      TMP: runtimeTempDir,
+      TEMP: runtimeTempDir,
       OPENCLAW_RUNTIME_SMOKE: '1',
     },
   },

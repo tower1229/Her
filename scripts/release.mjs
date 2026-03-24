@@ -87,9 +87,11 @@ function writeJson(filePath, value) {
 }
 
 function run(command, args, extra = {}) {
+  const useShell = process.platform === 'win32' && /\.(cmd|bat)$/i.test(command);
   const result = spawnSync(command, args, {
     cwd: repoRoot,
     stdio: 'inherit',
+    shell: useShell,
     env: {
       ...process.env,
       npm_config_cache: path.join(releaseTempDir, 'stella-timeline-plugin-npm-cache'),
@@ -106,9 +108,11 @@ function run(command, args, extra = {}) {
 }
 
 function runCapture(command, args) {
+  const useShell = process.platform === 'win32' && /\.(cmd|bat)$/i.test(command);
   const result = spawnSync(command, args, {
     cwd: repoRoot,
     encoding: 'utf8',
+    shell: useShell,
   });
   if (result.status !== 0) {
     throw new Error((result.stderr || result.stdout || '').trim() || `Command failed: ${command}`);

@@ -421,7 +421,7 @@ describe('timelineResolve generation path', () => {
     if (!result.ok) throw new Error('expected generated past-range success envelope');
     expect(fs.existsSync(olderDayFile)).toBe(true);
     expect(fs.existsSync(currentDayFile)).toBe(false);
-    expect(result.trace?.write.file_path).toBe(olderDayFile);
+    expect(path.normalize(result.trace?.write.file_path ?? '')).toBe(path.normalize(olderDayFile));
   });
 
   it('keeps a changed outfit when the generated event explicitly requires a same-day wardrobe switch', async () => {
