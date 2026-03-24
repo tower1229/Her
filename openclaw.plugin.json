@@ -2,7 +2,7 @@
   "id": "timeline-plugin",
   "name": "Timeline Plugin",
   "version": "2.0.0-draft",
-  "description": "OpenClaw timeline v2 runtime with canonical timeline_resolve, operator diagnostics, guarded append-only writes, and lifecycle hooks.",
+  "description": "OpenClaw timeline runtime with canonical timeline_resolve, LLM-based temporal reasoning, and guarded append-only writes.",
   "entry": "dist/index.js",
   "skills": ["skills/timeline"],
   "configSchema": {
@@ -20,12 +20,6 @@
       "canonicalMemoryRoot": {
         "type": "string",
         "description": "canonical timeline 日志根目录；相对路径会相对 workspace 解析。"
-      },
-      "reasonerMode": {
-        "type": "string",
-        "enum": ["subagent", "disabled"],
-        "default": "subagent",
-        "description": "Timeline 语义推理器的运行模式；默认使用 OpenClaw subagent 复用当前模型链路。"
       },
       "reasonerTimeoutMs": {
         "type": "integer",

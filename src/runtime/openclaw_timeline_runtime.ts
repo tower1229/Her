@@ -9,8 +9,6 @@ import {
   timelineResolveToolSpec,
   TimelineRuntimeDependencies,
 } from '../tools/timeline_resolve';
-import { timelineRepair, timelineRepairToolSpec } from '../tools/timeline_repair';
-import { timelineStatus, timelineStatusToolSpec } from '../tools/timeline_status';
 
 interface PluginLoggerLike {
   debug?: (message: string, meta?: Record<string, unknown>) => void;
@@ -66,7 +64,6 @@ interface TimelinePluginRuntimeConfig {
   enableTrace: boolean;
   traceLogPath?: string;
   canonicalMemoryRoot: string;
-  reasonerMode: 'subagent' | 'disabled';
   reasonerTimeoutMs: number;
   reasonerSessionPrefix: string;
   reasonerMessageLimit: number;
@@ -91,7 +88,6 @@ function resolvePluginRuntimeConfig(pluginConfig?: Record<string, unknown>): Tim
     enableTrace: readBoolean(pluginConfig?.enableTrace, true),
     traceLogPath: readString(pluginConfig?.traceLogPath),
     canonicalMemoryRoot: readString(pluginConfig?.canonicalMemoryRoot) || 'memory',
-    reasonerMode: pluginConfig?.reasonerMode === 'disabled' ? 'disabled' : 'subagent',
     reasonerTimeoutMs: readInteger(pluginConfig?.reasonerTimeoutMs, 45000),
     reasonerSessionPrefix: readString(pluginConfig?.reasonerSessionPrefix) || 'timeline-reasoner',
     reasonerMessageLimit: readInteger(pluginConfig?.reasonerMessageLimit, 24),
@@ -454,9 +450,7 @@ function createTimelineResolveDependencies(
     memoryFilePath: (calendarDate) => path.join(canonicalRootPath, `${calendarDate}.md`),
     canonicalRootName,
     traceLogPath,
-    reasonTimeline: runtimeConfig.reasonerMode === 'subagent'
-      ? createSubagentReasoner(pluginApi, toolContext, runtimeConfig)
-      : undefined,
+    reasonTimeline: createSubagentReasoner(pluginApi, toolContext, runtimeConfig),
   };
 }
 
@@ -468,37 +462,4 @@ export function makeOpenClawTimelineResolveToolFactory(pluginApi: PluginApiLike)
     execute: async (_toolCallId, params) =>
       wrapToolPayload(await timelineResolve(params as never, createTimelineResolveDependencies(pluginApi, toolContext))),
   });
-}
-
-export function makeOpenClawTimelineStatusToolFactory(_pluginApi: PluginApiLike) {
-  return (_toolContext: PluginToolContextLike): AgentToolLike => ({
-    name: timelineStatusToolSpec.name,
-    description: timelineStatusToolSpec.description,
-    parameters: timelineStatusToolSpec.inputSchema,
-    execute: async (_toolCallId, params) => wrapToolPayload(await timelineStatus(params as never)),
-  });
-}
-
-export function makeOpenClawTimelineRepairToolFactory(pluginApi: PluginApiLike) {
-  return (toolContext: PluginToolContextLike): AgentToolLike => {
-    const runtimeConfig = resolvePluginRuntimeConfig(pluginApi.pluginConfig);
-    const workspaceDir = resolveWorkspaceDir(pluginApi, toolContext);
-    const canonicalRootPath = resolveConfiguredPath(workspaceDir, runtimeConfig.canonicalMemoryRoot, 'memory');
-    const traceLogPath = runtimeConfig.enableTrace
-      ? resolveConfiguredPath(workspaceDir, runtimeConfig.traceLogPath, path.join(path.basename(canonicalRootPath), '.timeline-trace.log'))
-      : undefined;
-
-    return {
-      name: timelineRepairToolSpec.name,
-      description: timelineRepairToolSpec.description,
-      parameters: timelineRepairToolSpec.inputSchema,
-      execute: async (_toolCallId, params) =>
-        wrapToolPayload(
-          await timelineRepair(params as never, {
-            canonical_memory_root: canonicalRootPath,
-            default_trace_log_path: traceLogPath,
-          }),
-        ),
-    };
-  };
 }

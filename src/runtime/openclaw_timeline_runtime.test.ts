@@ -1,9 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import {
-  makeOpenClawTimelineRepairToolFactory,
-  makeOpenClawTimelineResolveToolFactory,
-} from './openclaw_timeline_runtime';
+import { makeOpenClawTimelineResolveToolFactory } from './openclaw_timeline_runtime';
 
 function formatLocalCalendarDate(date: Date): string {
   const year = date.getFullYear();
@@ -137,22 +134,4 @@ describe('openclaw timeline runtime factories', () => {
     );
   });
 
-  it('routes timeline_repair through the configured canonical memory root', async () => {
-    fs.writeFileSync(path.join(canonicalRoot, '2026-03-22.md'), '', 'utf8');
-
-    const factory = makeOpenClawTimelineRepairToolFactory({
-      workspaceDir: tmpDir,
-      pluginConfig: {
-        canonicalMemoryRoot: 'timeline-memory',
-      },
-    });
-    const tool = factory({ workspaceDir: tmpDir });
-    const result = await tool.execute('call-2', {
-      calendar_date: '2026-03-22',
-    });
-
-    const payload = result.details as { target: { file_path: string; canonical: boolean } };
-    expect(payload.target.file_path).toBe(path.join(canonicalRoot, '2026-03-22.md'));
-    expect(payload.target.canonical).toBe(true);
-  });
 });

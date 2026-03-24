@@ -7,7 +7,6 @@ Timeline 是一个面向 OpenClaw 的时间线插件项目，它要解决的是�
 - **你现在在做什么？**
 - **你最近都在做什么？**
 - **某一天发生了什么？**
-- **这份 timeline 日志是不是坏了？**
 
 那么这个仓库就是为这种需求设计的。
 
@@ -24,8 +23,7 @@ Timeline 从头到尾想完成的核心目标其实一直很明确：
 - 一条面对空白记忆时，基于 `SOUL`、`MEMORY`、`IDENTITY` 与真实世界时间线生成合理回忆的路径；
 - 一个 **确定性的时间线读取流程**；
 - 一个 **append-only 的时间线写入路径**；
-- 一套 **可观测、可追踪、可排查** 的运行机制；
-- 一组 **给维护者用的状态/修复工具**。
+- 一套 **可观测、可追踪** 的运行机制。
 
 当前仓库只是用新的 OpenClaw 插件架构来实现这个目标。
 
@@ -78,27 +76,10 @@ Timeline 的存在，就是为了把这些关键逻辑收回到代码里，让�
 ### 3）更安全的 timeline 写入
 适合那些不希望 timeline 信息被随意改写，而希望它们只能通过受控 append-only 路径进入 memory 的场景。
 
-### 4）运维排查与修复
-适合维护者检查插件是否注册成功、最近一次运行发生了什么、某日日志是否 malformed、trace 是否异常。
-
----
-
 ## 核心能力
 
 ### `timeline_resolve`
 时间线检索的 canonical 工具；在策略允许时，也负责保守地生成并追加写入新的 timeline 条目。
-
-### `timeline_status`
-给维护者使用的轻量状态工具，用来查看插件元信息、注册情况，以及最近一次 runtime 快照。
-
-### `timeline_repair`
-诊断工具，用于检查 malformed daily log、canonical path 是否正确，以及最近的运行 / trace 记录。
-
-### 生命周期 helper
-插件还包含以下 hook helper：
-- pre-compaction flush
-- session snapshot
-- audit trace persistence
 
 ---
 
@@ -112,7 +93,7 @@ Timeline 的存在，就是为了把这些关键逻辑收回到代码里，让�
 4. 如果能复用 canonical memory，就优先复用；
 5. 只有在策略允许时才做保守生成；
 6. 所有写入都走 Timeline 自己的 append-only 受控路径；
-7. 输出 trace 和运行状态，方便后续排查。
+7. 输出 trace，方便后续排查。
 
 Timeline 的价值不只是“答对一次”，而是让整条回答链路变得**可重复、可检查、可维护**。
 
@@ -125,7 +106,6 @@ Timeline 的价值不只是“答对一次”，而是让整条回答链路变�
 - OpenClaw 中专门的 timeline runtime；
 - 对时间问题更可信的回答路径；
 - 带路径检查和锁保护的 append-only timeline 写入；
-- 给维护者使用的状态 / 修复工具；
 - 尽量把 timeline 行为从 prompt 迁移到代码里。
 
 ### 不一定适合
@@ -167,7 +147,6 @@ openclaw plugins install -l .
 - `enableTrace`
 - `traceLogPath`
 - `canonicalMemoryRoot`
-- `reasonerMode`
 - `reasonerTimeoutMs`
 - `reasonerSessionPrefix`
 - `reasonerMessageLimit`
@@ -231,9 +210,9 @@ daily log 中的单条时间记忆必须尽量包含以下字段：
 
 只有 Timeline 返回的结果，才是时间状态和回忆问题的最终事实依据。
 
-如果 timeline skill 需要调用 `timeline_resolve`、`timeline_status`、`timeline_repair`，应先遵守 skill 中的具体指引。
+如果 timeline skill 需要调用 `timeline_resolve`，应先遵守 skill 中的具体指引。
 
-对用户说话时不要提 `timeline_resolve`、`timeline_status`、`timeline_repair` 这些工具名，只像真人一样自然表达。
+对用户说话时不要提 `timeline_resolve` 这个工具名，只像真人一样自然表达。
 ```
 
 ---
@@ -245,8 +224,8 @@ daily log 中的单条时间记忆必须尽量包含以下字段：
 1. 在 OpenClaw 环境里启用插件；
 2. 确认插件能访问你配置的 canonical timeline 目录，默认是 `memory/`；
 3. 提一个明显的时间相关问题；
-4. 用 `timeline_status` 看注册与最近一次运行状态；
-5. 如发现日志格式异常或写入路径异常，用 `timeline_repair` 做诊断。
+4. 检查是否生成或复用了符合 Timeline 格式的 daily log；
+5. 如需验证真实自然问法行为，运行仓库自带的 `live-e2e`。
 
 当前默认 reasoner 路径会通过 OpenClaw subagent 复用你现有的 provider / model 链路，而不是在插件里再硬编码一条独立模型调用通道。
 
@@ -254,7 +233,6 @@ daily log 中的单条时间记忆必须尽量包含以下字段：
 - “你现在在做什么？”
 - “你最近都在做什么？”
 - “2026-03-22 发生了什么？”
-- “帮我检查今天的 timeline 日志有没有格式问题。”
 
 ---
 
@@ -263,18 +241,17 @@ daily log 中的单条时间记忆必须尽量包含以下字段：
 - `openclaw.plugin.json` —— 插件 manifest
 - `index.ts` —— 插件入口注册逻辑
 - `skills/timeline/` —— 时间意图路由 skill
-- `src/tools/` —— runtime 工具（`timeline_resolve`、`timeline_status`、`timeline_repair`）
+- `src/tools/` —— runtime 工具（`timeline_resolve`）
 - `src/core/` —— 确定性的 timeline 主流程
-- `src/hooks/` —— 生命周期 helper
-- `src/storage/` —— 写入保护、trace log、runtime status、run log
+- `src/storage/` —— 写入保护与 trace log
 - `src/lib/` —— 解析 / 指纹 / 时间 / 继承等共享工具
-- `docs/` —— 接口、路线图、迁移、状态与发布文档
+- `docs/` —— 接口、语义与消费协议文档
 
 ---
 
 ## 当前项目状态
 
-现在的实现已经不只是设计稿：仓库里已经有真正的插件骨架、canonical 工具、确定性读取流程、受控的 append-only 写入、hooks、诊断能力和测试。
+现在的实现已经不只是设计稿：仓库里已经有真正的插件骨架、canonical 工具、确定性读取流程、受控的 append-only 写入和测试。
 
 但它仍然**不是最终的 GA 正式版**。
 当前距离正式发布，最大的差距主要在：
@@ -289,8 +266,6 @@ daily log 中的单条时间记忆必须尽量包含以下字段：
 - `docs/timeline-collector-reasoner-interface.md`
 - `docs/timeline-query-semantics.md`
 - `docs/timeline-consumption-protocol.md`
-- `docs/timeline-roadmap.md`
-- `docs/timeline-integration-test-cases.md`
 - `CHANGELOG.md`
 
 ---

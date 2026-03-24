@@ -1,20 +1,10 @@
 import { timelinePlugin, timelinePluginEntry } from '../index';
 
 describe('timeline plugin entry compatibility shape', () => {
-  it('materializes a definePluginEntry-style registration with tools and hooks', () => {
+  it('materializes a definePluginEntry-style registration with the canonical tool only', () => {
     expect(timelinePluginEntry.id).toBe('timeline-plugin');
-    expect(timelinePlugin.tools.map((tool) => tool.name)).toEqual([
-      'timeline_resolve',
-      'timeline_status',
-      'timeline_repair',
-    ]);
+    expect(timelinePlugin.tools.map((tool) => tool.name)).toEqual(['timeline_resolve']);
     expect(timelinePlugin.tools.find((tool) => tool.name === 'timeline_resolve')?.optional).toBe(true);
-    expect(timelinePlugin.tools.find((tool) => tool.name === 'timeline_repair')?.optional).toBe(true);
-    expect(timelinePlugin.hooks.map((hook) => hook.name)).toEqual([
-      'timeline_pre_compaction_flush',
-      'timeline_session_snapshot',
-      'timeline_audit_trace',
-    ]);
   });
 
   it('keeps manifest, package, and runtime entry metadata aligned', () => {
@@ -28,13 +18,18 @@ describe('timeline plugin entry compatibility shape', () => {
   });
 
   it('wraps tool execution results in the content envelope expected by the OpenClaw runtime', async () => {
-    const tool = timelinePlugin.tools.find((entry) => entry.name === 'timeline_status');
-    if (!tool) throw new Error('timeline_status tool not registered');
+    const tool = timelinePlugin.tools.find((entry) => entry.name === 'timeline_resolve');
+    if (!tool) throw new Error('timeline_resolve tool not registered');
 
-    const result = await tool.execute('call-1', {});
+    const result = await tool.execute('call-1', {
+      target_time_range: 'natural_language',
+      query: '你在干嘛',
+      mode: 'read_only',
+      reason: 'current_status',
+    });
 
     expect(result.content[0]?.type).toBe('text');
-    expect(result.content[0]?.text).toContain('timeline_status');
+    expect(result.content[0]?.text).toContain('timeline');
     expect(result.data).toBeTruthy();
   });
 });

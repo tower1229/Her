@@ -7,17 +7,14 @@ jest.mock('../lib/holidays');
 
 describe('writeEpisode', () => {
   const tempFile = path.join(__dirname, 'mock_memory.md');
-  const tempLog = path.join(__dirname, '.timeline-run.log');
 
   beforeEach(() => {
     (getHoliday as jest.Mock).mockReturnValue(null);
     if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-    if (fs.existsSync(tempLog)) fs.unlinkSync(tempLog);
   });
 
   afterAll(() => {
     if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-    if (fs.existsSync(tempLog)) fs.unlinkSync(tempLog);
   });
 
   it('rejects missing fields', async () => {
@@ -45,7 +42,6 @@ describe('writeEpisode', () => {
       internalMonologue: 'Need coffee',
       naturalText: 'I just woke up and it feels good.',
       filePath: tempFile,
-      windowPreset: 'now'
     });
 
     expect(res.success).toBe(true);
@@ -62,9 +58,6 @@ describe('writeEpisode', () => {
         expect(res.world_hooks.weekday).toBe(false); // Sunday
         expect(res.world_hooks.holiday_key).toBe(null); // 2026-03-22 is not a holiday
     }
-
-    const logContent = fs.readFileSync(tempLog, 'utf8');
-    expect(logContent).toContain('"mode":"generated_new"');
   });
 
   it('returns noop_existing when the exact episode fingerprint is already present', async () => {

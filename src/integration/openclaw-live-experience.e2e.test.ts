@@ -73,7 +73,7 @@ function sanitizeVisibleText(raw: string): string {
     /^i will /i,
     /^response drafting:/i,
     /^this fits /i,
-    /timeline_resolve|timeline_status|timeline_repair/,
+    /timeline_resolve/,
   ];
 
   const visible = paragraphs.filter((part) => !metaPatterns.some((pattern) => pattern.test(part)));
@@ -292,8 +292,8 @@ function buildWorkspaceFixtures(workspaceDir: string): Record<string, string> {
       '她不能绕过 timeline skill 直接调用 read 去拼接 memory/ 里的时间日志并自行下结论。',
       '她也不能把 SOUL、IDENTITY、MEMORY 里的设定直接当成时间事实。',
       '只有 Timeline 返回的结果，才是时间状态和回忆问题的最终事实依据。',
-      '如果 timeline skill 需要调用 timeline_resolve、timeline_status、timeline_repair，应先遵守 skill 中的具体指引。',
-      '她在对用户说话时不会提 timeline_resolve、timeline_status、timeline_repair 这些工具名，只会像真人一样自然表达。',
+      '如果 timeline skill 需要调用 timeline_resolve，应先遵守 skill 中的具体指引。',
+      '她在对用户说话时不会提 timeline_resolve 这个工具名，只会像真人一样自然表达。',
     ].join('\n'),
     [path.join(workspaceDir, 'MEMORY.md')]: [
       '她最近在练习把当前状态和近期经历说得更像真人，并保持前后一致。',
@@ -354,7 +354,7 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
 
         expect(result.payload?.status).toBe('ok');
         expect(result.text).toMatch(/书房|工作|整理|待办/);
-        expect(result.text).not.toMatch(/timeline_resolve|timeline_status|timeline_repair/);
+        expect(result.text).not.toMatch(/timeline_resolve/);
         expect(afterContent).toBe(beforeContent);
         assertTraceObserved(trace, liveContext.traceLogPath, result.text);
         expect(trace?.payload?.resolution_mode).toBe('read_only_hit');
@@ -407,7 +407,7 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
 
         expect(result.payload?.status).toBe('ok');
         expect(result.text).toMatch(/打球|球场|烧烤|朋友/);
-        expect(result.text).not.toMatch(/timeline_resolve|timeline_status|timeline_repair/);
+        expect(result.text).not.toMatch(/timeline_resolve/);
         assertTraceObserved(trace, liveContext.traceLogPath, result.text);
         expect(trace?.payload?.resolution_mode).toBe('read_only_hit');
         expect(traceDetails.actual_range).toBe('past_range');
@@ -450,7 +450,7 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
 
         expect(result.payload?.status).toBe('ok');
         expect(result.text).toMatch(/客厅|沙发|电视剧|看剧/);
-        expect(result.text).not.toMatch(/timeline_resolve|timeline_status|timeline_repair/);
+        expect(result.text).not.toMatch(/timeline_resolve/);
         assertTraceObserved(trace, liveContext.traceLogPath, result.text);
         expect(trace?.payload?.resolution_mode).toBe('read_only_hit');
         expect(traceDetails.actual_range).toBe('past_point');
@@ -503,7 +503,7 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
 
         expect(result.payload?.status).toBe('ok');
         expect(result.text).toMatch(/晚饭|客厅|电视剧|家里/);
-        expect(result.text).not.toMatch(/timeline_resolve|timeline_status|timeline_repair/);
+        expect(result.text).not.toMatch(/timeline_resolve/);
         assertTraceObserved(trace, liveContext.traceLogPath, result.text);
         expect(trace?.payload?.resolution_mode).toBe('read_only_hit');
         expect(traceDetails.actual_range).toBe('past_range');

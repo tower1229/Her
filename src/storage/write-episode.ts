@@ -4,7 +4,6 @@ import { computeFingerprint } from '../lib/fingerprint';
 import { parseMemoryFile } from '../lib/parse-memory';
 import { WorldHooks } from '../lib/types';
 import { getHoliday } from '../lib/holidays';
-import { appendRunLog } from './run-log';
 import { dayOfWeek, formatDate, formatTime, parseTimestampParts } from '../lib/time-utils';
 
 export interface WriteEpisodeInput {
@@ -16,7 +15,6 @@ export interface WriteEpisodeInput {
   internalMonologue?: string;
   naturalText?: string;
   filePath: string;
-  windowPreset?: string; // e.g., "now" for run-log
   confidence?: number;
 }
 
@@ -165,17 +163,6 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
     fs.appendFileSync(filePath, mdContent, 'utf8');
 
     const writtenAt = new Date().toISOString();
-
-    // Append run log (T4.2)
-    const logPath = path.join(dir, '.timeline-run.log');
-    appendRunLog({
-      ts: writtenAt,
-      date: dateStr,
-      mode: 'generated_new',
-      episodes_written: 1,
-      window: input.windowPreset || 'unknown',
-      confidence: input.confidence ?? 1.0
-    }, logPath);
 
     return {
       success: true,

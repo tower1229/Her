@@ -6,17 +6,10 @@ import {
 } from './src/plugin_metadata';
 import {
   definePluginEntry,
-  getTimelineHookRegistrations,
-  makeTimelineRepairToolRegistration,
-  makeTimelineStatusToolRegistration,
   makeTimelineToolRegistration,
   materializePlugin,
 } from './src/openclaw-sdk-compat';
-import {
-  makeOpenClawTimelineRepairToolFactory,
-  makeOpenClawTimelineResolveToolFactory,
-  makeOpenClawTimelineStatusToolFactory,
-} from './src/runtime/openclaw_timeline_runtime';
+import { makeOpenClawTimelineResolveToolFactory } from './src/runtime/openclaw_timeline_runtime';
 
 export const timelinePluginEntry = definePluginEntry({
   id: TIMELINE_PLUGIN_ID,
@@ -24,11 +17,6 @@ export const timelinePluginEntry = definePluginEntry({
   description: TIMELINE_PLUGIN_DESCRIPTION,
   register(api) {
     api.registerTool(makeTimelineToolRegistration(), { optional: true });
-    api.registerTool(makeTimelineStatusToolRegistration());
-    api.registerTool(makeTimelineRepairToolRegistration(), { optional: true });
-    for (const hook of getTimelineHookRegistrations()) {
-      api.registerHook(hook);
-    }
   },
 });
 
@@ -55,20 +43,6 @@ const openClawTimelinePlugin = {
   }) {
     const runtimeApi = api as any;
     api.registerTool(makeOpenClawTimelineResolveToolFactory(runtimeApi), { optional: true });
-    api.registerTool(makeOpenClawTimelineStatusToolFactory(runtimeApi));
-    api.registerTool(makeOpenClawTimelineRepairToolFactory(runtimeApi), { optional: true });
-    if (typeof api.registerHook === 'function') {
-      for (const hook of getTimelineHookRegistrations()) {
-        api.registerHook(
-          hook.event,
-          async () => undefined,
-          {
-            name: hook.name,
-            description: hook.description,
-          },
-        );
-      }
-    }
   },
 };
 

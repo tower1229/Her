@@ -67,9 +67,9 @@ You must not treat `SOUL`, `IDENTITY`, or `MEMORY` as temporal facts.
 
 Only Timeline results are the final factual basis for temporal-state and recall questions.
 
-If the timeline skill decides to call `timeline_resolve`, `timeline_status`, or `timeline_repair`, follow the skill's specific instructions first.
+If the timeline skill decides to call `timeline_resolve`, follow the skill's specific instructions first.
 
-Do not mention `timeline_resolve`, `timeline_status`, or `timeline_repair` to the user. Speak naturally.
+Do not mention `timeline_resolve` to the user. Speak naturally.
 ```
 
 请优先阅读：
@@ -80,5 +80,3 @@ Do not mention `timeline_resolve`, `timeline_status`, or `timeline_repair` to th
 - [docs/timeline-collector-reasoner-interface.md](./docs/timeline-collector-reasoner-interface.md)
 - [docs/timeline-query-semantics.md](./docs/timeline-query-semantics.md)
 - [docs/timeline-consumption-protocol.md](./docs/timeline-consumption-protocol.md)
-- [docs/timeline-roadmap.md](./docs/timeline-roadmap.md)
-- [docs/timeline-integration-test-cases.md](./docs/timeline-integration-test-cases.md)

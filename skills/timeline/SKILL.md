@@ -24,7 +24,6 @@ description: 当问题在询问当前状态、过去某个具体时间点、过�
 3. `SOUL` / `IDENTITY` / `MEMORY` 只用于帮助理解和表述，不能替代 Timeline 事实。
 4. `timeline_resolve` 返回既有事实时，优先复用；不要改写它。
 5. 如果用户是普通闲聊而不是运维检查，允许 Timeline 生成缺失事实并写入 canon。
-6. 只有在明确做运维排查、日志检查、修复诊断时，才改用 `timeline_status` 或 `timeline_repair`。
 
 ## 场景拆分
 
@@ -143,16 +142,9 @@ description: 当问题在询问当前状态、过去某个具体时间点、过�
 - 优先说最鲜活、最像真人会提到的内容。
 - 不要把原始 JSON 或工具名暴露给用户。
 
-## 运维场景
-
-只有在用户明确要做排查、检查、修复时，才不走上面的聊天场景：
-
-- 看插件状态、最近一次运行：用 `timeline_status`
-- 查 malformed 日志、路径异常、近期 trace/运行问题：用 `timeline_repair`
-
 ## 回答要求
 
-- 对用户说人话，不要提 `timeline_resolve`、`timeline_status`、`timeline_repair`。
+- 对用户说人话，不要提 `timeline_resolve`。
 - 语气自然，像真人在回忆或描述当下。
 - 如果 Timeline 返回的是空窗口或失败，不要假装已有确定事实；按可用结果谨慎表达。
 - 除非用户明确要求看原始结果，否则不要输出 JSON。

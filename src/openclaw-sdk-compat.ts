@@ -1,15 +1,4 @@
-import { auditTraceHook } from './hooks/audit_trace';
-import { preCompactionFlushHook } from './hooks/pre_compaction_flush';
-import { sessionSnapshotHook } from './hooks/session_snapshot';
 import { timelineResolveToolSpec } from './tools/timeline_resolve';
-import { timelineRepairToolSpec } from './tools/timeline_repair';
-import { timelineStatusToolSpec } from './tools/timeline_status';
-
-export interface HookSpec {
-  name: string;
-  description: string;
-  event: string;
-}
 
 export interface PluginToolResult {
   content: Array<{
@@ -27,11 +16,8 @@ export interface PluginToolRegistration {
   optional?: boolean;
 }
 
-export interface PluginHookRegistration extends HookSpec {}
-
 export interface PluginEntryApi {
   registerTool: (tool: PluginToolRegistration, options?: { optional?: boolean }) => void;
-  registerHook: (hook: PluginHookRegistration) => void;
 }
 
 export interface PluginEntryDefinition {
@@ -46,7 +32,6 @@ export interface RegisteredPluginShape {
   name: string;
   description: string;
   tools: PluginToolRegistration[];
-  hooks: PluginHookRegistration[];
 }
 
 export function definePluginEntry(definition: PluginEntryDefinition): PluginEntryDefinition {
@@ -55,14 +40,10 @@ export function definePluginEntry(definition: PluginEntryDefinition): PluginEntr
 
 export function materializePlugin(definition: PluginEntryDefinition): RegisteredPluginShape {
   const tools: PluginToolRegistration[] = [];
-  const hooks: PluginHookRegistration[] = [];
 
   definition.register({
     registerTool(tool, options) {
       tools.push({ ...tool, optional: options?.optional });
-    },
-    registerHook(hook) {
-      hooks.push(hook);
     },
   });
 
@@ -71,7 +52,6 @@ export function materializePlugin(definition: PluginEntryDefinition): Registered
     name: definition.name,
     description: definition.description,
     tools,
-    hooks,
   };
 }
 
@@ -91,34 +71,4 @@ export function makeTimelineToolRegistration(): PluginToolRegistration {
       return wrapToolData(await timelineResolveToolSpec.run(params as never));
     },
   };
-}
-
-export function makeTimelineStatusToolRegistration(): PluginToolRegistration {
-  return {
-    name: timelineStatusToolSpec.name,
-    description: timelineStatusToolSpec.description,
-    parameters: timelineStatusToolSpec.inputSchema,
-    async execute(_callId, params) {
-      return wrapToolData(await timelineStatusToolSpec.run(params as never));
-    },
-  };
-}
-
-export function makeTimelineRepairToolRegistration(): PluginToolRegistration {
-  return {
-    name: timelineRepairToolSpec.name,
-    description: timelineRepairToolSpec.description,
-    parameters: timelineRepairToolSpec.inputSchema,
-    async execute(_callId, params) {
-      return wrapToolData(await timelineRepairToolSpec.run(params as never));
-    },
-  };
-}
-
-export function getTimelineHookRegistrations(): PluginHookRegistration[] {
-  return [
-    { ...preCompactionFlushHook },
-    { ...sessionSnapshotHook },
-    { ...auditTraceHook },
-  ];
 }

@@ -16,7 +16,7 @@ const smokeEnabled = process.env.OPENCLAW_RUNTIME_SMOKE === '1';
 const describeIfSmoke = smokeEnabled ? describe : describe.skip;
 
 describeIfSmoke('OpenClaw runtime smoke', () => {
-  it('loads the plugin through the real OpenClaw loader and resolves tools/hooks', () => {
+  it('loads the plugin through the real OpenClaw loader and resolves the canonical tool', () => {
     const replyModulePath = findOpenClawReplyModule();
     const repoRoot = path.resolve(__dirname, '..', '..');
     const script = `
@@ -54,7 +54,6 @@ describeIfSmoke('OpenClaw runtime smoke', () => {
         plugin: plugin ? {
           status: plugin.status,
           toolNames: plugin.toolNames,
-          hookNames: plugin.hookNames,
         } : null,
         resolvedToolNames: resolvedTools.map((tool) => tool.name),
       }));
@@ -75,25 +74,13 @@ describeIfSmoke('OpenClaw runtime smoke', () => {
       plugin: null | {
         status: string;
         toolNames: string[];
-        hookNames: string[];
       };
       resolvedToolNames: string[];
     };
 
     expect(payload.plugin).toBeTruthy();
     expect(payload.plugin?.status).toBe('loaded');
-    expect(payload.plugin?.toolNames).toEqual(
-      expect.arrayContaining(['timeline_resolve', 'timeline_status', 'timeline_repair']),
-    );
-    expect(payload.plugin?.hookNames).toEqual(
-      expect.arrayContaining([
-        'timeline_pre_compaction_flush',
-        'timeline_session_snapshot',
-        'timeline_audit_trace',
-      ]),
-    );
-    expect(payload.resolvedToolNames).toEqual(
-      expect.arrayContaining(['timeline_resolve', 'timeline_status', 'timeline_repair']),
-    );
+    expect(payload.plugin?.toolNames).toEqual(expect.arrayContaining(['timeline_resolve']));
+    expect(payload.resolvedToolNames).toEqual(expect.arrayContaining(['timeline_resolve']));
   });
 });

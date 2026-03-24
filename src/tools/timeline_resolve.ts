@@ -15,7 +15,6 @@ import { dayOfWeek, formatDate, parseTimestampParts } from '../lib/time-utils';
 import { getHoliday } from '../lib/holidays';
 import { assertCanonicalDailyLogPath } from '../storage/daily_log';
 import { FileLockError, withFileLock } from '../storage/lock';
-import { recordTimelineRuntimeStatus } from '../storage/runtime_status';
 import { appendTraceLog } from '../storage/trace_log';
 import { writeEpisode, WriteEpisodeInput, WriteResult } from '../storage/write-episode';
 import { resolveWindow } from '../core/resolve_window';
@@ -291,37 +290,12 @@ function persistTraceIfRequested(
   return true;
 }
 
-function recordRuntimeStatus(
-  output: TimelineResolveOutput,
-  input: TimelineResolveInput,
-  tracePersisted: boolean,
-  deps: TimelineRuntimeDependencies,
-): void {
-  recordTimelineRuntimeStatus({
-    updated_at: new Date().toISOString(),
-    ok: output.ok,
-    requested_range: input.target_time_range,
-    resolution_mode: output.resolution_summary.mode,
-    write_outcome: output.trace?.write.outcome,
-    trace_id: output.trace_id,
-    trace_persisted: tracePersisted,
-    trace_log_path: deps.traceLogPath,
-    writes_attempted: output.resolution_summary.writes_attempted,
-    writes_succeeded: output.resolution_summary.writes_succeeded,
-    write_path: output.trace?.write.file_path,
-    recovery_hint: output.trace?.write.recovery_hint,
-    error_code: output.ok ? undefined : output.error.code,
-    error_message: output.ok ? undefined : output.error.message,
-  });
-}
-
 function finalizeTimelineOutput(
   output: TimelineResolveOutput,
   input: TimelineResolveInput,
   deps: TimelineRuntimeDependencies,
 ): TimelineResolveOutput {
-  const tracePersisted = persistTraceIfRequested(output, input, deps);
-  recordRuntimeStatus(output, input, tracePersisted, deps);
+  persistTraceIfRequested(output, input, deps);
   if (!input.trace) {
     delete output.trace;
   }
@@ -574,7 +548,6 @@ export async function timelineResolve(
                   internalMonologue: generated.parsed.internalMonologue,
                   naturalText: generated.parsed.naturalText,
                   filePath,
-                  windowPreset: window.query_range,
                   confidence: generated.parsed.confidence,
                 }),
               )

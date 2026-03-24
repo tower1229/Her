@@ -2,7 +2,7 @@
 
 > 状态：当前正式协议
 > 目的：定义聊天层、selfie skill 与其他下游技能应如何稳定消费 Timeline 结果
-> 关联：`docs/timeline-north-star.md`、`docs/timeline-query-semantics.md`、`docs/timeline-roadmap.md`
+> 关联：`docs/timeline-north-star.md`、`docs/timeline-query-semantics.md`、`docs/timeline-collector-reasoner-interface.md`
 
 ## 1. 为什么需要单独协议
 
