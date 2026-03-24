@@ -119,10 +119,10 @@ npm run test:live-experience
 
 ## Publishing
 
-Use the release script to publish `stella-timeline-plugin`:
+Use the release script after setting `name` and `version` in `package.json`:
 
 ```bash
-npm run release -- --version 2.0.0 --package-name stella-timeline-plugin --push
+npm run release -- --push
 ```
 
 See [docs/PUBLISHING.md](./docs/PUBLISHING.md) for the local maintainer release flow.

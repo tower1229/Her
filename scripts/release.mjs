@@ -13,8 +13,6 @@ const changelogPath = path.join(repoRoot, 'CHANGELOG.md');
 
 function parseArgs(argv) {
   const options = {
-    version: '',
-    packageName: '',
     npmTag: 'latest',
     publish: false,
     gitTag: true,
@@ -25,14 +23,6 @@ function parseArgs(argv) {
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === '--version') {
-      options.version = argv[++i] || '';
-      continue;
-    }
-    if (arg === '--package-name') {
-      options.packageName = argv[++i] || '';
-      continue;
-    }
     if (arg === '--npm-tag') {
       options.npmTag = argv[++i] || 'latest';
       continue;
@@ -64,14 +54,6 @@ function parseArgs(argv) {
     throw new Error(`Unknown argument: ${arg}`);
   }
 
-  if (!options.version) {
-    throw new Error('Missing required argument: --version <semver>');
-  }
-
-  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(options.version)) {
-    throw new Error(`Invalid semver version: ${options.version}`);
-  }
-
   if (options.push && !options.commit) {
     throw new Error('--push requires commits to be enabled');
   }
@@ -81,9 +63,9 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log([
-    'Usage: npm run release -- --version <semver> [--package-name <name>] [--npm-tag <tag>] [--publish] [--push]',
+    'Usage: npm run release -- [--npm-tag <tag>] [--publish] [--push]',
     '',
-    'Prepares a release, verifies it, optionally publishes to npm, and can create/push the git tag.',
+    'Reads package name and version from package.json, verifies the release, optionally publishes to npm, and can create/push the git tag.',
   ].join('\n'));
 }
 
@@ -154,6 +136,23 @@ function updateChangelog(content, version) {
   return `${content.trimEnd()}\n\n${heading}\n\n- Formal release.\n`;
 }
 
+function validatePackageMetadata(packageJson) {
+  const version = String(packageJson.version || '').trim();
+  const packageName = String(packageJson.name || '').trim();
+
+  if (!packageName) {
+    throw new Error('package.json is missing a package name');
+  }
+  if (!version) {
+    throw new Error('package.json is missing a version');
+  }
+  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
+    throw new Error(`package.json has an invalid semver version: ${version}`);
+  }
+
+  return { version, packageName };
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
   if (!options.allowDirty && gitStatusDirty()) {
@@ -172,31 +171,28 @@ function main() {
     const packageJson = readJson(packageJsonPath);
     const packageLock = readJson(packageLockPath);
     const pluginManifest = readJson(pluginManifestPath);
+    const { version, packageName } = validatePackageMetadata(packageJson);
 
-    packageJson.version = options.version;
-    if (options.packageName) packageJson.name = options.packageName;
-
-    packageLock.version = options.version;
-    if (options.packageName) packageLock.name = options.packageName;
+    packageLock.version = version;
+    packageLock.name = packageName;
     if (packageLock.packages && packageLock.packages['']) {
-      packageLock.packages[''].version = options.version;
-      if (options.packageName) packageLock.packages[''].name = options.packageName;
+      packageLock.packages[''].version = version;
+      packageLock.packages[''].name = packageName;
     }
 
-    pluginManifest.version = options.version;
+    pluginManifest.version = version;
 
-    writeJson(packageJsonPath, packageJson);
     writeJson(packageLockPath, packageLock);
     writeJson(pluginManifestPath, pluginManifest);
-    writeText(pluginMetadataPath, updatePluginMetadata(readText(pluginMetadataPath), options.version));
-    writeText(changelogPath, updateChangelog(readText(changelogPath), options.version));
+    writeText(pluginMetadataPath, updatePluginMetadata(readText(pluginMetadataPath), version));
+    writeText(changelogPath, updateChangelog(readText(changelogPath), version));
 
     run(npmCommand(), ['run', 'verify']);
     run(npmCommand(), ['pack', '--dry-run']);
 
     if (options.publish) {
       const publishArgs = ['publish', '--tag', options.npmTag];
-      if (packageJson.name.startsWith('@')) {
+      if (packageName.startsWith('@')) {
         publishArgs.push('--access', 'public');
       }
       run(npmCommand(), publishArgs);
@@ -204,11 +200,11 @@ function main() {
 
     if (options.commit) {
       run('git', ['add', 'package.json', 'package-lock.json', 'openclaw.plugin.json', 'src/plugin_metadata.ts', 'CHANGELOG.md']);
-      run('git', ['commit', '-m', `release: ${options.version}`]);
+      run('git', ['commit', '-m', `release: ${version}`]);
     }
 
     if (options.gitTag) {
-      run('git', ['tag', `v${options.version}`]);
+      run('git', ['tag', `v${version}`]);
     }
 
     if (options.push) {

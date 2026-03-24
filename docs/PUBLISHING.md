@@ -1,18 +1,22 @@
 # Publishing
 
-This repository is ready to publish as an OpenClaw plugin package using the npm package name `stella-timeline-plugin`.
+This repository is ready to publish as an OpenClaw plugin package using the npm package name in `package.json`.
 
 The OpenClaw plugin id remains `timeline-plugin`; only the npm package name changes.
 
 ## Required inputs
 
+- `package.json` must already contain the package name you want to publish
+- `package.json` must already contain the release version you want to publish
 - npm authentication for that package name
-- A release version such as `2.0.0`
 
 ## One-command maintainer flow
 
+1. Update `package.json` with the release `name` and `version`.
+2. Run:
+
 ```bash
-npm run release -- --version 2.0.0 --package-name stella-timeline-plugin --push
+npm run release -- --push
 ```
 
 That command:
@@ -26,5 +30,5 @@ That command:
 Add `--publish` to publish directly to npm from your machine after verification:
 
 ```bash
-npm run release -- --version 2.0.0 --package-name stella-timeline-plugin --publish --push
+npm run release -- --publish --push
 ```
