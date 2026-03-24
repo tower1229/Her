@@ -25,6 +25,9 @@ export interface TimelineTrace {
     inherited: boolean;
     reason: string;
     source_episode_timestamp?: string;
+    transition?: string;
+    outfit_mode?: string;
+    change_reason?: string;
   };
   write: {
     attempted: boolean;

@@ -151,6 +151,16 @@ describe('timelineResolve', () => {
           internalMonologue: '先把眼前的工作整理完再说。',
           confidence: 0.74,
           reason: 'persona-consistent current-state synthesis',
+          sceneSemantics: {
+            activityMode: 'work_or_study',
+            continuityRelation: 'same_day_continuation',
+            rationale: 'the generated scene continues a same-day home working rhythm',
+          },
+          appearanceLogic: {
+            transition: 'inherit',
+            changeReason: 'same_day_continuation',
+            outfitMode: 'casual_home',
+          },
         },
       }),
       writeEpisode: async () => ({ success: true, written_at: '2026-03-22T14:30:01+08:00' }),

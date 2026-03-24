@@ -44,6 +44,16 @@ describe('timelineResolve canonical path guard', () => {
           internalMonologue: '先验证写入路径，再决定是否落盘。',
           confidence: 0.72,
           reason: 'persona-consistent pre-write generation',
+          sceneSemantics: {
+            activityMode: 'work_or_study',
+            continuityRelation: 'same_day_continuation',
+            rationale: 'the generated scene continues a same-day desk session',
+          },
+          appearanceLogic: {
+            transition: 'inherit',
+            changeReason: 'same_day_continuation',
+            outfitMode: 'casual_home',
+          },
         },
       }),
       memoryFilePath: () => 'notes/2026-03-22.md',

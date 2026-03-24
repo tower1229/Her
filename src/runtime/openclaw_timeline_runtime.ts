@@ -374,6 +374,10 @@ function buildTimelineReasonerSystemPrompt(): string {
     '18. MEMORY 中的长期偏好、关系、生活节奏和与用户的长期约定，都是编织时间记忆时的重要约束；它们不是时间事实本身，但会限制什么样的生成是可信的。',
     '19. 还必须遵守 collector.world_context 提供的现实时间逻辑：一日三餐、睡眠、工作/学习、休闲、周末、工作日、节假日的安排都应尽量符合普通现实生活节奏。',
     '20. 如果生成的是凌晨或深夜时段，优先考虑睡眠、休息、安静活动；如果生成的是早餐/午餐/晚餐，则时间应落在合理餐段；不要生成明显违背现实作息的片段。',
+    '21. 如果 decision.action 是 generate_new_fact，generated_fact.sceneSemantics 必须完整输出，用来说明本次编织的事件属于什么活动类型、与当天已知状态是什么连续关系，以及为什么这样判断。',
+    '22. 如果 decision.action 是 generate_new_fact，generated_fact.appearanceLogic 必须完整输出，用来说明这次事件是否延续当天穿着、是否需要换装、换装原因是什么、最终服装类型属于哪一类。',
+    '23. 外貌与穿着必须依赖具体事件本身，而不是脱离事件单独生成；例如运动、洗澡、入睡、正式出门、买到并换上新衣物，都会显著影响 appearanceLogic。',
+    '24. 如果没有足够理由触发换装，优先认为当天穿着具有连续性；不要无缘无故在同一天内频繁改变外貌描述。',
   ].join('\n');
 }
 
@@ -486,6 +490,16 @@ function buildTimelineReasonerMessage(collector: TimelineCollectorOutput): strin
         internalMonologue: 'string',
         confidence: 0.8,
         reason: 'string',
+        sceneSemantics: {
+          activityMode: 'sleep | bath | meal | work_or_study | commute | exercise | social | shopping | leisure | domestic | errands | transition | rest | unknown',
+          continuityRelation: 'same_day_continuation | same_scene_continuation | shifted_scene | return_home | fresh_moment | unknown',
+          rationale: 'why this generated scene fits the current timeline state',
+        },
+        appearanceLogic: {
+          transition: 'inherit | change_required | change_allowed | unknown',
+          changeReason: 'same_day_continuation | exercise | bath | sleep | formal_outing | shopping | weather_adjustment | unknown',
+          outfitMode: 'casual_home | casual_outing | workwear | sportswear | sleepwear | bathrobe | dressed_up | fresh_purchase | unknown',
+        },
       },
     }, null, 2),
     '',

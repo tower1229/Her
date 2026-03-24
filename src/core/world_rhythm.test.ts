@@ -50,4 +50,29 @@ describe('world rhythm guidance', () => {
     expect(validation.ok).toBe(false);
     expect(validation.issues.join(' ')).toContain('Breakfast-like activity');
   });
+
+  it('prefers structured scene semantics over keyword guessing when validating rhythm', () => {
+    const validation = validateGeneratedWorldRhythm({
+      timestamp: '2026-03-24T14:20:00+08:00',
+      location: 'home',
+      action: 'staying still for a while',
+      emotionTags: ['sleepy'],
+      appearance: 'pajamas',
+      internalMonologue: 'I should probably rest more.',
+      confidence: 0.6,
+      sceneSemantics: {
+        activityMode: 'sleep',
+        continuityRelation: 'same_scene_continuation',
+        rationale: 'the generated scene explicitly represents daytime sleeping',
+      },
+      appearanceLogic: {
+        transition: 'inherit',
+        changeReason: 'same_day_continuation',
+        outfitMode: 'sleepwear',
+      },
+    });
+
+    expect(validation.ok).toBe(false);
+    expect(validation.issues.join(' ')).toContain('Sleeping activity');
+  });
 });

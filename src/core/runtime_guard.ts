@@ -5,6 +5,12 @@ import {
   TimelineGeneratedDraft,
   TimelineReasonerOutput,
 } from './timeline_reasoner_contract';
+import {
+  isActivityMode,
+  isAppearanceTransition,
+  isContinuityRelation,
+  isOutfitMode,
+} from '../lib/timeline_semantics';
 import { validateGeneratedWorldRhythm } from './world_rhythm';
 
 export interface TimelineGuardResult {
@@ -41,6 +47,24 @@ function isValidGeneratedDraft(draft: TimelineGeneratedDraft | undefined): draft
     && String(draft.appearance || '').trim()
     && String(draft.internalMonologue || '').trim()
     && Number.isFinite(Number(draft.confidence)),
+  );
+}
+
+function hasStructuredSceneSemantics(draft: TimelineGeneratedDraft): boolean {
+  return Boolean(
+    draft.sceneSemantics
+    && isActivityMode(draft.sceneSemantics.activityMode)
+    && isContinuityRelation(draft.sceneSemantics.continuityRelation)
+    && String(draft.sceneSemantics.rationale || '').trim(),
+  );
+}
+
+function hasStructuredAppearanceLogic(draft: TimelineGeneratedDraft): boolean {
+  return Boolean(
+    draft.appearanceLogic
+    && isAppearanceTransition(draft.appearanceLogic.transition)
+    && isOutfitMode(draft.appearanceLogic.outfitMode)
+    && String(draft.appearanceLogic.changeReason || '').trim(),
   );
 }
 
@@ -110,6 +134,22 @@ export function validateTimelineReasonerOutput(
         block_reason: 'reasoner generated_fact payload is invalid',
       };
     }
+    if (!hasStructuredSceneSemantics(reasoner.generated_fact)) {
+      return {
+        ok: false,
+        outcome: 'blocked',
+        write_allowed: false,
+        block_reason: 'reasoner generated a new fact without structured scene semantics',
+      };
+    }
+    if (!hasStructuredAppearanceLogic(reasoner.generated_fact)) {
+      return {
+        ok: false,
+        outcome: 'blocked',
+        write_allowed: false,
+        block_reason: 'reasoner generated a new fact without structured appearance logic',
+      };
+    }
     if (hasPersonaConstraints(collector) && reasoner.rationale.persona_basis.length === 0) {
       return {
         ok: false,
@@ -141,6 +181,17 @@ export function validateTimelineReasonerOutput(
         outcome: 'blocked',
         write_allowed: false,
         block_reason: `reasoner generated_fact violates world rhythm: ${worldRhythmCheck.issues.join(' ')}`,
+      };
+    }
+    if (
+      reasoner.generated_fact.appearanceLogic?.transition === 'change_required'
+      && reasoner.generated_fact.appearanceLogic.outfitMode === 'unknown'
+    ) {
+      return {
+        ok: false,
+        outcome: 'blocked',
+        write_allowed: false,
+        block_reason: 'reasoner generated a required outfit change without a concrete outfit mode',
       };
     }
     return {

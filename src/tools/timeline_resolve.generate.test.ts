@@ -108,6 +108,16 @@ describe('timelineResolve generation path', () => {
           internalMonologue: 'This kind of small pause makes the whole day feel more coherent.',
           confidence: 0.83,
           reason: 'llm persona synthesis from customized soul and memory context',
+          sceneSemantics: {
+            activityMode: 'leisure',
+            continuityRelation: 'fresh_moment',
+            rationale: 'an evening cafe pause fits the current persona-guided scene',
+          },
+          appearanceLogic: {
+            transition: 'change_required',
+            changeReason: 'formal_outing',
+            outfitMode: 'casual_outing',
+          },
           },
         };
       },
@@ -170,6 +180,16 @@ describe('timelineResolve generation path', () => {
           internalMonologue: '先把当前状态稳定下来，后面才不容易漂。',
           confidence: 0.78,
           reason: 'llm timeline generation for conflict-path validation',
+          sceneSemantics: {
+            activityMode: 'work_or_study',
+            continuityRelation: 'same_day_continuation',
+            rationale: 'the scene continues a quiet same-day home working rhythm',
+          },
+          appearanceLogic: {
+            transition: 'inherit',
+            changeReason: 'same_day_continuation',
+            outfitMode: 'casual_home',
+          },
         },
       }),
       writeEpisode: async () => ({
@@ -236,6 +256,16 @@ describe('timelineResolve generation path', () => {
           internalMonologue: '早餐那一段早就过去了，现在应该以当下状态为准。',
           confidence: 0.81,
           reason: 'llm gap-fill for stale current-state canon',
+          sceneSemantics: {
+            activityMode: 'work_or_study',
+            continuityRelation: 'shifted_scene',
+            rationale: 'the day shifted from breakfast into a daytime work scene',
+          },
+          appearanceLogic: {
+            transition: 'inherit',
+            changeReason: 'same_day_continuation',
+            outfitMode: 'casual_home',
+          },
         },
       }),
       memoryFilePath: () => tmpFile,
@@ -290,6 +320,16 @@ describe('timelineResolve generation path', () => {
           internalMonologue: '本来只是随便进去看看，没想到会被这本书拽住这么久。',
           confidence: 0.82,
           reason: 'interesting-event synthesis inside the recent range',
+          sceneSemantics: {
+            activityMode: 'leisure',
+            continuityRelation: 'fresh_moment',
+            rationale: 'the bookstore stop is a distinct memorable leisure event inside the range',
+          },
+          appearanceLogic: {
+            transition: 'change_allowed',
+            changeReason: 'shopping',
+            outfitMode: 'casual_outing',
+          },
         },
       }),
       memoryFilePath: (calendarDate) => path.join(tmpDir, 'memory', `${calendarDate}.md`),
@@ -306,6 +346,76 @@ describe('timelineResolve generation path', () => {
     expect(fs.existsSync(olderDayFile)).toBe(true);
     expect(fs.existsSync(currentDayFile)).toBe(false);
     expect(result.trace?.write.file_path).toBe(olderDayFile);
+  });
+
+  it('keeps a changed outfit when the generated event explicitly requires a same-day wardrobe switch', async () => {
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-22T18:20:00+08:00', timezone: 'Asia/Shanghai' }),
+      sessionsHistory: async () => ['User asked what happened this evening.'],
+      memoryGet: async () => `
+### [09:00:00] 早餐
+- Timestamp: 2026-03-22 09:00:00
+- Location: 家里餐桌
+- Action: 慢慢吃早餐
+- Emotion_Tags: [平静, 清醒]
+- Appearance: 宽松的家居服
+      `,
+      reasonTimeline: async (collector) => ({
+        schema_version: '1.0',
+        request_id: collector.request_id,
+        request_type: 'now',
+        decision: {
+          action: 'generate_new_fact',
+          should_write_canon: true,
+        },
+        continuity: {
+          judged: true,
+          is_continuing: false,
+          reason: 'the evening gym visit is a new same-day scene and should not inherit breakfast clothes',
+        },
+        rationale: {
+          summary: 'Generated an evening exercise scene with an explicit outfit change.',
+          hard_fact_basis: [],
+          canon_basis: ['canon:2026-03-22:0'],
+          persona_basis: ['active evening routine'],
+          constraint_basis: ['exercise should trigger a same-day outfit change'],
+        },
+        generated_fact: {
+          location: '小区健身房',
+          action: '傍晚去健身房练了一会儿腿，准备回家冲澡',
+          emotionTags: ['投入', '放松'],
+          appearance: '速干运动背心和训练短裤',
+          internalMonologue: '白天那套家居服不适合运动，这样活动起来更利落。',
+          confidence: 0.8,
+          reason: 'exercise scene should switch out of home clothes',
+          sceneSemantics: {
+            activityMode: 'exercise',
+            continuityRelation: 'shifted_scene',
+            rationale: 'the day shifted from a home scene into an evening workout scene',
+          },
+          appearanceLogic: {
+            transition: 'change_required',
+            changeReason: 'exercise',
+            outfitMode: 'sportswear',
+          },
+        },
+      }),
+      memoryFilePath: () => tmpFile,
+    });
+
+    const result = await timelineResolve({
+      query: '你现在在做什么',
+      mode: 'allow_generate',
+      trace: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected generated success envelope');
+    const episode: any = result.result?.episodes[0];
+    expect(String(episode?.state_snapshot?.appearance?.outfit_style || '')).toContain('运动');
+    expect(result.trace?.appearance.inherited).toBe(false);
+    expect(result.trace?.appearance.transition).toBe('change_required');
+    expect(result.trace?.appearance.outfit_mode).toBe('sportswear');
   });
 
 });

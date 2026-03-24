@@ -8,6 +8,7 @@ It is not just a memory helper. It is the layer that lets OpenClaw feel more lik
 - a way to recall what happened recently
 - the ability to form and reuse timeline-shaped memories when needed
 - a more believable real-world rhythm for meals, sleep, workdays, weekends, and holidays
+- steadier same-day continuity in details like clothing, so small life scenes feel less random
 - continuity without breaking your normal long-term memory system
 
 The result is simple: chat feels warmer, more coherent, and more human.
@@ -40,6 +41,8 @@ With Timeline, OpenClaw can respond more like this:
 
 > "It's the weekend, so I moved a little slower this morning. I made something simple, stayed home for a bit, and only went out later in the afternoon."
 
+> "I was at home earlier in something comfortable, but I changed before heading to the gym. Now I'm just back and winding down."
+
 Those answers feel small and ordinary in exactly the right way. That is the point.
 
 ## What Timeline actually does
@@ -49,6 +52,7 @@ Timeline adds a dedicated time-awareness layer for OpenClaw so it can:
 - answer "now", "recently", and past-time questions more naturally
 - preserve continuity across casual chat
 - keep generated memories aligned with ordinary real-world timing instead of random prompt improvisation
+- keep small details like same-day appearance more stable, unless the scene itself implies a natural change
 - write timeline memories only when appropriate
 - keep normal durable memory and timeline memory from stepping on each other
 

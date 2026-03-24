@@ -1,3 +1,5 @@
+import { AppearanceLogic, SceneSemantics } from '../lib/timeline_semantics';
+
 export interface TimelineGeneratedDraft {
   timestamp?: string;
   location: string;
@@ -7,6 +9,8 @@ export interface TimelineGeneratedDraft {
   internalMonologue: string;
   confidence: number;
   reason?: string;
+  sceneSemantics?: SceneSemantics;
+  appearanceLogic?: AppearanceLogic;
 }
 
 export interface TimelineWorldRhythmSlot {

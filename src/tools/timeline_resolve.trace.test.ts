@@ -120,6 +120,16 @@ describe('timelineResolve trace schema', () => {
           internalMonologue: '把当前状态固定下来，后续回复才会稳。',
           confidence: 0.79,
           reason: 'llm generation for trace coverage',
+          sceneSemantics: {
+            activityMode: 'work_or_study',
+            continuityRelation: 'same_day_continuation',
+            rationale: 'the current moment extends an existing home work scene',
+          },
+          appearanceLogic: {
+            transition: 'inherit',
+            changeReason: 'same_day_continuation',
+            outfitMode: 'casual_home',
+          },
         },
       }),
       memoryFilePath: () => 'memory/2026-03-22.md',
@@ -174,6 +184,16 @@ describe('timelineResolve trace schema', () => {
           internalMonologue: '最近并不喧闹，但这种安静的小片段其实很适合被记住。',
           confidence: 0.76,
           reason: 'llm recent-recall synthesis',
+          sceneSemantics: {
+            activityMode: 'leisure',
+            continuityRelation: 'fresh_moment',
+            rationale: 'this is a standalone leisure recall inside the recent range',
+          },
+          appearanceLogic: {
+            transition: 'change_allowed',
+            changeReason: 'formal_outing',
+            outfitMode: 'casual_outing',
+          },
         },
       }),
       writeEpisode: async () => ({ success: true, written_at: '2026-03-22T14:30:01+08:00' }),

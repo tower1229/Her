@@ -18,6 +18,9 @@ export interface GeneratedCandidateResult {
     inherited: boolean;
     reason: string;
     source_episode_timestamp?: string;
+    transition: string;
+    outfit_mode: string;
+    change_reason: string;
   };
 }
 
@@ -49,6 +52,8 @@ function normalizeGeneratedDraft(draft: TimelineGeneratedDraft): TimelineGenerat
     internalMonologue: assertNonEmptyString(draft.internalMonologue, 'internalMonologue'),
     confidence: Math.max(0.2, Math.min(1, confidence)),
     reason: draft.reason ? String(draft.reason).trim() : undefined,
+    sceneSemantics: draft.sceneSemantics,
+    appearanceLogic: draft.appearanceLogic,
   };
 }
 
@@ -72,8 +77,7 @@ export function materializeGeneratedCandidate(
   const currentDayLog = sources.dailyLogs.find((entry) => entry.calendar_date === materializedDate);
   const dayEpisodes = parseMemoryFile(currentDayLog?.raw_content || '');
 
-  const priorEpisode = dayEpisodes[dayEpisodes.length - 1];
-  const appearanceResolution = resolveAppearance(dayEpisodes, normalized.appearance);
+  const appearanceResolution = resolveAppearance(dayEpisodes, normalized.appearance, normalized.appearanceLogic);
   const parsed: ParsedEpisode = {
     timestamp: candidateTimestamp,
     location: normalized.location,
@@ -105,7 +109,10 @@ export function materializeGeneratedCandidate(
     appearance: {
       inherited: !appearanceResolution.overridden,
       reason: appearanceResolution.reason,
-      source_episode_timestamp: priorEpisode?.timestamp,
+      source_episode_timestamp: appearanceResolution.sourceEpisodeTimestamp,
+      transition: appearanceResolution.transition,
+      outfit_mode: appearanceResolution.outfitMode,
+      change_reason: appearanceResolution.changeReason,
     },
   };
 }

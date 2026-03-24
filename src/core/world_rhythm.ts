@@ -1,5 +1,6 @@
 import { getHoliday } from '../lib/holidays';
 import { formatDate, parseTimestampParts, TimestampParts, dayOfWeek } from '../lib/time-utils';
+import { ActivityMode } from '../lib/timeline_semantics';
 import { ResolvedWindow } from './resolve_window';
 import { TimelineGeneratedDraft } from './timeline_reasoner_contract';
 
@@ -221,6 +222,39 @@ function hourFromTimestamp(timestamp: string): number | null {
   return parts ? parts.hour : null;
 }
 
+function worldModesFromActivityMode(activityMode: ActivityMode): WorldRhythmMode[] {
+  switch (activityMode) {
+    case 'sleep':
+      return ['sleep'];
+    case 'bath':
+      return ['rest', 'domestic'];
+    case 'meal':
+      return [];
+    case 'work_or_study':
+      return ['work_or_study'];
+    case 'commute':
+      return ['commute'];
+    case 'exercise':
+      return ['exercise'];
+    case 'social':
+      return ['social'];
+    case 'shopping':
+      return ['errands', 'social'];
+    case 'leisure':
+      return ['leisure'];
+    case 'domestic':
+      return ['domestic'];
+    case 'errands':
+      return ['errands'];
+    case 'transition':
+      return ['commute'];
+    case 'rest':
+      return ['rest'];
+    default:
+      return [];
+  }
+}
+
 export function validateGeneratedWorldRhythm(draft: TimelineGeneratedDraft): WorldRhythmValidationResult {
   if (!draft.timestamp) {
     return { ok: true, matched_modes: [], issues: [] };
@@ -231,11 +265,16 @@ export function validateGeneratedWorldRhythm(draft: TimelineGeneratedDraft): Wor
     return { ok: true, matched_modes: [], issues: [] };
   }
 
-  const matchedModes = classifyWorldRhythmModes({
-    action: draft.action,
-    location: draft.location,
-    internalMonologue: draft.internalMonologue,
-  });
+  const semanticModes = draft.sceneSemantics
+    ? worldModesFromActivityMode(draft.sceneSemantics.activityMode)
+    : [];
+  const matchedModes = semanticModes.length > 0
+    ? semanticModes
+    : classifyWorldRhythmModes({
+        action: draft.action,
+        location: draft.location,
+        internalMonologue: draft.internalMonologue,
+      });
   if (matchedModes.length === 0) {
     return { ok: true, matched_modes: [], issues: [] };
   }
