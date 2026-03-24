@@ -50,16 +50,25 @@ export interface TimelineRepairOutput {
   notes: string[];
 }
 
-function deriveFilePath(input: TimelineRepairInput): { calendarDate?: string; filePath: string } {
+export interface TimelineRepairRuntimeOptions {
+  canonical_memory_root?: string;
+  default_trace_log_path?: string;
+}
+
+function deriveFilePath(
+  input: TimelineRepairInput,
+  runtimeOptions: TimelineRepairRuntimeOptions,
+): { calendarDate?: string; filePath: string } {
   if (input.file_path) {
     const filePath = path.normalize(input.file_path);
     const calendarDate = path.basename(filePath, '.md');
     return { calendarDate, filePath };
   }
   if (input.calendar_date) {
+    const canonicalRoot = runtimeOptions.canonical_memory_root || 'memory';
     return {
       calendarDate: input.calendar_date,
-      filePath: path.join('memory', `${input.calendar_date}.md`),
+      filePath: path.join(canonicalRoot, `${input.calendar_date}.md`),
     };
   }
   throw new Error('timeline_repair requires calendar_date or file_path');
@@ -91,14 +100,17 @@ function inspectSections(raw: string): TimelineRepairIssue[] {
   return issues;
 }
 
-export async function timelineRepair(input: TimelineRepairInput): Promise<TimelineRepairOutput> {
-  const { calendarDate, filePath } = deriveFilePath(input);
+export async function timelineRepair(
+  input: TimelineRepairInput,
+  runtimeOptions: TimelineRepairRuntimeOptions = {},
+): Promise<TimelineRepairOutput> {
+  const { calendarDate, filePath } = deriveFilePath(input, runtimeOptions);
   let canonical = true;
   const issues: TimelineRepairIssue[] = [];
 
   if (calendarDate) {
     try {
-      assertCanonicalDailyLogPath(filePath, calendarDate);
+      assertCanonicalDailyLogPath(filePath, calendarDate, path.basename(runtimeOptions.canonical_memory_root || 'memory'));
     } catch (error: any) {
       canonical = false;
       issues.push({ kind: 'non_canonical_path', message: error.message });
@@ -147,7 +159,11 @@ export async function timelineRepair(input: TimelineRepairInput): Promise<Timeli
   }
 
   if (input.include_recent_traces) {
-    diagnostics.recent_traces = readRecentTraceLogs(input.trace_log_path || path.join(path.dirname(filePath), '.timeline-trace.log'));
+    diagnostics.recent_traces = readRecentTraceLogs(
+      input.trace_log_path
+        || runtimeOptions.default_trace_log_path
+        || path.join(path.dirname(filePath), '.timeline-trace.log'),
+    );
   }
 
   return {

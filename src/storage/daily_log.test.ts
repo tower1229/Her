@@ -5,6 +5,12 @@ describe('assertCanonicalDailyLogPath', () => {
     expect(assertCanonicalDailyLogPath('memory/2026-03-22.md', '2026-03-22')).toBe('memory/2026-03-22.md');
   });
 
+  it('accepts configured canonical root names', () => {
+    expect(assertCanonicalDailyLogPath('timeline-memory/2026-03-22.md', '2026-03-22', 'timeline-memory')).toBe(
+      'timeline-memory/2026-03-22.md',
+    );
+  });
+
   it('rejects non-memory parent directories', () => {
     expect(() => assertCanonicalDailyLogPath('notes/2026-03-22.md', '2026-03-22')).toThrow(/memory/);
   });

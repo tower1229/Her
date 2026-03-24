@@ -63,7 +63,8 @@ export function materializeGeneratedCandidate(
   reason = 'llm-guided semantic timeline synthesis',
 ): GeneratedCandidateResult {
   const normalized = normalizeGeneratedDraft(draft);
-  const dayEpisodes = parseMemoryFile(sources.memoryContent);
+  const currentDayLog = sources.dailyLogs.find((entry) => entry.calendar_date === window.calendar_date);
+  const dayEpisodes = parseMemoryFile(currentDayLog?.raw_content || '');
   const timestampParts = parseTimestampParts(window.end);
   if (!timestampParts) {
     throw new Error(`Cannot materialize generated candidate without parseable window end: ${window.end}`);

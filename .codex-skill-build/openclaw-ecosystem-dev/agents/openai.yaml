@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Dev"
+  short_description: "开发 OpenClaw skills、plugins 与自动化时的文档导航"
+  default_prompt: "Use $openclaw-ecosystem-dev to gather the relevant OpenClaw docs before designing a skill, plugin, hook, or cron workflow."

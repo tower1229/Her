@@ -202,14 +202,15 @@ Timeline 是否“做成了”，不以工具注册是否成功为判断标准�
 当前仓库已经完成的部分：
 - Timeline 插件与工具骨架已成立；
 - `timeline_resolve` 已成为统一 runtime 入口；
+- collector / reasoner / guard / writer 四层主流程已落地；
+- `recent_3d` / 跨日窗口的 collector 已能收集多日日志事实；
+- 默认生产 reasoner 已通过 OpenClaw subagent 复用当前模型链路；
 - 受控 append-only 写入、trace、status、repair 已有基础实现；
 - 基础 skill 路由与 OpenClaw runtime 集成已打通。
 
 当前仍未完成的关键部分：
 - 自然对话路由还未成为主验收标准；
-- 检索逻辑仍偏向“当天最后一条”，不是“按问题命中目标事实”；
-- gap-fill generation 与持续性推理还未成为显式能力；
-- LLM generation seam 还没真正接成产品能力；
+- 连续性推理与 gap-fill generation 的产品质量仍需继续打磨；
 - 下游 skill 的稳定消费协议尚未定稿；
 - 真实 E2E 验收仍偏 tool-centric，而不是体验-centric。
 

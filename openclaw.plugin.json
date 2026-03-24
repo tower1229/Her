@@ -11,15 +11,46 @@
       "enableTrace": {
         "type": "boolean",
         "default": true,
-        "description": "Enable trace emission for timeline runs."
+        "description": "是否为 timeline 运行写入 trace 记录。"
       },
       "traceLogPath": {
         "type": "string",
-        "description": "Optional path for append-only timeline trace logs."
+        "description": "可选的 trace 日志路径；相对路径会相对 workspace 解析。"
       },
       "canonicalMemoryRoot": {
         "type": "string",
-        "description": "Optional override for the canonical timeline memory root."
+        "description": "canonical timeline 日志根目录；相对路径会相对 workspace 解析。"
+      },
+      "reasonerMode": {
+        "type": "string",
+        "enum": ["subagent", "disabled"],
+        "default": "subagent",
+        "description": "Timeline 语义推理器的运行模式；默认使用 OpenClaw subagent 复用当前模型链路。"
+      },
+      "reasonerTimeoutMs": {
+        "type": "integer",
+        "default": 45000,
+        "description": "内部时间推理 subagent 的超时时间，单位毫秒。"
+      },
+      "reasonerSessionPrefix": {
+        "type": "string",
+        "default": "timeline-reasoner",
+        "description": "内部时间推理 subagent 的 session key 前缀。"
+      },
+      "reasonerMessageLimit": {
+        "type": "integer",
+        "default": 24,
+        "description": "读取内部时间推理 subagent transcript 时保留的最大消息数。"
+      },
+      "sessionHistoryLimit": {
+        "type": "integer",
+        "default": 12,
+        "description": "collector 读取当前会话历史时保留的最大消息数。"
+      },
+      "memorySearchMaxResults": {
+        "type": "integer",
+        "default": 6,
+        "description": "collector 调用 OpenClaw memory_search 时请求的最大结果数。"
       }
     },
     "additionalProperties": false

@@ -79,9 +79,10 @@
 ### 建议实现切面
 
 - `src/core/resolve_window.ts`
-- `src/core/map_window.ts`
 - `src/tools/timeline_resolve.ts`
-- 新增 collector / reasoner 分层相关模块
+- `src/core/collect_timeline_request.ts`
+- `src/core/runtime_guard.ts`
+- `src/runtime/openclaw_timeline_runtime.ts`
 
 ### 完成标准
 
@@ -89,7 +90,7 @@
 - “最近在做什么” 能稳定按窗口组织结果
 - “五分钟前打球，五分钟后还在打球” 不再依赖脚本关键词或活动时长表
 
-## 阶段 P2：把 LLM generation seam 接成真实能力
+## 阶段 P2：把 LLM reasoner 接成真实能力
 
 ### 目标
 
@@ -97,13 +98,13 @@
 
 ### 当前主要问题
 
-- `generateMemoryDraft` 只是 seam，不是完整产品能力
-- heuristics 仍承担了过多语义职责
-- 模型输出验证、失败回退和写盘前安全检查还不够完整
+- 默认 subagent reasoner 已接入，但 prompt / 输出质量还需要继续打磨
+- 连续性推理的产品质量仍不稳定
+- 模型输出验证、失败诊断和写盘前安全检查还可以继续强化
 
 ### 关键任务
 
-- 确认 OpenClaw 中可供插件使用的模型调用接口
+- 固化 OpenClaw subagent reasoner 的 prompt 和 response schema
 - 固化 generation prompt 和 response schema
 - 增加模型输出结构校验与归一化
 - 增加生成失败回退与置信度策略
@@ -114,7 +115,7 @@
 
 - `src/core/generation_prompt.ts`
 - `src/tools/timeline_resolve.ts`
-- 新增 model-backed generation adapter
+- `src/runtime/openclaw_timeline_runtime.ts`
 - 不再保留旧的脚本式人格化生成模块，生成功能只保留 LLM draft 的结构化落盘路径
 
 ### 完成标准

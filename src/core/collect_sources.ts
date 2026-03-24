@@ -1,4 +1,5 @@
 import { TimelineResolveInput } from '../tools/timeline_resolve';
+import { enumerateCalendarDates } from './calendar_dates';
 import { ResolvedWindow } from './resolve_window';
 
 export interface TimelineCoreContext {
@@ -10,7 +11,7 @@ export interface TimelineCoreContext {
 export interface TimelineSourceDependencies {
   currentTime: () => Promise<{ now: string; timezone: string }>;
   sessionsHistory: (window: ResolvedWindow, input: TimelineResolveInput) => Promise<string[]>;
-  memoryGet: (window: ResolvedWindow, input: TimelineResolveInput) => Promise<string>;
+  memoryGet: (calendarDate: string, window: ResolvedWindow, input: TimelineResolveInput) => Promise<string>;
   memorySearch?: (window: ResolvedWindow, input: TimelineResolveInput) => Promise<string[]>;
   coreFiles?: () => Promise<TimelineCoreContext>;
 }
@@ -18,7 +19,10 @@ export interface TimelineSourceDependencies {
 export interface CollectedSources {
   sourceOrder: string[];
   sessionsHistory: string[];
-  memoryContent: string;
+  dailyLogs: Array<{
+    calendar_date: string;
+    raw_content: string;
+  }>;
   memorySearch: string[];
   coreContext: TimelineCoreContext;
 }
@@ -29,12 +33,18 @@ export async function collectSources(
   input: TimelineResolveInput,
 ): Promise<CollectedSources> {
   const sourceOrder: string[] = [];
+  const calendarDates = enumerateCalendarDates(window.start, window.end);
 
   sourceOrder.push('sessions_history');
   const sessionsHistory = await deps.sessionsHistory(window, input);
 
   sourceOrder.push('memory_get');
-  const memoryContent = await deps.memoryGet(window, input);
+  const dailyLogs = await Promise.all(
+    calendarDates.map(async (calendarDate) => ({
+      calendar_date: calendarDate,
+      raw_content: await deps.memoryGet(calendarDate, window, input),
+    })),
+  );
 
   let memorySearch: string[] = [];
   if (deps.memorySearch && (input.target_time_range === 'recent_3d' || input.target_time_range === 'natural_language')) {
@@ -46,5 +56,5 @@ export async function collectSources(
     ? await deps.coreFiles()
     : { soul: '', memory: '', identity: '' };
 
-  return { sourceOrder, sessionsHistory, memoryContent, memorySearch, coreContext };
+  return { sourceOrder, sessionsHistory, dailyLogs, memorySearch, coreContext };
 }

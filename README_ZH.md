@@ -165,6 +165,12 @@ openclaw plugins install -l .
 - `enableTrace`
 - `traceLogPath`
 - `canonicalMemoryRoot`
+- `reasonerMode`
+- `reasonerTimeoutMs`
+- `reasonerSessionPrefix`
+- `reasonerMessageLimit`
+- `sessionHistoryLimit`
+- `memorySearchMaxResults`
 
 ---
 
@@ -173,10 +179,12 @@ openclaw plugins install -l .
 安装后建议这样验证：
 
 1. 在 OpenClaw 环境里启用插件；
-2. 确认插件能访问你打算使用的 `memory/` 目录；
+2. 确认插件能访问你配置的 canonical timeline 目录，默认是 `memory/`；
 3. 提一个明显的时间相关问题；
 4. 用 `timeline_status` 看注册与最近一次运行状态；
 5. 如发现日志格式异常或写入路径异常，用 `timeline_repair` 做诊断。
+
+当前默认 reasoner 路径会通过 OpenClaw subagent 复用你现有的 provider / model 链路，而不是在插件里再硬编码一条独立模型调用通道。
 
 示例问题：
 - “你现在在做什么？”
@@ -206,10 +214,10 @@ openclaw plugins install -l .
 
 但它仍然**不是最终的 GA 正式版**。
 当前距离正式发布，最大的差距主要在：
-- resolver 语义仍需重构到“按问题检索 + 连续性推理”；
-- 真实 LLM generation 还未成为默认主路径；
+- 自然对话路由与体验型 E2E 还没成为主验收标准；
+- 连续性推理与 gap-fill generation 的质量还需要继续打磨；
 - 下游 skill 的稳定消费协议尚未定稿；
-- 体验型 E2E 验收体系还未建立完成。
+- timeline -> selfie 等跨 skill 联动还未正式打通。
 
 如果你要快速了解成熟度和下一步路线，建议优先阅读：
 - `docs/timeline-north-star.md`

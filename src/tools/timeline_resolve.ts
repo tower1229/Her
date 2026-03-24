@@ -119,6 +119,7 @@ export type TimelineResolveOutput = TimelineResolveSuccessOutput | TimelineResol
 export interface TimelineRuntimeDependencies extends TimelineSourceDependencies {
   writeEpisode?: (input: WriteEpisodeInput) => Promise<WriteResult>;
   memoryFilePath?: (calendarDate: string) => string;
+  canonicalRootName?: string;
   traceLogPath?: string;
   reasonTimeline?: (collector: TimelineCollectorOutput) => Promise<TimelineReasonerOutput | null>;
 }
@@ -133,8 +134,8 @@ function readOptionalTextFile(filePath: string): string {
 
 const defaultDependencies: TimelineRuntimeDependencies = {
   currentTime: async () => ({
-    now: '2026-03-22T14:30:00+08:00',
-    timezone: 'Asia/Shanghai',
+    now: new Date().toISOString(),
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
   }),
   sessionsHistory: async () => [],
   memoryGet: async () => '',
@@ -146,6 +147,7 @@ const defaultDependencies: TimelineRuntimeDependencies = {
   }),
   writeEpisode,
   memoryFilePath: (calendarDate: string) => `memory/${calendarDate}.md`,
+  canonicalRootName: 'memory',
   traceLogPath: path.join(os.tmpdir(), 'openclaw-timeline-plugin-trace.log'),
 };
 
@@ -157,6 +159,15 @@ export function setTimelineResolveDependencies(deps: Partial<TimelineRuntimeDepe
 
 export function resetTimelineResolveDependencies(): void {
   runtimeDependencies = defaultDependencies;
+}
+
+function getEffectiveTimelineDependencies(
+  overrides?: Partial<TimelineRuntimeDependencies>,
+): TimelineRuntimeDependencies {
+  return {
+    ...runtimeDependencies,
+    ...overrides,
+  };
 }
 
 function validateTimelineResolveInput(input: TimelineResolveInput): void {
@@ -235,8 +246,12 @@ function classifyWriteFailure(writeResult: WriteResult): {
   };
 }
 
-function persistTraceIfRequested(output: TimelineResolveOutput, input: TimelineResolveInput): boolean {
-  if (!input.trace || !runtimeDependencies.traceLogPath) return false;
+function persistTraceIfRequested(
+  output: TimelineResolveOutput,
+  input: TimelineResolveInput,
+  deps: TimelineRuntimeDependencies,
+): boolean {
+  if (!input.trace || !deps.traceLogPath) return false;
 
   appendTraceLog(
     {
@@ -252,13 +267,18 @@ function persistTraceIfRequested(output: TimelineResolveOutput, input: TimelineR
         trace: output.trace ?? null,
       },
     },
-    runtimeDependencies.traceLogPath,
+    deps.traceLogPath,
   );
 
   return true;
 }
 
-function recordRuntimeStatus(output: TimelineResolveOutput, input: TimelineResolveInput, tracePersisted: boolean): void {
+function recordRuntimeStatus(
+  output: TimelineResolveOutput,
+  input: TimelineResolveInput,
+  tracePersisted: boolean,
+  deps: TimelineRuntimeDependencies,
+): void {
   recordTimelineRuntimeStatus({
     updated_at: new Date().toISOString(),
     ok: output.ok,
@@ -267,7 +287,7 @@ function recordRuntimeStatus(output: TimelineResolveOutput, input: TimelineResol
     write_outcome: output.trace?.write.outcome,
     trace_id: output.trace_id,
     trace_persisted: tracePersisted,
-    trace_log_path: runtimeDependencies.traceLogPath,
+    trace_log_path: deps.traceLogPath,
     writes_attempted: output.resolution_summary.writes_attempted,
     writes_succeeded: output.resolution_summary.writes_succeeded,
     write_path: output.trace?.write.file_path,
@@ -277,9 +297,13 @@ function recordRuntimeStatus(output: TimelineResolveOutput, input: TimelineResol
   });
 }
 
-function finalizeTimelineOutput(output: TimelineResolveOutput, input: TimelineResolveInput): TimelineResolveOutput {
-  const tracePersisted = persistTraceIfRequested(output, input);
-  recordRuntimeStatus(output, input, tracePersisted);
+function finalizeTimelineOutput(
+  output: TimelineResolveOutput,
+  input: TimelineResolveInput,
+  deps: TimelineRuntimeDependencies,
+): TimelineResolveOutput {
+  const tracePersisted = persistTraceIfRequested(output, input, deps);
+  recordRuntimeStatus(output, input, tracePersisted, deps);
   if (!input.trace) {
     delete output.trace;
   }
@@ -405,21 +429,23 @@ function buildEmptyOutput(
 
 export async function timelineResolve(
   input: TimelineResolveInput,
+  dependencyOverrides?: Partial<TimelineRuntimeDependencies>,
 ): Promise<TimelineResolveOutput> {
+  const deps = getEffectiveTimelineDependencies(dependencyOverrides);
   let sourceOrder: string[] = [];
 
   try {
     validateTimelineResolveInput(input);
 
-    const currentTime = await runtimeDependencies.currentTime();
+    const currentTime = await deps.currentTime();
     const window = resolveWindow(input, currentTime.now, input.timezone || currentTime.timezone);
-    const sources = await collectSources(runtimeDependencies, window, input);
+    const sources = await collectSources(deps, window, input);
     sourceOrder = sources.sourceOrder;
     const collector = buildTimelineCollectorOutput(makeRequestId(), input, window, sources);
-    if (!runtimeDependencies.reasonTimeline) {
+    if (!deps.reasonTimeline) {
       throw new Error('Timeline reasoner dependency missing');
     }
-    const reasoned = await runtimeDependencies.reasonTimeline(collector);
+    const reasoned = await deps.reasonTimeline(collector);
     if (!reasoned) {
       throw new Error('Timeline reasoner returned no decision');
     }
@@ -481,8 +507,8 @@ export async function timelineResolve(
           guard.generated_fact.reason || reasoned.rationale.summary || 'llm-guided semantic timeline synthesis',
         );
         traceAppearance = generated.appearance;
-        const requestedPath = runtimeDependencies.memoryFilePath
-          ? runtimeDependencies.memoryFilePath(window.calendar_date)
+        const requestedPath = deps.memoryFilePath
+          ? deps.memoryFilePath(window.calendar_date)
           : `memory/${window.calendar_date}.md`;
 
         let filePath = requestedPath;
@@ -496,10 +522,14 @@ export async function timelineResolve(
         let writeGuard: TimelineTrace['write']['guard'] = 'canonical_path';
 
         try {
-          filePath = assertCanonicalDailyLogPath(requestedPath, window.calendar_date);
-          writeResult = runtimeDependencies.writeEpisode
+          filePath = assertCanonicalDailyLogPath(
+            requestedPath,
+            window.calendar_date,
+            deps.canonicalRootName || 'memory',
+          );
+          writeResult = deps.writeEpisode
             ? await withFileLock(filePath, async () =>
-                runtimeDependencies.writeEpisode!({
+                deps.writeEpisode!({
                   timestamp: generated.parsed.timestamp,
                   location: generated.parsed.location,
                   action: generated.parsed.action,
@@ -657,7 +687,7 @@ export async function timelineResolve(
       source_summary: {
         sessions_history_count: sources.sessionsHistory.length,
         sessions_history_preview: sources.sessionsHistory[0] || null,
-        memory_chars: sources.memoryContent.length,
+        memory_chars: sources.dailyLogs.reduce((total, entry) => total + entry.raw_content.length, 0),
         memory_search_count: sources.memorySearch.length,
         memory_search_preview: sources.memorySearch.slice(0, 3),
         parsed_episode_count: collector.candidate_facts.length,
@@ -671,7 +701,7 @@ export async function timelineResolve(
     });
     output.trace_id = trace.trace_id;
     output.trace = trace;
-    return finalizeTimelineOutput(output, input);
+    return finalizeTimelineOutput(output, input, deps);
   } catch (error: any) {
     const timelineError = error instanceof Error ? error : new Error(String(error));
     const errorCode = classifyTimelineResolveError(timelineError);
@@ -730,7 +760,7 @@ export async function timelineResolve(
       trace,
     };
 
-    return finalizeTimelineOutput(output, input);
+    return finalizeTimelineOutput(output, input, deps);
   }
 }
 

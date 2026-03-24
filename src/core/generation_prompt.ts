@@ -27,8 +27,12 @@ export function buildTimelineGenerationPrompt(window: ResolvedWindow, sources: C
     'sessions_history:',
     JSON.stringify(sources.sessionsHistory, null, 2),
     '',
-    'memory_get daily log:',
-    sources.memoryContent || '(empty)',
+    'memory_get daily logs:',
+    sources.dailyLogs.length
+      ? sources.dailyLogs
+          .map((entry) => `# ${entry.calendar_date}\n${entry.raw_content || '(empty)'}`)
+          .join('\n\n')
+      : '(empty)',
     '',
     'memory_search:',
     JSON.stringify(sources.memorySearch, null, 2),
