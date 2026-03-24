@@ -113,6 +113,12 @@ export function mapLocationKind(location: string): string {
   return 'other';
 }
 
+function buildNarrativeSummary(parsed: ParsedEpisode): string {
+  const action = parsed.action && parsed.action !== 'unknown' ? parsed.action : '记录一个时间片段';
+  const location = parsed.location && parsed.location !== 'unknown' ? `在${parsed.location}` : '';
+  return `${location}${action}`;
+}
+
 export function mapToEpisode(
   parsed: ParsedEpisode, 
   worldHooks: { weekday: boolean; holiday_key: string | null },
@@ -155,7 +161,7 @@ export function mapToEpisode(
       granularity: "block"
     },
     narrative: {
-      summary: parsed.naturalText || `${parsed.action}在${parsed.location}`,
+      summary: buildNarrativeSummary(parsed),
       detail: parsed.internalMonologue
     },
     state_snapshot: {

@@ -72,7 +72,6 @@ export function buildTimelineCollectorOutput(
         emotion_tags: episode.emotionTags,
         appearance: episode.appearance,
         internal_monologue: episode.internalMonologue,
-        natural_text: episode.naturalText,
         parse_level: episode.parseLevel,
         confidence: episode.confidence,
       })),

@@ -39,12 +39,20 @@ Recommended shape:
     - Appearance: Light home top, hair loosely tied up, a fresh cup of coffee on the desk
     - Internal_Monologue: I want to finish the two most important things this morning first, then maybe go out later if the day goes well
 
-    I just sat down and started organizing what I need to do today.
-
 Do not store long-term durable facts in `memory/YYYY-MM-DD.md`; stable preferences, relationships, and long-term decisions still belong in `MEMORY.md`.
 
 Do not mix free-form daily-log writing with Timeline format. If a memory is about temporal state or recall, prefer Timeline-readable structure.
 ```
+
+### Required Step 2.5: Migrate Existing `memory/*.md`
+
+If you already had many daily memory files before installing Timeline, run:
+
+```bash
+npm run migrate:memory
+```
+
+The migration script rewrites only files it can safely recognize as Timeline-style daily logs, removes trailing free-form prose, and keeps a `.bak` backup next to every changed file. Files that are mostly free-form prose are left untouched.
 
 ### Required Step 3: Update `SOUL.md`
 

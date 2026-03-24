@@ -7,13 +7,12 @@ import { getHoliday } from '../lib/holidays';
 import { dayOfWeek, formatDate, formatTime, parseTimestampParts } from '../lib/time-utils';
 
 export interface WriteEpisodeInput {
-  timestamp: string; // ISO string e.g., 2026-03-22T14:30:00+08:00
+  timestamp: string;
   location: string;
   action: string;
   emotionTags: string[];
   appearance: string;
   internalMonologue?: string;
-  naturalText?: string;
   filePath: string;
   confidence?: number;
 }
@@ -30,7 +29,13 @@ export interface WriteResult {
   existing_fingerprint?: string;
 }
 
-function detectWriteConflict(filePath: string, dateStr: string, timestamp: string, location: string, action: string): {
+function detectWriteConflict(
+  filePath: string,
+  dateStr: string,
+  timestamp: string,
+  location: string,
+  action: string,
+): {
   outcome: 'noop_existing' | 'conflict' | 'clear';
   fingerprint: string;
   existingFingerprint?: string;
@@ -59,9 +64,8 @@ function detectWriteConflict(filePath: string, dateStr: string, timestamp: strin
 }
 
 export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResult> {
-  const { timestamp, location, action, emotionTags, appearance, internalMonologue, naturalText, filePath } = input;
+  const { timestamp, location, action, emotionTags, appearance, internalMonologue, filePath } = input;
 
-  // 1. Validation
   if (!timestamp || !location || !action || !emotionTags || emotionTags.length === 0 || !appearance) {
     return {
       success: false,
@@ -77,14 +81,14 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
     const timestampParts = parseTimestampParts(timestamp);
     const dateObj = timestampParts ? null : new Date(timestamp);
     if (!timestampParts && (!dateObj || isNaN(dateObj.getTime()))) {
-       return {
-         success: false,
-         written_at: '',
-         outcome: 'failed',
-         error_code: 'INVALID_TIMESTAMP',
-         error: 'Invalid timestamp format',
-         recovery_hint: 'Use an ISO timestamp or a canonical timeline timestamp before writing canon.',
-       };
+      return {
+        success: false,
+        written_at: '',
+        outcome: 'failed',
+        error_code: 'INVALID_TIMESTAMP',
+        error: 'Invalid timestamp format',
+        recovery_hint: 'Use an ISO timestamp or a canonical timeline timestamp before writing canon.',
+      };
     }
 
     const yyyy = timestampParts ? timestampParts.year : dateObj!.getFullYear();
@@ -96,14 +100,13 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       ? formatTime(timestampParts)
       : `${String(dateObj!.getHours()).padStart(2, '0')}:${String(dateObj!.getMinutes()).padStart(2, '0')}:${String(dateObj!.getSeconds()).padStart(2, '0')}`;
 
-    // 2. World hooks
     const isWeekend = timestampParts ? [0, 6].includes(dayOfWeek(timestampParts)) : dateObj!.getDay() === 0 || dateObj!.getDay() === 6;
     const weekday = !isWeekend;
     const holidayKey = getHoliday(`${yyyy}-${mm}-${dd}`);
 
     const worldHooks: WorldHooks = {
       weekday,
-      holiday_key: holidayKey
+      holiday_key: holidayKey,
     };
     const conflictCheck = detectWriteConflict(filePath, dateStr, timestamp, location, action);
     if (conflictCheck.outcome === 'noop_existing') {
@@ -130,7 +133,6 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       };
     }
 
-    // 3. Format markdown
     const mdLines = [
       `### [${timeStr}] ${action.substring(0, 15)}...`,
       '',
@@ -146,15 +148,8 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
     }
 
     mdLines.push('');
-
-    if (naturalText) {
-      mdLines.push(naturalText);
-      mdLines.push('');
-    }
-
     const mdContent = mdLines.join('\n') + '\n';
 
-    // 4. Write
     const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -162,11 +157,9 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
 
     fs.appendFileSync(filePath, mdContent, 'utf8');
 
-    const writtenAt = new Date().toISOString();
-
     return {
       success: true,
-      written_at: writtenAt,
+      written_at: new Date().toISOString(),
       world_hooks: worldHooks,
       outcome: 'appended',
       idempotency_key: conflictCheck.fingerprint,

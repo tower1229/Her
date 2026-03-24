@@ -5,6 +5,7 @@ export interface ParsedEpisode {
   emotionTags: string[];
   appearance: string; // "unknown" when Level B
   internalMonologue?: string;
+  // Legacy prose tolerated during parsing; canonical timeline writes no longer emit it.
   naturalText?: string;
   parseLevel: 'A' | 'B';
   confidence: number;

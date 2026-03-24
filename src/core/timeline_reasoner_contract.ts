@@ -5,7 +5,6 @@ export interface TimelineGeneratedDraft {
   emotionTags: string[];
   appearance: string;
   internalMonologue: string;
-  naturalText: string;
   confidence: number;
   reason?: string;
 }
@@ -20,7 +19,6 @@ export interface CollectedTimelineFact {
   emotion_tags: string[];
   appearance: string;
   internal_monologue?: string;
-  natural_text?: string;
   parse_level: 'A' | 'B';
   confidence: number;
 }

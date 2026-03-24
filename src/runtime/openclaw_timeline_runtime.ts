@@ -266,6 +266,7 @@ function buildTimelineReasonerSystemPrompt(): string {
     '11. past_range 需要先理解自然语言对应的时间范围，再从该范围内挑选最相关、最鲜活、最值得提的事实。',
     '12. 如果用户在问“有趣”“好玩”“忙不忙”这类语义筛选词，必须先理解筛选语义，再决定复用什么事实或生成什么事实。',
     '13. 如果为 past_point 或 past_range 生成新事实，generated_fact 应尽量提供一个合理的 timestamp，并保证它落在目标时间点或目标时间范围内，而不是默认落在当前时刻。',
+    '14. generated_fact 只输出结构化字段，不要输出自然正文、解释或额外叙述。',
   ].join('\n');
 }
 
@@ -309,7 +310,6 @@ function buildTimelineReasonerMessage(collector: TimelineCollectorOutput): strin
         emotionTags: ['string'],
         appearance: 'string',
         internalMonologue: 'string',
-        naturalText: 'string',
         confidence: 0.8,
         reason: 'string',
       },

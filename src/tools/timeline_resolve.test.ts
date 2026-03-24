@@ -117,7 +117,6 @@ describe('timelineResolve', () => {
           emotionTags: ['专注', '平静'],
           appearance: '舒适的家居服，头发随意挽起',
           internalMonologue: '先把眼前的工作整理完再说。',
-          naturalText: '她正在家里书房继续下午的工作。',
           confidence: 0.74,
         },
       }),

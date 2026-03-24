@@ -24,7 +24,6 @@ function factToParsedEpisode(fact: CollectedTimelineFact): ParsedEpisode {
     emotionTags: fact.emotion_tags,
     appearance: fact.appearance,
     internalMonologue: fact.internal_monologue,
-    naturalText: fact.natural_text,
     parseLevel: fact.parse_level,
     confidence: fact.confidence,
   };
@@ -34,14 +33,12 @@ function isValidGeneratedDraft(draft: TimelineGeneratedDraft | undefined): draft
   if (!draft) return false;
   return Boolean(
     (draft.timestamp === undefined || String(draft.timestamp).trim())
-    &&
-    String(draft.location || '').trim()
+    && String(draft.location || '').trim()
     && String(draft.action || '').trim()
     && Array.isArray(draft.emotionTags)
     && draft.emotionTags.length > 0
     && String(draft.appearance || '').trim()
     && String(draft.internalMonologue || '').trim()
-    && String(draft.naturalText || '').trim()
     && Number.isFinite(Number(draft.confidence)),
   );
 }

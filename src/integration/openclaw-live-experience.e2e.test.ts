@@ -336,7 +336,6 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
         '- Emotion_Tags: [专注, 平静]',
         '- Appearance: 宽松的浅色家居服',
         '- Internal_Monologue: 先把上午这部分工作收好。',
-        '她此刻正在家里书房安静整理上午的工作记录。',
       ].join('\n');
       const backups = applyFixtures({
         ...buildWorkspaceFixtures(liveContext.workspaceDir),
@@ -384,7 +383,6 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
           '- Emotion_Tags: [投入, 开心]',
           '- Appearance: 深色运动背心和短裤',
           '- Internal_Monologue: 这一场打得很过瘾。',
-          '她昨天下午在城市公园篮球场和朋友打球。',
         ].join('\n'),
         [twoDaysAgoFilePath]: [
           '### [Episode]',
@@ -394,7 +392,6 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
           '- Emotion_Tags: [放松, 开心]',
           '- Appearance: 宽松卫衣',
           '- Internal_Monologue: 这种晚上很像真正活着。',
-          '她前天晚上和朋友在烧烤店聊天。',
         ].join('\n'),
       });
 
@@ -437,7 +434,6 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
           '- Emotion_Tags: [放松, 投入]',
           '- Appearance: 宽松的居家上衣和长裤',
           '- Internal_Monologue: 这集节奏终于起来了，再看一会儿就差不多。',
-          '她昨晚在客厅靠着沙发看电视剧，整个人都比较放松。',
         ].join('\n'),
       });
 
@@ -481,7 +477,6 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
           '- Emotion_Tags: [平静, 放松]',
           '- Appearance: 浅色家居服，头发随手挽起',
           '- Internal_Monologue: 晚上就想让自己慢一点。',
-          '她昨晚先在家里简单做了点晚饭。',
           '',
           '### [Episode]',
           `- Timestamp: ${formatTimestamp(secondFactTime)}`,
@@ -490,7 +485,6 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
           '- Emotion_Tags: [放松, 投入]',
           '- Appearance: 同样的宽松家居服',
           '- Internal_Monologue: 这种晚上很安静，也很像自己的生活。',
-          '吃完饭后她又在客厅看了会儿电视剧。',
         ].join('\n'),
       });
 

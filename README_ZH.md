@@ -184,12 +184,28 @@ daily log 中的单条时间记忆必须尽量包含以下字段：
     - Appearance: 浅色居家上衣，头发随手扎起，手边放着一杯刚泡好的咖啡
     - Internal_Monologue: 想先把上午最重要的两件事做完，晚点如果顺利的话，晚上可以出去活动一下
 
-    刚坐下没多久，正准备把今天要做的事情顺一遍。
-
 不要把长期稳定事实写进 `memory/YYYY-MM-DD.md`；长期偏好、关系、长期决策仍应写入 `MEMORY.md`。
 
 不要在 daily log 里混用自由格式和 Timeline 格式；涉及时间状态与回忆的 daily memory，应优先写成 Timeline 可解析的格式。
 ```
+
+### 安装步骤 2.5：迁移已有 `memory/*.md`
+
+如果你在安装 Timeline 之前已经积累了很多 daily memory 文件，先不要手动大改。
+
+执行：
+
+```bash
+npm run migrate:memory
+```
+
+这个脚本会：
+- 扫描 `memory/YYYY-MM-DD.md`
+- 把已经基本符合 Timeline 字段格式、但混有尾部自由正文的旧文件，重写成纯结构化格式
+- 在每个被改写的文件旁边保留一个 `.bak` 备份
+- 对无法安全识别的自由文本文件保持不动
+
+如果你原来的 daily memory 大多是完全自由散文，而不是 Timeline 结构，建议不要强行迁移；更稳妥的做法是保留旧文件，之后只让新的 canonical memory 进入 Timeline 格式，必要时把 `canonicalMemoryRoot` 指向一个新的目录。
 
 ### 安装步骤 3：补充 `SOUL.md`
 

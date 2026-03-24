@@ -47,7 +47,6 @@ function normalizeGeneratedDraft(draft: TimelineGeneratedDraft): TimelineGenerat
     emotionTags: emotionTags.slice(0, 3),
     appearance: assertNonEmptyString(draft.appearance, 'appearance'),
     internalMonologue: assertNonEmptyString(draft.internalMonologue, 'internalMonologue'),
-    naturalText: assertNonEmptyString(draft.naturalText, 'naturalText'),
     confidence: Math.max(0.2, Math.min(1, confidence)),
     reason: draft.reason ? String(draft.reason).trim() : undefined,
   };
@@ -82,7 +81,6 @@ export function materializeGeneratedCandidate(
     emotionTags: normalized.emotionTags,
     appearance: appearanceResolution.appearance,
     internalMonologue: normalized.internalMonologue,
-    naturalText: normalized.naturalText,
     parseLevel: 'A',
     confidence: normalized.confidence,
   };

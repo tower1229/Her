@@ -40,7 +40,6 @@ describe('writeEpisode', () => {
       emotionTags: ['sleepy', 'happy'],
       appearance: 'pajamas',
       internalMonologue: 'Need coffee',
-      naturalText: 'I just woke up and it feels good.',
       filePath: tempFile,
     });
 
@@ -51,7 +50,7 @@ describe('writeEpisode', () => {
     expect(content).toContain('- Timestamp: 2026-03-22 14:30:00');
     expect(content).toContain('- Appearance: pajamas');
     expect(content).toContain('- Internal_Monologue: Need coffee');
-    expect(content).toContain('I just woke up and it feels good.');
+    expect(content).not.toContain('I just woke up and it feels good.');
 
     // Hooks
     if (res.world_hooks) {

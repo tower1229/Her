@@ -34,7 +34,6 @@ describe('timelineResolve canonical path guard', () => {
           emotionTags: ['专注', '平静'],
           appearance: '舒适的家居服，头发随意挽起',
           internalMonologue: '先验证写入路径，再决定是否落盘。',
-          naturalText: '她正准备把当前状态写入时间线。',
           confidence: 0.72,
         },
       }),

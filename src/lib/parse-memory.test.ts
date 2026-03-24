@@ -77,6 +77,7 @@ describe('mapToEpisode', () => {
     expect(ep.state_snapshot.scene.location_kind).toBe('home');
     expect(ep.state_snapshot.scene.location_label).toBe('卧室床边');
     expect(ep.state_snapshot.emotion.primary).toBe('sleepy');
+    expect(ep.narrative.summary).toBe('在卧室床边醒来');
     expect(ep.world_hooks).toEqual(worldHooks);
     expect(ep.provenance.idempotency_key).toBe('test-key');
   });
