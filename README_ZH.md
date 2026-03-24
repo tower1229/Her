@@ -64,10 +64,10 @@ Timeline 为 OpenClaw 增加了一层专门的时间感知与回忆能力，让�
 
 ```bash
 openclaw plugins install stella-timeline-plugin --pin
-openclaw plugins enable timeline-plugin
+openclaw plugins enable stella-timeline-plugin
 ```
 
-npm 包名是 `stella-timeline-plugin`，OpenClaw 内部插件 ID 仍然是 `timeline-plugin`。
+npm 包名和 OpenClaw 插件 ID 现在统一为 `stella-timeline-plugin`。
 
 ### 2. 初始化 workspace
 

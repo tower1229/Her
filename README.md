@@ -64,10 +64,10 @@ It is built for immersive social chat first.
 
 ```bash
 openclaw plugins install stella-timeline-plugin --pin
-openclaw plugins enable timeline-plugin
+openclaw plugins enable stella-timeline-plugin
 ```
 
-The npm package name is `stella-timeline-plugin`. The OpenClaw plugin id stays `timeline-plugin`.
+The npm package name and the OpenClaw plugin id are both `stella-timeline-plugin`.
 
 ### 2. Initialize your workspace
 

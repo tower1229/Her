@@ -149,7 +149,7 @@ const defaultDependencies: TimelineRuntimeDependencies = {
   writeEpisode,
   memoryFilePath: (calendarDate: string) => `memory/${calendarDate}.md`,
   canonicalRootName: 'memory',
-  traceLogPath: path.join(os.tmpdir(), 'openclaw-timeline-plugin-trace.log'),
+  traceLogPath: path.join(os.tmpdir(), 'stella-timeline-plugin-trace.log'),
 };
 
 let runtimeDependencies: TimelineRuntimeDependencies = defaultDependencies;
@@ -506,7 +506,7 @@ export async function timelineResolve(
       succeeded: false,
       guard: 'not_attempted',
       outcome: 'not_attempted',
-      writer: 'openclaw-timeline-plugin',
+      writer: 'stella-timeline-plugin',
     };
     let traceFingerprint: TimelineTrace['fingerprint'] = {
       checked: collector.candidate_facts.length > 0,
@@ -640,7 +640,7 @@ export async function timelineResolve(
           error: normalizedWriteResult.success ? undefined : normalizedWriteResult.error,
           recovery_hint: normalizedWriteResult.recovery_hint,
           guard: writeGuard,
-          writer: 'openclaw-timeline-plugin',
+          writer: 'stella-timeline-plugin',
         };
         traceFingerprint = {
           checked: true,
@@ -719,7 +719,7 @@ export async function timelineResolve(
         succeeded: false,
         guard: 'not_attempted',
         outcome: 'not_attempted',
-        writer: 'openclaw-timeline-plugin',
+        writer: 'stella-timeline-plugin',
       };
       traceFingerprint = {
         checked: false,
@@ -783,7 +783,7 @@ export async function timelineResolve(
         succeeded: false,
         guard: 'not_attempted',
         outcome: 'not_attempted',
-        writer: 'openclaw-timeline-plugin',
+        writer: 'stella-timeline-plugin',
       },
       decision: {
         resolution_mode: 'error',

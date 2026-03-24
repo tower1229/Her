@@ -2,7 +2,7 @@
 
 This repository is ready to publish as an OpenClaw plugin package using the npm package name in `package.json`.
 
-The OpenClaw plugin id remains `timeline-plugin`; only the npm package name changes.
+The npm package name and the OpenClaw plugin id should both stay aligned with `stella-timeline-plugin`.
 
 ## Required inputs
 

@@ -39,7 +39,7 @@ export interface TimelineTrace {
     error?: string;
     recovery_hint?: string;
     guard: 'not_attempted' | 'canonical_path' | 'lock' | 'conflict' | 'write_dependency';
-    writer: 'openclaw-timeline-plugin';
+    writer: 'stella-timeline-plugin';
   };
   decision: {
     resolution_mode: string;

@@ -135,7 +135,7 @@ function resolveLiveRuntimeContext(): LiveRuntimeContext {
   }
 
   const workspaceDir = resolveConfiguredPath(path.dirname(configPath), workspaceRaw, '.');
-  const pluginConfig = baseConfig?.plugins?.entries?.['timeline-plugin']?.config || {};
+  const pluginConfig = baseConfig?.plugins?.entries?.['stella-timeline-plugin']?.config || {};
   const canonicalRootPath = resolveConfiguredPath(
     workspaceDir,
     typeof pluginConfig.canonicalMemoryRoot === 'string' ? pluginConfig.canonicalMemoryRoot : undefined,
@@ -156,12 +156,12 @@ function resolveLiveRuntimeContext(): LiveRuntimeContext {
 }
 
 function assertTimelinePluginLoaded(): void {
-  const result = runCommand(['plugins', 'info', 'timeline-plugin']);
+  const result = runCommand(['plugins', 'info', 'stella-timeline-plugin']);
   if (result.status !== 0) {
-    throw new Error(`无法读取 timeline-plugin 状态:\n${result.stderr || result.stdout}`);
+    throw new Error(`无法读取 stella-timeline-plugin 状态:\n${result.stderr || result.stdout}`);
   }
   if (!result.stdout.includes('Status: loaded')) {
-    throw new Error(`timeline-plugin 当前未处于 loaded 状态:\n${result.stdout}`);
+    throw new Error(`stella-timeline-plugin 当前未处于 loaded 状态:\n${result.stdout}`);
   }
 }
 

@@ -34,21 +34,21 @@ describeIfSmoke('OpenClaw runtime smoke', () => {
       const resolvePluginTools = findRuntimeExport('function resolvePluginTools');
       const config = {
         plugins: {
-          allow: ['timeline-plugin'],
+          allow: ['stella-timeline-plugin'],
           load: { paths: [${JSON.stringify(repoRoot)}] },
-          entries: { 'timeline-plugin': { enabled: true } },
+          entries: { 'stella-timeline-plugin': { enabled: true } },
         },
         tools: {
           profile: 'coding',
-          alsoAllow: ['timeline-plugin'],
+          alsoAllow: ['stella-timeline-plugin'],
         },
       };
       const registry = loadOpenClawPlugins({ config, workspaceDir: ${JSON.stringify(repoRoot)} });
-      const plugin = registry.plugins.find((entry) => entry.id === 'timeline-plugin');
+      const plugin = registry.plugins.find((entry) => entry.id === 'stella-timeline-plugin');
       const resolvedTools = resolvePluginTools({
         context: { config, workspaceDir: ${JSON.stringify(repoRoot)}, sandboxed: true },
         existingToolNames: new Set(),
-        toolAllowlist: ['timeline-plugin'],
+        toolAllowlist: ['stella-timeline-plugin'],
       });
       console.log(JSON.stringify({
         plugin: plugin ? {
