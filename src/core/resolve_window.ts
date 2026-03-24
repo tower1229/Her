@@ -1,12 +1,11 @@
-import { TimelineResolveInput } from '../tools/timeline_resolve';
-import { formatTimestamp, parseTimestampParts } from '../lib/time-utils';
+import { parseTimestampParts } from '../lib/time-utils';
 
 export type TimelineSemanticTarget = 'now' | 'past_point' | 'past_range';
 export type TimelineCollectionScope = 'today_so_far' | 'point_day' | 'explicit_range';
 
 export interface TimelineQueryPlan {
   schema_version: '1.0';
-  target_time_range: 'past_point' | 'past_range';
+  target_time_range: TimelineSemanticTarget;
   normalized_point?: string;
   normalized_start?: string;
   normalized_end?: string;
@@ -36,7 +35,7 @@ function formatCalendarDate(parts: ReturnType<typeof parseRequiredTimestamp>): s
   return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
 }
 
-function makeNowWindow(nowIso: string, timezone: string): ResolvedWindow {
+function makeNowWindow(nowIso: string, timezone: string, notes: string[]): ResolvedWindow {
   const parts = parseRequiredTimestamp(nowIso, 'current time');
   const date = formatCalendarDate(parts);
   return {
@@ -47,12 +46,12 @@ function makeNowWindow(nowIso: string, timezone: string): ResolvedWindow {
     end: nowIso,
     calendar_date: date,
     timezone,
-    normalization_notes: ['公开查询类型为 now；collector 读取 today_so_far 作为当前状态的候选事实范围。'],
+    normalization_notes: notes,
   };
 }
 
 function makePointDayWindow(pointTime: string, timezone: string, notes: string[]): ResolvedWindow {
-  const parts = parseRequiredTimestamp(pointTime, 'point_time');
+  const parts = parseRequiredTimestamp(pointTime, 'normalized_point');
   const date = formatCalendarDate(parts);
   return {
     query_range: 'past_point',
@@ -67,8 +66,8 @@ function makePointDayWindow(pointTime: string, timezone: string, notes: string[]
 }
 
 function makeExplicitRangeWindow(start: string, end: string, timezone: string, notes: string[]): ResolvedWindow {
-  const startParts = parseRequiredTimestamp(start, 'start');
-  const endParts = parseRequiredTimestamp(end, 'end');
+  const startParts = parseRequiredTimestamp(start, 'normalized_start');
+  parseRequiredTimestamp(end, 'normalized_end');
   const startEpoch = new Date(start).getTime();
   const endEpoch = new Date(end).getTime();
   if (Number.isNaN(startEpoch) || Number.isNaN(endEpoch) || startEpoch > endEpoch) {
@@ -82,61 +81,26 @@ function makeExplicitRangeWindow(start: string, end: string, timezone: string, n
     end,
     calendar_date: formatCalendarDate(startParts),
     timezone,
-    normalization_notes: notes.length ? notes : [
-      `时间范围已归一化为 ${formatTimestamp(startParts)} 到 ${formatTimestamp(endParts)}。`,
-    ],
+    normalization_notes: notes,
   };
 }
 
-function resolvePointTime(input: TimelineResolveInput, plan?: TimelineQueryPlan): { pointTime: string; notes: string[] } {
-  if (input.point_time) {
-    return {
-      pointTime: input.point_time,
-      notes: ['上游已提供结构化 point_time；runtime 不再自行解析自然语言时间。'],
-    };
-  }
-  if (plan?.normalized_point) {
-    return {
-      pointTime: plan.normalized_point,
-      notes: [plan.summary],
-    };
-  }
-  throw new Error('past_point requires point_time or a query plan with normalized_point');
-}
+export function resolveWindow(plan: TimelineQueryPlan, nowIso: string, timezone: string): ResolvedWindow {
+  const notes = [plan.summary];
 
-function resolveRange(input: TimelineResolveInput, plan?: TimelineQueryPlan): { start: string; end: string; notes: string[] } {
-  if (input.start && input.end) {
-    return {
-      start: input.start,
-      end: input.end,
-      notes: ['上游已提供结构化 start/end；runtime 不再自行解析自然语言时间。'],
-    };
-  }
-  if (plan?.normalized_start && plan?.normalized_end) {
-    return {
-      start: plan.normalized_start,
-      end: plan.normalized_end,
-      notes: [plan.summary],
-    };
-  }
-  throw new Error('past_range requires start/end or a query plan with normalized_start and normalized_end');
-}
-
-export function resolveWindow(
-  input: TimelineResolveInput,
-  nowIso: string,
-  timezone: string,
-  queryPlan?: TimelineQueryPlan,
-): ResolvedWindow {
-  if (input.target_time_range === 'now') {
-    return makeNowWindow(nowIso, timezone);
+  if (plan.target_time_range === 'now') {
+    return makeNowWindow(nowIso, timezone, notes);
   }
 
-  if (input.target_time_range === 'past_point') {
-    const { pointTime, notes } = resolvePointTime(input, queryPlan);
-    return makePointDayWindow(pointTime, timezone, notes);
+  if (plan.target_time_range === 'past_point') {
+    if (!plan.normalized_point) {
+      throw new Error('Timeline query plan missing normalized_point for past_point');
+    }
+    return makePointDayWindow(plan.normalized_point, timezone, notes);
   }
 
-  const { start, end, notes } = resolveRange(input, queryPlan);
-  return makeExplicitRangeWindow(start, end, timezone, notes);
+  if (!plan.normalized_start || !plan.normalized_end) {
+    throw new Error('Timeline query plan missing normalized_start or normalized_end for past_range');
+  }
+  return makeExplicitRangeWindow(plan.normalized_start, plan.normalized_end, timezone, notes);
 }

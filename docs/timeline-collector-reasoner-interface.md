@@ -27,23 +27,26 @@ Timeline 内部查询语义只有三类：
 - `past_point`
 - `past_range`
 
-当前 `timeline_resolve` 的外部输入已经收敛为语义型字段：
+当前 `timeline_resolve` 的外部公开输入已经收敛为自然语言主入口：
 
 ```ts
-target_time_range: 'now' | 'past_point' | 'past_range'
+{
+  query: string;
+  mode?: 'read_only' | 'allow_generate';
+}
 ```
 
-对 `past_point / past_range` 来说，上游应尽量提供结构化时间；如果还没有结构化时间，则由 Timeline 内部的 LLM query planner 先归一化，再交给 collector 和 reasoner。归一化结果体现在：
+查询类型判断与时间归一化由 Timeline 内部的 LLM query planner 完成。归一化结果体现在：
 
 - `window.semantic_target`
 - `window.collection_scope`
 
 例如：
 
-- “你在干嘛” -> `semantic_target = now`
-- “昨晚八点你在做什么” -> `target_time_range = past_point`，再由 planner 或上游归一化出 `normalized_point`
-- “昨晚在做什么” -> `target_time_range = past_range`，再由 planner 或上游归一化出 `normalized_start / normalized_end`
-- “最近有什么有趣的事吗” -> `target_time_range = past_range`，再由 planner 或上游归一化出具体范围
+- “你在干嘛” -> planner 判定为 `now`
+- “昨晚八点你在做什么” -> planner 判定为 `past_point`，并归一化出 `normalized_point`
+- “昨晚在做什么” -> planner 判定为 `past_range`，并归一化出 `normalized_start / normalized_end`
+- “最近有什么有趣的事吗” -> planner 判定为 `past_range`，并归一化出具体范围
 
 ## 3. Collector 输入
 
@@ -58,11 +61,7 @@ interface TimelineCollectorInput {
 }
 ```
 
-其中：
-
-- `TimelineResolveInput` 仍保留外部请求形态
-- `ResolvedWindow` 提供归一化后的时间语义
-- `CollectedSources` 提供 sessions history、daily logs、memory search、persona 上下文
+其中 `ResolvedWindow` 提供归一化后的时间语义，`CollectedSources` 提供 sessions history、daily logs、memory search、persona 上下文。
 
 ## 4. Collector 输出
 
@@ -76,8 +75,6 @@ interface TimelineCollectorOutput {
   request_id: string;
   request: {
     user_query?: string;
-    target_time_range: 'now' | 'past_point' | 'past_range';
-    reason: string;
     mode: 'read_only' | 'allow_generate';
   };
   anchor: {
@@ -271,7 +268,17 @@ guard 不负责：
 - 自己推理活动是否持续
 - 在 reasoner 失败后补做生成
 
-## 10. Guard 输出
+## 10. Planner 职责
+
+planner 负责：
+
+- 判断请求属于 `now / past_point / past_range`
+- 对 `past_point / past_range` 生成结构化时间归一化结果
+- 只输出时间计划，不做事实选择、不做生成裁决
+
+planner 不应由外部 skill 或主聊天模型替代。
+
+## 11. Guard 输出
 
 当前 guard 的执行许可结构如下：
 
@@ -289,7 +296,7 @@ interface TimelineGuardResult {
 
 如果 `outcome = blocked`，主流程应停止，不得偷偷降级到脚本 heuristics。
 
-## 11. Writer 接入要求
+## 12. Writer 接入要求
 
 writer 不直接接 collector，也不直接接 reasoner。
 
@@ -298,9 +305,9 @@ writer 只能消费经 guard 验证后的 `generated_fact`，并继续负责：
 - append-only 写入
 - 目标日期选择
 - 锁与冲突处理
-- trace 与 status 记录
+- trace 记录
 
-## 12. 对下游的影响
+## 13. 对下游的影响
 
 这份接口规范保障的是 Timeline 内部职责边界。
 

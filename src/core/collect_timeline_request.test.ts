@@ -17,11 +17,8 @@ describe('buildTimelineCollectorOutput', () => {
     const collector = buildTimelineCollectorOutput(
       'req-1',
       {
-        target_time_range: 'past_range',
-        start: '2026-03-20T00:00:00+08:00',
-        end: '2026-03-22T21:00:00+08:00',
+        query: '最近有什么有趣的事吗',
         mode: 'allow_generate',
-        reason: 'past_recall',
       },
       window,
       {
@@ -55,5 +52,7 @@ describe('buildTimelineCollectorOutput', () => {
       '2026-03-21',
       '2026-03-22',
     ]);
+    expect(collector.request.user_query).toBe('最近有什么有趣的事吗');
+    expect(collector.request.mode).toBe('allow_generate');
   });
 });

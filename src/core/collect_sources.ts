@@ -47,7 +47,7 @@ export async function collectSources(
   );
 
   let memorySearch: string[] = [];
-  if (deps.memorySearch && input.target_time_range !== 'now') {
+  if (deps.memorySearch && window.semantic_target !== 'now') {
     sourceOrder.push('memory_search');
     memorySearch = await deps.memorySearch(window, input);
   }

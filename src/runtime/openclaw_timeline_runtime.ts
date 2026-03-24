@@ -144,22 +144,9 @@ function readWorkspaceTextFile(filePath: string): string {
   }
 }
 
-function buildMemorySearchQuery(input: { query?: string; reason: string }, semanticTarget: string): string | null {
+function buildMemorySearchQuery(input: { query?: string }): string | null {
   const explicit = readString(input.query);
   if (explicit) return explicit;
-
-  if (semanticTarget === 'past_range' && input.reason === 'past_recall') {
-    return '最近三天发生了什么，在忙什么，有什么有趣的事';
-  }
-  if (semanticTarget === 'past_point') {
-    return '回忆指定时间点附近发生的事情，并考虑可持续覆盖到该时间点的活动';
-  }
-  if (semanticTarget === 'past_range') {
-    return '回忆指定时间范围发生的事情，并优先找更鲜活、值得提起的内容';
-  }
-  if (semanticTarget === 'now' || input.reason === 'current_status') {
-    return '当前状态，现在在哪里，在做什么';
-  }
   return null;
 }
 
@@ -238,15 +225,81 @@ function extractLatestAssistantText(messages: unknown[]): string {
   return '';
 }
 
-function tryExtractJsonObject(text: string): string {
+function collectBalancedJsonObjects(text: string): string[] {
+  const objects: string[] = [];
+  let depth = 0;
+  let start = -1;
+  let inString = false;
+  let escaping = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (escaping) {
+      escaping = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaping = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) {
+      continue;
+    }
+
+    if (char === '{') {
+      if (depth === 0) {
+        start = index;
+      }
+      depth += 1;
+      continue;
+    }
+    if (char === '}') {
+      if (depth === 0) {
+        continue;
+      }
+      depth -= 1;
+      if (depth === 0 && start !== -1) {
+        objects.push(text.slice(start, index + 1));
+        start = -1;
+      }
+    }
+  }
+
+  return objects;
+}
+
+function tryExtractJsonObject(text: string, expectedRequestId?: string): string {
   const fencedMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const candidate = fencedMatch?.[1]?.trim() || text.trim();
-  const firstBrace = candidate.indexOf('{');
-  const lastBrace = candidate.lastIndexOf('}');
-  if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
+  const objects = collectBalancedJsonObjects(candidate);
+  if (objects.length === 0) {
     throw new Error('Timeline reasoner did not return a JSON object');
   }
-  return candidate.slice(firstBrace, lastBrace + 1);
+
+  let firstParsedObject: string | null = null;
+  for (const objectText of objects) {
+    try {
+      const parsed = JSON.parse(objectText) as { request_id?: string };
+      if (!firstParsedObject) {
+        firstParsedObject = objectText;
+      }
+      if (!expectedRequestId || parsed.request_id === expectedRequestId) {
+        return objectText;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  if (firstParsedObject) {
+    return firstParsedObject;
+  }
+  throw new Error('Timeline reasoner did not return a parseable JSON object');
 }
 
 function makePlannerRequestId(): string {
@@ -256,16 +309,20 @@ function makePlannerRequestId(): string {
 function buildTimelineQueryPlannerSystemPrompt(): string {
   return [
     '你是 Timeline 插件内部的时间查询归一化器。',
-    '你的唯一任务，是把已经被上游判定为 past_point 或 past_range 的自然语言时间请求，归一化为结构化时间。',
+    '你的唯一任务，是把自然语言时间请求归一化为 Timeline 内部可执行的结构化时间计划。',
     '禁止调用任何工具，禁止输出 Markdown、解释或多余文本，只输出严格 JSON。',
     '必须遵守这些约束：',
-    '1. now 查询不由你处理；这里只处理 past_point 或 past_range。',
-    '2. 你不能靠关键词机械枚举，而要真正理解用户语言中的时间语义。',
-    '3. past_point 必须输出 normalized_point。',
-    '4. past_range 必须输出 normalized_start 和 normalized_end。',
-    '5. 对“最近”这类口语范围，要结合 anchor.now 归一化成具体起止时间。',
-    '6. 对“昨晚”“今天”“昨天上午”这类表达，要给出符合现实习惯的合理时间范围。',
-    '7. 输出时间必须是带时区偏移的 ISO-like 时间戳。',
+    '1. 你必须先判断请求属于 now、past_point、past_range 中的哪一类。',
+    '2. 不能靠关键词机械枚举，而要真正理解用户语言中的时间语义。',
+    '3. now 不输出 normalized_point / normalized_start / normalized_end。',
+    '4. past_point 必须输出 normalized_point。',
+    '5. past_range 必须输出 normalized_start 和 normalized_end。',
+    '6. 对“最近”这类口语范围，要结合 anchor.now 归一化成具体起止时间。',
+    '7. 对“昨晚”“今天”“昨天上午”这类表达，要给出符合现实习惯的合理时间范围。',
+    '8. 输出时间必须是带时区偏移的 ISO-like 时间戳。',
+    '9. 只有用户明确指向某个时刻时，才允许判为 past_point；例如“昨晚八点”“昨天上午十点”“上周六晚上九点”。',
+    '10. 只要用户问的是一个时间段或一整个时段，就必须判为 past_range；例如“昨晚在做什么”“今天都忙了什么”“最近有什么有趣的事吗”“这几天怎么样”。',
+    '11. “昨晚”本身不是时间点，而是一个晚间范围；只有“昨晚八点”这类带明确时点锚点的表达才是 past_point。',
   ].join('\n');
 }
 
@@ -276,19 +333,18 @@ function buildTimelineQueryPlannerMessage(input: TimelineResolveInput, anchor: {
     JSON.stringify({
       schema_version: '1.0',
       request_id: requestId,
-      target_time_range: input.target_time_range,
-      normalized_point: 'past_point 时必填',
-      normalized_start: 'past_range 时必填',
-      normalized_end: 'past_range 时必填',
+      target_time_range: 'now | past_point | past_range',
+      normalized_point: 'past_point 时必填，其余省略',
+      normalized_start: 'past_range 时必填，其余省略',
+      normalized_end: 'past_range 时必填，其余省略',
       summary: '你如何理解用户时间语义的简短说明',
     }, null, 2),
     '',
     'input:',
     JSON.stringify({
-      target_time_range: input.target_time_range,
       query: input.query,
       anchor,
-      reason: input.reason,
+      mode: input.mode || 'allow_generate',
     }, null, 2),
   ].join('\n');
 }
@@ -357,13 +413,13 @@ function createTimelineQueryPlanner(
         limit: runtimeConfig.reasonerMessageLimit,
       });
       const assistantText = extractLatestAssistantText(session.messages || []);
-      const jsonText = tryExtractJsonObject(assistantText);
+      const jsonText = tryExtractJsonObject(assistantText, requestId);
       const parsed = JSON.parse(jsonText) as TimelineQueryPlan & { request_id?: string };
       if (parsed.request_id && parsed.request_id !== requestId) {
         throw new Error('Timeline query planner returned mismatched request_id');
       }
-      if (parsed.target_time_range !== input.target_time_range) {
-        throw new Error('Timeline query planner changed the requested target_time_range');
+      if (!['now', 'past_point', 'past_range'].includes(parsed.target_time_range)) {
+        throw new Error('Timeline query planner returned an invalid target_time_range');
       }
       return parsed;
     } finally {
@@ -469,7 +525,7 @@ function createSubagentReasoner(
         limit: runtimeConfig.reasonerMessageLimit,
       });
       const assistantText = extractLatestAssistantText(session.messages || []);
-      const jsonText = tryExtractJsonObject(assistantText);
+      const jsonText = tryExtractJsonObject(assistantText, collector.request_id);
       return JSON.parse(jsonText) as TimelineReasonerOutput;
     } finally {
       try {
@@ -527,7 +583,7 @@ function createTimelineResolveDependencies(
     memorySearch: async (window, input) => {
       const createMemorySearchTool = pluginApi.runtime?.tools?.createMemorySearchTool;
       if (!createMemorySearchTool) return [];
-      const query = buildMemorySearchQuery(input, window.semantic_target);
+      const query = buildMemorySearchQuery(input);
       if (!query) return [];
 
       const tool = createMemorySearchTool({

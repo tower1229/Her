@@ -25,9 +25,7 @@ export function buildTimelineCollectorOutput(
     request_id: requestId,
     request: {
       user_query: input.query,
-      target_time_range: input.target_time_range,
-      reason: input.reason,
-      mode: input.mode,
+      mode: input.mode || 'allow_generate',
     },
     anchor: {
       now: window.end,

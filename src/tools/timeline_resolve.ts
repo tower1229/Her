@@ -20,13 +20,6 @@ import { writeEpisode, WriteEpisodeInput, WriteResult } from '../storage/write-e
 import { resolveWindow, TimelineQueryPlan } from '../core/resolve_window';
 
 export type TimelineResolveMode = 'read_only' | 'allow_generate';
-export type TimelineResolveReason =
-  | 'current_status'
-  | 'past_recall'
-  | 'compaction_flush'
-  | 'heartbeat'
-  | 'snapshot'
-  | 'debug';
 
 export type TimelineResolveErrorCode =
   | 'INVALID_INPUT'
@@ -52,14 +45,8 @@ export type TimelineResolutionMode =
   | 'error';
 
 export interface TimelineResolveInput {
-  target_time_range: 'now' | 'past_point' | 'past_range';
-  point_time?: string;
-  start?: string;
-  end?: string;
   query?: string;
-  mode: TimelineResolveMode;
-  reason: TimelineResolveReason;
-  timezone?: string;
+  mode?: TimelineResolveMode;
   trace?: boolean;
 }
 
@@ -175,36 +162,21 @@ function getEffectiveTimelineDependencies(
 }
 
 function validateTimelineResolveInput(input: TimelineResolveInput): void {
-  if (input.target_time_range === 'past_point' && !String(input.point_time || '').trim() && !String(input.query || '').trim()) {
-    throw new Error('past_point requires point_time or query');
-  }
-
-  if (input.target_time_range === 'past_range') {
-    const hasRange = String(input.start || '').trim() && String(input.end || '').trim();
-    const hasQuery = String(input.query || '').trim();
-    if (!hasRange && !hasQuery) {
-      throw new Error('past_range requires start/end or query');
-    }
-    if ((input.start && !input.end) || (!input.start && input.end)) {
-      throw new Error('past_range requires both start and end when using explicit range input');
-    }
+  if (!String(input.query || '').trim()) {
+    throw new Error('timeline_resolve requires query');
   }
 }
 
 function classifyTimelineResolveError(error: Error): TimelineResolveErrorCode {
   const message = error.message || 'Unknown timeline_resolve failure';
-  if (
-    message.includes('past_point requires point_time or query')
-    || message.includes('past_range requires start/end or query')
-    || message.includes('past_range requires both start and end')
-  ) {
+  if (message.includes('timeline_resolve requires query')) {
     return 'INVALID_INPUT';
   }
   if (
     message.includes('Invalid explicit range')
-    || message.includes('Invalid point_time')
-    || message.includes('Invalid start')
-    || message.includes('Invalid end')
+    || message.includes('normalized_point')
+    || message.includes('normalized_start')
+    || message.includes('normalized_end')
   ) {
     return 'INVALID_RANGE';
   }
@@ -227,6 +199,10 @@ function classifyTimelineResolveError(error: Error): TimelineResolveErrorCode {
     return 'SOURCE_FAILURE';
   }
   return 'INTERNAL';
+}
+
+function normalizeMode(mode?: TimelineResolveMode): TimelineResolveMode {
+  return mode || 'allow_generate';
 }
 
 function classifyWriteFailure(writeResult: WriteResult): {
@@ -290,12 +266,13 @@ function buildReasonerNotes(reasoned: TimelineReasonerOutput): string[] {
   return notes;
 }
 
-function persistTraceIfRequested(
+function persistTraceIfConfigured(
   output: TimelineResolveOutput,
   input: TimelineResolveInput,
   deps: TimelineRuntimeDependencies,
+  requestedRange: string,
 ): boolean {
-  if (!input.trace || !deps.traceLogPath) return false;
+  if (!deps.traceLogPath) return false;
 
   appendTraceLog(
     {
@@ -304,7 +281,7 @@ function persistTraceIfRequested(
       ts: new Date().toISOString(),
       payload: {
         ok: output.ok,
-        requested_range: input.target_time_range,
+        requested_range: requestedRange,
         error: output.ok ? null : output.error,
         resolution_mode: output.resolution_summary.mode,
         notes: output.notes,
@@ -321,8 +298,9 @@ function finalizeTimelineOutput(
   output: TimelineResolveOutput,
   input: TimelineResolveInput,
   deps: TimelineRuntimeDependencies,
+  requestedRange: string,
 ): TimelineResolveOutput {
-  persistTraceIfRequested(output, input, deps);
+  persistTraceIfConfigured(output, input, deps, requestedRange);
   if (!input.trace) {
     delete output.trace;
   }
@@ -337,19 +315,7 @@ async function maybePlanTimelineQuery(
   input: TimelineResolveInput,
   deps: TimelineRuntimeDependencies,
   anchor: { now: string; timezone: string },
-): Promise<TimelineQueryPlan | undefined> {
-  if (input.target_time_range === 'now') {
-    return undefined;
-  }
-
-  if (input.target_time_range === 'past_point' && input.point_time) {
-    return undefined;
-  }
-
-  if (input.target_time_range === 'past_range' && input.start && input.end) {
-    return undefined;
-  }
-
+): Promise<TimelineQueryPlan> {
   if (!deps.planTimelineQuery) {
     throw new Error('Timeline query planner dependency missing');
   }
@@ -496,6 +462,7 @@ export async function timelineResolve(
 ): Promise<TimelineResolveOutput> {
   const deps = getEffectiveTimelineDependencies(dependencyOverrides);
   let sourceOrder: string[] = [];
+  let requestedRange = 'unknown';
 
   try {
     validateTimelineResolveInput(input);
@@ -503,9 +470,10 @@ export async function timelineResolve(
     const currentTime = await deps.currentTime();
     const queryPlan = await maybePlanTimelineQuery(input, deps, {
       now: currentTime.now,
-      timezone: input.timezone || currentTime.timezone,
+      timezone: currentTime.timezone,
     });
-    const window = resolveWindow(input, currentTime.now, input.timezone || currentTime.timezone, queryPlan);
+    requestedRange = queryPlan.target_time_range;
+    const window = resolveWindow(queryPlan, currentTime.now, currentTime.timezone);
     const sources = await collectSources(deps, window, input);
     sourceOrder = sources.sourceOrder;
     const collector = buildTimelineCollectorOutput(makeRequestId(), input, window, sources);
@@ -757,7 +725,7 @@ export async function timelineResolve(
     }
 
     const trace = buildTrace({
-      requested_range: input.target_time_range,
+      requested_range: requestedRange,
       actual_range: window.semantic_target,
       source_order: sources.sourceOrder,
       source_summary: {
@@ -777,12 +745,12 @@ export async function timelineResolve(
     });
     output.trace_id = trace.trace_id;
     output.trace = trace;
-    return finalizeTimelineOutput(output, input, deps);
+    return finalizeTimelineOutput(output, input, deps, requestedRange);
   } catch (error: any) {
     const timelineError = error instanceof Error ? error : new Error(String(error));
     const errorCode = classifyTimelineResolveError(timelineError);
     const trace = buildTrace({
-      requested_range: input.target_time_range,
+      requested_range: requestedRange,
       actual_range: 'error',
       source_order: sourceOrder,
       source_summary: {
@@ -836,41 +804,21 @@ export async function timelineResolve(
       trace,
     };
 
-    return finalizeTimelineOutput(output, input, deps);
+    return finalizeTimelineOutput(output, input, deps, requestedRange);
   }
 }
 
 export const timelineResolveToolSpec = {
   name: 'timeline_resolve',
   description:
-    '处理“你在干嘛”“你现在在哪”“最近有什么有趣的事吗”“刚才那件事现在还在吗”这类时间现实与回忆问题的统一入口；会先检索既有时间事实，必要时可生成并 append-only 写入 canon。',
+    '处理“你在干嘛”“你现在在哪”“最近有什么有趣的事吗”“昨晚八点你在做什么”这类时间现实与回忆问题的统一入口；直接接收自然语言 query，内部会先理解时间语义，再检索或生成并 append-only 写入 canon。',
   inputSchema: {
     type: 'object',
     properties: {
-      target_time_range: {
-        type: 'string',
-        enum: ['now', 'past_point', 'past_range'],
-      },
-      point_time: { type: 'string' },
-      start: { type: 'string' },
-      end: { type: 'string' },
       query: { type: 'string' },
       mode: { type: 'string', enum: ['read_only', 'allow_generate'] },
-      reason: {
-        type: 'string',
-        enum: [
-          'current_status',
-          'past_recall',
-          'compaction_flush',
-          'heartbeat',
-          'snapshot',
-          'debug',
-        ],
-      },
-      timezone: { type: 'string' },
-      trace: { type: 'boolean' },
     },
-    required: ['target_time_range', 'mode', 'reason'],
+    required: ['query'],
     additionalProperties: false,
   },
   run: timelineResolve,

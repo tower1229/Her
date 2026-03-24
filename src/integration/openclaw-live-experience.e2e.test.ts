@@ -251,7 +251,8 @@ function readLatestTimelineTrace(logPath: string, startedAtMs: number) {
   const traces = readRecentTraceLogs(logPath, 200)
     .filter((entry) => entry.event === 'timeline_resolve')
     .filter((entry) => Date.parse(entry.ts) >= startedAtMs - 1000);
-  return traces.at(-1) || null;
+  const successful = traces.filter((entry) => (entry.payload as { ok?: boolean } | undefined)?.ok === true);
+  return successful.at(-1) || traces.at(-1) || null;
 }
 
 function getTraceDetails(trace: ReturnType<typeof readLatestTimelineTrace>): Record<string, any> {

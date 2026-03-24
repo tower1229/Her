@@ -32,6 +32,7 @@ describe('openclaw timeline runtime factories', () => {
     );
 
     let latestReasonerRequestId = '';
+    let latestPlannerRequestId = '';
 
     const getSessionMessages = jest.fn();
 
@@ -47,7 +48,12 @@ describe('openclaw timeline runtime factories', () => {
             const start = message.indexOf(marker);
             if (start !== -1) {
               const rest = message.slice(start + marker.length);
-              latestReasonerRequestId = rest.slice(0, rest.indexOf('"'));
+              const requestId = rest.slice(0, rest.indexOf('"'));
+              if (message.includes('"target_time_range": "now | past_point | past_range"')) {
+                latestPlannerRequestId = requestId;
+              } else {
+                latestReasonerRequestId = requestId;
+              }
             }
             return { runId: 'reasoner-run-1' };
           },
@@ -85,6 +91,21 @@ describe('openclaw timeline runtime factories', () => {
           ],
         };
       }
+      if (sessionKey.includes(':planner:')) {
+        return {
+          messages: [
+            {
+              role: 'assistant',
+              bodyText: JSON.stringify({
+                schema_version: '1.0',
+                request_id: latestPlannerRequestId,
+                target_time_range: 'now',
+                summary: '将请求归一化为当前状态查询。',
+              }),
+            },
+          ],
+        };
+      }
       return {
         messages: [
           {
@@ -116,10 +137,8 @@ describe('openclaw timeline runtime factories', () => {
     });
 
     const result = await tool.execute('call-1', {
-      target_time_range: 'now',
+      query: '你在干嘛',
       mode: 'allow_generate',
-      reason: 'current_status',
-      trace: true,
     });
 
     const payload = result.details as { ok: boolean; resolution_summary: { mode: string }; result?: { episodes: unknown[] } };

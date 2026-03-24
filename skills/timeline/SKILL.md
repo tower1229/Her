@@ -1,6 +1,6 @@
 ---
 name: timeline
-description: 当问题在询问当前状态、过去某个具体时间点、过去一段时间，或下游技能需要时间状态事实时，先进入 timeline skill，再由它决定如何调用 Timeline 工具；禁止只根据人设直接回答。
+description: 当问题在询问当前状态、过去某个具体时间点、过去一段时间，或下游技能需要时间状态事实时，先进入 timeline skill，再把原始自然语言 query 交给 Timeline；禁止只根据人设直接回答。
 ---
 
 # Timeline
@@ -11,19 +11,43 @@ description: 当问题在询问当前状态、过去某个具体时间点、过�
 
 这个 skill 只负责两件事：
 
-1. 判断这次请求属于哪种时间场景。
-2. 为该场景选择正确的 Timeline 调用方式。
+1. 判断这次请求是否属于 Timeline 应接管的时间现实问题。
+2. 把用户原话或下游技能的自然语言问题，原样交给 `timeline_resolve`。
 
-它不直接生成事实，也不负责绕过 Timeline 直接回答。
-当目标时间窗口缺少既有事实时，它应把生成与写入的决定交给 Timeline 自己处理。
+它不直接生成事实，也不负责自己归一化时间，更不负责绕过 Timeline 直接回答。
+当目标时间缺少既有事实时，生成与写入的决定交给 Timeline 内部处理。
 
 ## 强制规则
 
 1. 涉及时间现实的问题，先调用 `timeline_resolve`，后回答。
 2. 不要只根据 `SOUL.md`、`IDENTITY.md`、`MEMORY.md` 直接回答“现在在做什么”或“最近发生了什么”。
 3. `SOUL` / `IDENTITY` / `MEMORY` 只用于帮助理解和表述，不能替代 Timeline 事实。
-4. `timeline_resolve` 返回既有事实时，优先复用；不要改写它。
-5. 如果用户是普通闲聊而不是运维检查，允许 Timeline 生成缺失事实并写入 canon。
+4. 不要自己把请求拆成 `now / past_point / past_range` 再硬编码进参数；直接把自然语言 query 交给 Timeline。
+5. 不要自己归一化“昨晚八点”“最近”“昨晚”之类时间表达；这由 Timeline 内部 planner 处理。
+6. `timeline_resolve` 返回既有事实时，优先复用；不要改写它。
+7. 如果用户是普通闲聊而不是严格只读校验，允许 Timeline 生成缺失事实并写入 canon。
+
+## 调用格式
+
+默认主路径：
+
+```json
+{
+  "query": "用户的原话",
+  "mode": "allow_generate"
+}
+```
+
+只有在你明确不希望这次调用生成新事实时，才改成：
+
+```json
+{
+  "query": "用户的原话",
+  "mode": "read_only"
+}
+```
+
+不要向 `timeline_resolve` 传时间点、时间范围、请求类型或调试字段。它的公开入口就是自然语言 query。
 
 ## 场景拆分
 
@@ -42,22 +66,11 @@ description: 当问题在询问当前状态、过去某个具体时间点、过�
 - “你刚才不是在打球吗，现在还在吗”
 - 下游技能要取当前状态，例如自拍、场景描述、状态卡片
 
-调用方式：
+处理方式：
 
-```json
-{
-  "target_time_range": "now",
-  "mode": "allow_generate",
-  "reason": "current_status",
-  "trace": true
-}
-```
-
-回答要求：
-
-- 如果命中既有事实，就按该事实自然回答。
-- 如果 Timeline 生成了新事实，就按该事实自然回答。
-- “还在吗”“后来呢”这类追问，也归到这个场景里处理，不要单独发明另一套路由。
+- 调 `timeline_resolve`
+- `query` 就是用户原话
+- 不要自己先判断它是不是 `now`
 
 ### 场景 B：过去某个具体时间点
 
@@ -73,25 +86,11 @@ description: 当问题在询问当前状态、过去某个具体时间点、过�
 - “你昨晚八点是不是还在看电视”
 - “上周六晚上九点你在忙什么”
 
-调用方式：
+处理方式：
 
-把用户原话交给 Timeline，并尽量在调用前把时间点归一化；如果你还没有把时间点归一化出来，也可以只传原话，让 Timeline 内部的时间 planner 先做归一化：
-
-```json
-{
-  "target_time_range": "past_point",
-  "query": "用户的原话",
-  "point_time": "如果你已经能归一化出明确时间点，就传 ISO-like 时间；否则省略",
-  "mode": "allow_generate",
-  "reason": "past_recall",
-  "trace": true
-}
-```
-
-回答要求：
-
-- 围绕那个明确时间点回答，不要擅自扩成“最近都怎样”。
-- 如果 Timeline 没有命中，不要假装已有确定事实；按返回结果谨慎表达。
+- 调 `timeline_resolve`
+- `query` 就是用户原话
+- 不要自己把时间点归一化后再传
 
 ### 场景 C：过去一段时间
 
@@ -107,32 +106,12 @@ description: 当问题在询问当前状态、过去某个具体时间点、过�
 - “这几天怎么样”
 - “你今天都忙了什么”
 - “昨晚在做什么”
-- “2026-03-22 发生了什么”
 
-调用方式：
+处理方式：
 
-- 把用户原话交给 Timeline，并尽量在调用前把时间范围归一化；如果还没归一化出来，也可以只传原话，让 Timeline 内部的时间 planner 先做归一化：
-
-```json
-{
-  "target_time_range": "past_range",
-  "query": "用户的原话",
-  "start": "如果你已经能归一化出明确起点，就传 ISO-like 时间；否则省略",
-  "end": "如果你已经能归一化出明确终点，就传 ISO-like 时间；否则省略",
-  "mode": "allow_generate",
-  "reason": "past_recall",
-  "trace": true
-}
-```
-
-- “最近”不是独立接口类型，而是 `past_range` 里的口语时间范围。
-- “昨晚”“昨天上午”“前天下午”这类自然语言范围，本质也属于 `past_range`，应先归一化成结构化时间范围，再交给 Timeline。
-
-回答要求：
-
-- 用自然聊天方式组织回忆。
-- 优先说最鲜活、最像真人会提到的内容。
-- 不要把原始 JSON 或工具名暴露给用户。
+- 调 `timeline_resolve`
+- `query` 就是用户原话
+- “最近”“昨晚”“今天都”这类自然语言范围，统一交给 Timeline 内部 planner 理解
 
 ## 回答要求
 

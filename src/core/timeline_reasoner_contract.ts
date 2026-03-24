@@ -28,8 +28,6 @@ export interface TimelineCollectorOutput {
   request_id: string;
   request: {
     user_query?: string;
-    target_time_range: 'now' | 'past_point' | 'past_range';
-    reason: string;
     mode: 'read_only' | 'allow_generate';
   };
   anchor: {

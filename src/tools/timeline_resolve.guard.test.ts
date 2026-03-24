@@ -3,6 +3,13 @@ import { resetTimelineResolveDependencies, setTimelineResolveDependencies, timel
 describe('timelineResolve canonical path guard', () => {
   beforeEach(() => {
     resetTimelineResolveDependencies();
+    setTimelineResolveDependencies({
+      planTimelineQuery: async () => ({
+        schema_version: '1.0',
+        target_time_range: 'now',
+        summary: '将请求解释为当前状态查询。',
+      }),
+    });
   });
 
   it('refuses generated writes to non-canonical paths', async () => {
@@ -41,9 +48,8 @@ describe('timelineResolve canonical path guard', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now',
+      query: '你在干嘛',
       mode: 'allow_generate',
-      reason: 'current_status',
       trace: true,
     });
 

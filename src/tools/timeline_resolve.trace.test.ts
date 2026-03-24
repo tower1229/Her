@@ -8,6 +8,25 @@ describe('timelineResolve trace schema', () => {
 
   beforeEach(() => {
     resetTimelineResolveDependencies();
+    setTimelineResolveDependencies({
+      planTimelineQuery: async (input) => {
+        const query = String(input.query || '');
+        if (query.includes('最近')) {
+          return {
+            schema_version: '1.0',
+            target_time_range: 'past_range',
+            normalized_start: '2026-03-19T14:30:00+08:00',
+            normalized_end: '2026-03-22T14:30:00+08:00',
+            summary: '将“最近”归一化为过去三天到当前时刻。',
+          };
+        }
+        return {
+          schema_version: '1.0',
+          target_time_range: 'now',
+          summary: '将请求解释为当前状态查询。',
+        };
+      },
+    });
     fs.rmSync(traceLogPath, { force: true });
   });
 
@@ -52,9 +71,8 @@ describe('timelineResolve trace schema', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now',
+      query: '你在干嘛',
       mode: 'read_only',
-      reason: 'current_status',
       trace: true,
     });
 
@@ -108,9 +126,8 @@ describe('timelineResolve trace schema', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now',
+      query: '你在干嘛',
       mode: 'allow_generate',
-      reason: 'current_status',
       trace: true,
     });
 
@@ -161,11 +178,8 @@ describe('timelineResolve trace schema', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'past_range',
-      start: '2026-03-19T14:30:00+08:00',
-      end: '2026-03-22T14:30:00+08:00',
+      query: '最近有什么有趣的事吗',
       mode: 'allow_generate',
-      reason: 'past_recall',
       trace: true,
     });
 

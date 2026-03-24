@@ -7,6 +7,42 @@ import {
 describe('timelineResolve', () => {
   beforeEach(() => {
     resetTimelineResolveDependencies();
+    setTimelineResolveDependencies({
+      planTimelineQuery: async (input) => {
+        const query = String(input.query || '');
+        if (query.includes('昨晚八点')) {
+          return {
+            schema_version: '1.0',
+            target_time_range: 'past_point',
+            normalized_point: '2026-03-21T20:00:00+08:00',
+            summary: '将“昨晚八点”归一化为 2026-03-21 20:00。',
+          };
+        }
+        if (query.includes('最近')) {
+          return {
+            schema_version: '1.0',
+            target_time_range: 'past_range',
+            normalized_start: '2026-03-19T14:30:00+08:00',
+            normalized_end: '2026-03-22T14:30:00+08:00',
+            summary: '将“最近”归一化为过去三天到当前时刻。',
+          };
+        }
+        if (query.includes('上午')) {
+          return {
+            schema_version: '1.0',
+            target_time_range: 'past_range',
+            normalized_start: '2026-03-22T00:00:00+08:00',
+            normalized_end: '2026-03-22T12:00:00+08:00',
+            summary: '将“上午”归一化为当天 00:00 到 12:00。',
+          };
+        }
+        return {
+          schema_version: '1.0',
+          target_time_range: 'now',
+          summary: '将请求解释为当前状态查询。',
+        };
+      },
+    });
   });
 
   it('returns a structured read-only hit from parsed memory content', async () => {
@@ -53,9 +89,8 @@ describe('timelineResolve', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now',
+      query: '你在干嘛',
       mode: 'read_only',
-      reason: 'current_status',
       trace: true,
     });
 
@@ -73,17 +108,12 @@ describe('timelineResolve', () => {
   });
 
   it('returns a contract error for past_range requests without query or explicit range', async () => {
-    const result = await timelineResolve({
-      target_time_range: 'past_range',
-      mode: 'read_only',
-      reason: 'past_recall',
-      trace: true,
-    });
+    const result = await timelineResolve({ mode: 'read_only', trace: true });
 
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('expected contract error');
     expect(result.error.code).toBe('INVALID_INPUT');
-    expect(result.error.message).toContain('requires start/end or query');
+    expect(result.error.message).toContain('requires query');
     expect(result.trace_id).toContain('timeline-');
   });
 
@@ -125,9 +155,8 @@ describe('timelineResolve', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now',
+      query: '你在干嘛',
       mode: 'allow_generate',
-      reason: 'current_status',
       trace: false,
     });
 
@@ -144,9 +173,8 @@ describe('timelineResolve', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now',
+      query: '你在干嘛',
       mode: 'allow_generate',
-      reason: 'current_status',
       trace: true,
     });
 
@@ -182,9 +210,8 @@ describe('timelineResolve', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now',
+      query: '你在干嘛',
       mode: 'read_only',
-      reason: 'current_status',
       trace: true,
     });
 
@@ -229,9 +256,8 @@ describe('timelineResolve', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'now',
+      query: '你在干嘛',
       mode: 'read_only',
-      reason: 'current_status',
       trace: true,
     });
 
@@ -282,12 +308,8 @@ describe('timelineResolve', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'past_range',
-      start: '2026-03-22T00:00:00+08:00',
-      end: '2026-03-22T12:00:00+08:00',
       query: '你上午不是在健身吗',
       mode: 'read_only',
-      reason: 'past_recall',
       trace: true,
     });
 

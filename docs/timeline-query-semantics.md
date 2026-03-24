@@ -140,8 +140,8 @@ Timeline 面向聊天层时，只应把请求理解成下面三类：
 
 更合理的方式是：
 
-- skill 或 Timeline 内部的 LLM planner 先理解“最近”到底应映射成什么具体范围
-- runtime 再消费已经结构化的 `start / end`
+- Timeline 内部的 LLM planner 先理解“最近”到底应映射成什么具体范围
+- runtime 再消费已经结构化的时间计划
 - 它本质仍然属于 `past_range`
 
 ## 7. “有趣”不是时间问题，而是语义筛选问题
@@ -192,8 +192,8 @@ reasoner 至少要能输出这些判断：
 
 `skills/timeline/SKILL.md` 应只承担：
 
-- 把自然问法归入三类查询模型
-- 选择正确的 Timeline 调用方式
+- 判断这是不是 Timeline 应接管的时间现实问题
+- 把自然问法原样交给 Timeline
 - 告诉模型不要绕过 Timeline
 
 skill 不应承担：
@@ -202,13 +202,14 @@ skill 不应承担：
 - 自己判断活动持续多久
 - 自己决定什么算有趣
 - 自己生成事实
+- 自己把 query 预先编码成结构化时间参数
 
 ## 11. 对 runtime 的修改要求
 
 后续 runtime 至少应完成这些调整：
 
-1. 公开输入里使用 `now`，不再暴露 `now_today`
-2. `resolve_window` 不再解析自然语言，只消费结构化时间输入
+1. 公开输入里使用自然语言 `query` 作为主入口，不要求外部先传 `now / past_point / past_range`
+2. `resolve_window` 不再解析自然语言，只消费 planner 产出的结构化时间计划
 3. 自然语言时间归一化由 LLM planner 完成，而不是由脚本关键词枚举完成
 4. collector 输出应能支撑点查询、范围查询和连续性覆盖判断
 5. reasoner prompt 应显式描述三类查询模型和生成落点规则
