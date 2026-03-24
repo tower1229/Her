@@ -11,6 +11,10 @@ describe('assertCanonicalDailyLogPath', () => {
     );
   });
 
+  it('canonicalizes windows-style separators to repository paths', () => {
+    expect(assertCanonicalDailyLogPath('memory\\2026-03-22.md', '2026-03-22')).toBe('memory/2026-03-22.md');
+  });
+
   it('rejects non-memory parent directories', () => {
     expect(() => assertCanonicalDailyLogPath('notes/2026-03-22.md', '2026-03-22')).toThrow(/memory/);
   });
