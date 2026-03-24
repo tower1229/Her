@@ -19,6 +19,8 @@ describe('resolveWindow', () => {
     expect(window.start).toBe('2026-03-22T00:00:00+08:00');
     expect(window.end).toBe(now);
     expect(window.calendar_date).toBe('2026-03-22');
+    expect(window.calendar_dates).toEqual(['2026-03-22']);
+    expect(window.target_timestamp_hint).toBe(now);
   });
 
   it('resolves past_point from normalized_point', () => {
@@ -36,6 +38,8 @@ describe('resolveWindow', () => {
     expect(window.collection_scope).toBe('point_day');
     expect(window.start).toBe('2026-03-21T00:00:00+08:00');
     expect(window.end).toBe('2026-03-21T23:59:59+08:00');
+    expect(window.calendar_dates).toEqual(['2026-03-21']);
+    expect(window.target_timestamp_hint).toBe(plan.normalized_point);
     expect(window.normalization_notes).toEqual([plan.summary]);
   });
 
@@ -56,5 +60,7 @@ describe('resolveWindow', () => {
     expect(window.start).toBe(plan.normalized_start);
     expect(window.end).toBe(plan.normalized_end);
     expect(window.calendar_date).toBe('2026-03-21');
+    expect(window.calendar_dates).toEqual([]);
+    expect(window.target_timestamp_hint).toBeUndefined();
   });
 });

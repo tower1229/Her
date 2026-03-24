@@ -19,7 +19,9 @@ export interface ResolvedWindow {
   start: string;
   end: string;
   calendar_date: string;
+  calendar_dates: string[];
   timezone: string;
+  target_timestamp_hint?: string;
   normalization_notes: string[];
 }
 
@@ -45,7 +47,9 @@ function makeNowWindow(nowIso: string, timezone: string, notes: string[]): Resol
     start: `${date}T00:00:00${parts.offset ?? ''}`,
     end: nowIso,
     calendar_date: date,
+    calendar_dates: [date],
     timezone,
+    target_timestamp_hint: nowIso,
     normalization_notes: notes,
   };
 }
@@ -60,7 +64,9 @@ function makePointDayWindow(pointTime: string, timezone: string, notes: string[]
     start: `${date}T00:00:00${parts.offset ?? ''}`,
     end: `${date}T23:59:59${parts.offset ?? ''}`,
     calendar_date: date,
+    calendar_dates: [date],
     timezone,
+    target_timestamp_hint: pointTime,
     normalization_notes: notes,
   };
 }
@@ -80,6 +86,7 @@ function makeExplicitRangeWindow(start: string, end: string, timezone: string, n
     start,
     end,
     calendar_date: formatCalendarDate(startParts),
+    calendar_dates: [],
     timezone,
     normalization_notes: notes,
   };
@@ -102,5 +109,6 @@ export function resolveWindow(plan: TimelineQueryPlan, nowIso: string, timezone:
   if (!plan.normalized_start || !plan.normalized_end) {
     throw new Error('Timeline query plan missing normalized_start or normalized_end for past_range');
   }
-  return makeExplicitRangeWindow(plan.normalized_start, plan.normalized_end, timezone, notes);
+  const rangeWindow = makeExplicitRangeWindow(plan.normalized_start, plan.normalized_end, timezone, notes);
+  return rangeWindow;
 }

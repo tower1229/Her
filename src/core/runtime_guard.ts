@@ -5,6 +5,7 @@ import {
   TimelineGeneratedDraft,
   TimelineReasonerOutput,
 } from './timeline_reasoner_contract';
+import { validateGeneratedWorldRhythm } from './world_rhythm';
 
 export interface TimelineGuardResult {
   ok: boolean;
@@ -131,6 +132,15 @@ export function validateTimelineReasonerOutput(
         outcome: 'blocked',
         write_allowed: false,
         block_reason: 'reasoner generated a new fact without explaining persona-consistent generation',
+      };
+    }
+    const worldRhythmCheck = validateGeneratedWorldRhythm(reasoner.generated_fact);
+    if (!worldRhythmCheck.ok) {
+      return {
+        ok: false,
+        outcome: 'blocked',
+        write_allowed: false,
+        block_reason: `reasoner generated_fact violates world rhythm: ${worldRhythmCheck.issues.join(' ')}`,
       };
     }
     return {

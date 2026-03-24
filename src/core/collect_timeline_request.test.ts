@@ -10,6 +10,7 @@ describe('buildTimelineCollectorOutput', () => {
       start: '2026-03-20T00:00:00+08:00',
       end: '2026-03-22T21:00:00+08:00',
       calendar_date: '2026-03-22',
+      calendar_dates: ['2026-03-20', '2026-03-21', '2026-03-22'],
       timezone: 'Asia/Shanghai',
       normalization_notes: ['上游已将查询归一化为结构化时间范围。'],
     };
@@ -56,5 +57,11 @@ describe('buildTimelineCollectorOutput', () => {
     ]);
     expect(collector.request.user_query).toBe('最近有什么有趣的事吗');
     expect(collector.request.mode).toBe('allow_generate');
+    expect(collector.world_context.target).toBeNull();
+    expect(collector.world_context.range_calendar.map((slot) => slot.calendar_date)).toEqual([
+      '2026-03-20',
+      '2026-03-21',
+      '2026-03-22',
+    ]);
   });
 });

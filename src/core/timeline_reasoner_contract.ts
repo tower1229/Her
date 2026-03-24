@@ -9,6 +9,18 @@ export interface TimelineGeneratedDraft {
   reason?: string;
 }
 
+export interface TimelineWorldRhythmSlot {
+  timestamp_hint: string;
+  calendar_date: string;
+  weekday: boolean;
+  holiday_key: string | null;
+  day_kind: 'workday' | 'weekend' | 'holiday';
+  time_band: string;
+  encouraged_modes: string[];
+  discouraged_modes: string[];
+  notes: string[];
+}
+
 export interface CollectedTimelineFact {
   fact_id: string;
   source_type: 'canon_daily_log';
@@ -63,6 +75,10 @@ export interface TimelineCollectorOutput {
     identity: string;
     available_sources: string[];
     should_constrain_generation: boolean;
+  };
+  world_context: {
+    target: TimelineWorldRhythmSlot | null;
+    range_calendar: TimelineWorldRhythmSlot[];
   };
   candidate_facts: CollectedTimelineFact[];
 }

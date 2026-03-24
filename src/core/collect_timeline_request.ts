@@ -4,6 +4,7 @@ import { enumerateCalendarDates } from './calendar_dates';
 import { CollectedSources } from './collect_sources';
 import { ResolvedWindow } from './resolve_window';
 import { TimelineCollectorOutput } from './timeline_reasoner_contract';
+import { buildTimelineWorldContext } from './world_rhythm';
 
 export function buildTimelineCollectorOutput(
   requestId: string,
@@ -37,7 +38,7 @@ export function buildTimelineCollectorOutput(
       collection_scope: window.collection_scope,
       start: window.start,
       end: window.end,
-      calendar_dates: enumerateCalendarDates(window.start, window.end),
+      calendar_dates: window.calendar_dates.length > 0 ? window.calendar_dates : enumerateCalendarDates(window.start, window.end),
       normalization_notes: window.normalization_notes,
     },
     source_order: sources.sourceOrder,
@@ -61,6 +62,10 @@ export function buildTimelineCollectorOutput(
       available_sources: sources.coreContext.available_sources,
       should_constrain_generation: sources.coreContext.should_constrain_generation,
     },
+    world_context: buildTimelineWorldContext({
+      ...window,
+      calendar_dates: window.calendar_dates.length > 0 ? window.calendar_dates : enumerateCalendarDates(window.start, window.end),
+    }),
     candidate_facts: dailyLogs.flatMap((entry) =>
       entry.parsed_episodes.map((episode, index) => ({
         fact_id: `canon:${entry.calendar_date}:${index}`,

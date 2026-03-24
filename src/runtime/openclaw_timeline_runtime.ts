@@ -372,6 +372,8 @@ function buildTimelineReasonerSystemPrompt(): string {
     '16. 当 persona_context 中存在明确人格线索时，rationale.constraint_basis 不能为空，且必须指出哪些长期约束限制了生成结果。',
     '17. 不要生成通用、模板化、任何人格都能成立的空泛日常；应尽量让 location、action、emotion、appearance、internalMonologue 都体现该 persona 的生活连续性。',
     '18. MEMORY 中的长期偏好、关系、生活节奏和与用户的长期约定，都是编织时间记忆时的重要约束；它们不是时间事实本身，但会限制什么样的生成是可信的。',
+    '19. 还必须遵守 collector.world_context 提供的现实时间逻辑：一日三餐、睡眠、工作/学习、休闲、周末、工作日、节假日的安排都应尽量符合普通现实生活节奏。',
+    '20. 如果生成的是凌晨或深夜时段，优先考虑睡眠、休息、安静活动；如果生成的是早餐/午餐/晚餐，则时间应落在合理餐段；不要生成明显违背现实作息的片段。',
   ].join('\n');
 }
 
