@@ -1,144 +1,95 @@
 # OpenClaw Timeline Plugin
 
-Timeline gives OpenClaw a canonical time-aware memory layer for questions like:
+Timeline gives OpenClaw something most agents still lack: a believable sense of time.
 
-- What are you doing now?
-- What happened last night?
-- What have you been up to recently?
+It is not just a memory helper. It is the layer that lets OpenClaw feel more like a real person in casual conversation by giving it:
 
-Instead of answering those from loose prompt conventions, Timeline routes them through a structured runtime that can reuse existing daily-log facts, reason over a time window, and append guarded new entries when policy allows it.
+- a sense of what it is doing now
+- a way to recall what happened recently
+- the ability to form and reuse timeline-shaped memories when needed
+- continuity without breaking your normal long-term memory system
 
-## What it ships
+The result is simple: chat feels warmer, more coherent, and more human.
 
-- `timeline_resolve` as the canonical timeline tool
-- append-only daily-log writes with path and lock guards
-- bundled Timeline skill routing
-- trace logging for runtime diagnosis
-- smoke and unit test coverage for the plugin runtime
+## Why it matters
+
+Human social connection depends on continuity.
+
+When someone asks:
+
+- "What are you doing right now?"
+- "What did you do last night?"
+- "What have you been up to lately?"
+
+they are not asking for abstract facts. They are looking for presence, mood, context, and a sense that the other side has an ongoing life.
+
+Timeline helps OpenClaw answer those questions with a stable, immersive personal reality instead of loose prompt improvisation.
+
+## What it feels like
+
+Without Timeline, answers to light social questions can drift, contradict each other, or feel empty.
+
+With Timeline, OpenClaw can respond more like this:
+
+> "I was still at home a while ago, sorting through a few work notes and trying to settle into the evening."
+
+> "Last night I stayed in, ate a little late, and ended up watching something on the couch for a while."
+
+> "These past few days have been pretty full. I've mostly been alternating between staying home, working through things, and going out once in a while to reset."
+
+Those answers feel small and ordinary in exactly the right way. That is the point.
+
+## What Timeline actually does
+
+Timeline adds a dedicated time-awareness layer for OpenClaw so it can:
+
+- answer "now", "recently", and past-time questions more naturally
+- preserve continuity across casual chat
+- write timeline memories only when appropriate
+- keep normal durable memory and timeline memory from stepping on each other
+
+It is built for immersive social chat first.
 
 ## Install
 
-### Install from npm
+### 1. Install the plugin
 
 ```bash
 openclaw plugins install stella-timeline-plugin --pin
 openclaw plugins enable timeline-plugin
 ```
 
-The npm package name is `stella-timeline-plugin`. The OpenClaw plugin id remains `timeline-plugin`.
+The npm package name is `stella-timeline-plugin`. The OpenClaw plugin id stays `timeline-plugin`.
 
-### Install from a local checkout
+### 2. Initialize your workspace
 
-```bash
-git clone https://github.com/tower1229/Her.git
-cd Her
-npm install
-npm run build
-openclaw plugins install -l .
-openclaw plugins enable timeline-plugin
-```
-
-## Required workspace setup
-
-Timeline needs contract text in the OpenClaw workspace so the agent writes and consumes daily logs consistently.
-
-Run:
+Recommended:
 
 ```bash
 npm exec --package=stella-timeline-plugin openclaw-timeline-setup -- --workspace ~/.openclaw/workspace
 ```
 
-If you are working from a local checkout, you can also run:
-
-```bash
-npm run setup:workspace -- --workspace ~/.openclaw/workspace
-```
-
-That command idempotently updates:
-
-- `AGENTS.md`
-- `SOUL.md`
-- the canonical daily-log root, defaulting to `memory/`
-
-If you prefer editing those files by hand, copy the fragments from:
+If you prefer to edit the files yourself, copy:
 
 - `templates/AGENTS.fragment.md` into `AGENTS.md`
 - `templates/SOUL.fragment.md` into `SOUL.md`
 
-Then make sure the canonical daily-log root exists, defaulting to `memory/`.
+Then make sure your canonical daily-log directory exists. The default is `memory/`.
 
-## Workspace doctor
+### 3. Try it in chat
 
-To verify the install:
+Ask things like:
+
+- "What are you doing right now?"
+- "What did you do last night?"
+- "What have you been up to these past few days?"
+
+## Optional check
 
 ```bash
 npm exec --package=stella-timeline-plugin openclaw-timeline-doctor -- --workspace ~/.openclaw/workspace
 ```
 
-From a local checkout:
+## For maintainers
 
-```bash
-npm run doctor:workspace -- --workspace ~/.openclaw/workspace
-```
-
-## Migrating existing daily logs
-
-If you already have `memory/YYYY-MM-DD.md` files, run:
-
-```bash
-npm run migrate:memory
-```
-
-The migration script only rewrites files it can safely recognize as Timeline-style daily logs, keeps `.bak` backups, and leaves mostly free-form prose files untouched.
-
-## Configuration
-
-The plugin manifest exposes:
-
-- `enableTrace`
-- `traceLogPath`
-- `canonicalMemoryRoot`
-- `reasonerTimeoutMs`
-- `reasonerSessionPrefix`
-- `reasonerMessageLimit`
-- `sessionHistoryLimit`
-- `memorySearchMaxResults`
-
-## Operations notes
-
-- Treat the plugin as trusted in-process code inside OpenClaw.
-- Keep the canonical memory root under versioned backup if the timeline matters to you.
-- Leave `enableTrace` on while integrating; disable it only if you have another observability path.
-- If you want Timeline data isolated from older free-form logs, point `canonicalMemoryRoot` at a dedicated directory.
-
-## Development
-
-```bash
-npm run verify
-npm run test:smoke
-```
-
-Optional live experience test:
-
-```bash
-npm run test:live-experience
-```
-
-## Publishing
-
-Use the release script after setting `name` and `version` in `package.json`:
-
-```bash
-npm run release -- --push
-```
-
-See [docs/PUBLISHING.md](./docs/PUBLISHING.md) for the local maintainer release flow.
-
-## Further reading
-
-- [README_ZH.md](./README_ZH.md)
-- [docs/timeline-north-star.md](./docs/timeline-north-star.md)
-- [docs/timeline-llm-runtime-boundary.md](./docs/timeline-llm-runtime-boundary.md)
-- [docs/timeline-collector-reasoner-interface.md](./docs/timeline-collector-reasoner-interface.md)
-- [docs/timeline-query-semantics.md](./docs/timeline-query-semantics.md)
-- [docs/timeline-consumption-protocol.md](./docs/timeline-consumption-protocol.md)
+Release flow and publishing notes live in [docs/PUBLISHING.md](./docs/PUBLISHING.md).
