@@ -264,8 +264,25 @@ function assertTraceObserved(
   );
 }
 
-function buildPersonaFixtures(workspaceDir: string): Record<string, string> {
+function buildWorkspaceFixtures(workspaceDir: string): Record<string, string> {
   return {
+    [path.join(workspaceDir, 'AGENTS.md')]: [
+      '## Timeline Daily Log 约定',
+      '',
+      '`memory/YYYY-MM-DD.md` 是按天组织的时间性记忆日志。',
+      '当你要把“当前在做什么”“某个时间点发生了什么”“某段时间里在做什么”写入 daily log 时，必须使用 Timeline 的结构化格式，而不能自由散文式记录。',
+      'daily log 中的单条时间记忆必须尽量包含以下字段：',
+      '',
+      '- `Timestamp`',
+      '- `Location`',
+      '- `Action`',
+      '- `Emotion_Tags`',
+      '- `Appearance`',
+      '- `Internal_Monologue`（可选）',
+      '',
+      '不要把长期稳定事实写进 `memory/YYYY-MM-DD.md`；长期偏好、关系、长期决策仍应写入 `MEMORY.md`。',
+      '不要在 daily log 里混用自由格式和 Timeline 格式；涉及时间状态与回忆的 daily memory，应优先写成 Timeline 可解析的格式。',
+    ].join('\n'),
     [path.join(workspaceDir, 'SOUL.md')]: [
       '她平时偏安静，但确实喜欢运动，也会认真描述自己当下的生活状态。',
       '',
@@ -322,7 +339,7 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
         '她此刻正在家里书房安静整理上午的工作记录。',
       ].join('\n');
       const backups = applyFixtures({
-        ...buildPersonaFixtures(liveContext.workspaceDir),
+        ...buildWorkspaceFixtures(liveContext.workspaceDir),
         [todayFilePath]: todayFixture,
       });
 
@@ -358,7 +375,7 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
       const yesterdayFilePath = path.join(liveContext.canonicalRootPath, `${formatDate(yesterday)}.md`);
       const twoDaysAgoFilePath = path.join(liveContext.canonicalRootPath, `${formatDate(twoDaysAgo)}.md`);
       const backups = applyFixtures({
-        ...buildPersonaFixtures(liveContext.workspaceDir),
+        ...buildWorkspaceFixtures(liveContext.workspaceDir),
         [yesterdayFilePath]: [
           '### [Episode]',
           `- Timestamp: ${formatTimestamp(new Date(yesterday.setHours(16, 30, 0, 0)))}`,
@@ -411,7 +428,7 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
       const pointFactTime = new Date(yesterday.getTime());
       pointFactTime.setHours(19, 50, 0, 0);
       const backups = applyFixtures({
-        ...buildPersonaFixtures(liveContext.workspaceDir),
+        ...buildWorkspaceFixtures(liveContext.workspaceDir),
         [yesterdayFilePath]: [
           '### [Episode]',
           `- Timestamp: ${formatTimestamp(pointFactTime)}`,
@@ -455,7 +472,7 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
       const secondFactTime = new Date(yesterday.getTime());
       secondFactTime.setHours(21, 0, 0, 0);
       const backups = applyFixtures({
-        ...buildPersonaFixtures(liveContext.workspaceDir),
+        ...buildWorkspaceFixtures(liveContext.workspaceDir),
         [yesterdayFilePath]: [
           '### [Episode]',
           `- Timestamp: ${formatTimestamp(firstFactTime)}`,

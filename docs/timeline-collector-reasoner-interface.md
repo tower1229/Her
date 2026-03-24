@@ -1,71 +1,76 @@
-# Timeline Collector / Reasoner 接口草案
+# Timeline Collector / Reasoner 接口规范
 
-> 状态：当前草案
-> 目的：定义 Timeline 中 collector、LLM reasoner、runtime guard 三层之间的稳定接口
-> 关联：`docs/timeline-north-star.md`、`docs/timeline-llm-runtime-boundary.md`、`docs/timeline-roadmap.md`
+> 状态：当前有效
+> 目的：定义 Timeline 当前主路径中 collector、LLM reasoner、runtime guard 之间的稳定接口
+> 关联：[timeline-north-star.md](/Users/zangtao/Workspace/tower1229/Her/docs/timeline-north-star.md)、[timeline-query-semantics.md](/Users/zangtao/Workspace/tower1229/Her/docs/timeline-query-semantics.md)、[timeline-llm-runtime-boundary.md](/Users/zangtao/Workspace/tower1229/Her/docs/timeline-llm-runtime-boundary.md)
 
-## 1. 为什么先定义接口
+## 1. 主路径分层
 
-当前重构的关键不是继续微调某个模块，而是先把系统层次拆清楚。
+当前 Timeline 主路径固定为四层：
 
-后续 Timeline 应按下面三步工作：
+1. `timeline_resolve` 接收查询并协调流程
+2. collector 收集事实源并整理候选集
+3. LLM reasoner 做时间语义判断与事实决策
+4. runtime guard 校验 reasoner 输出，再决定是否进入 writer
 
-1. collector 收集事实与候选集
-2. LLM reasoner 做语义判断
-3. runtime guard 验证并执行
+其中：
 
-这份文档定义的就是这三步之间传什么，不传什么。
+- collector 不做语义裁决
+- reasoner 不直接写盘
+- guard 不补做语义推理
 
-## 2. 核心原则
+## 2. 查询语义与收集范围
 
-### 2.1 collector 不做语义裁决
+Timeline 内部查询语义只有三类：
 
-collector 可以：
-- 读取数据源
-- 解析 markdown
-- 归一化时间窗口
-- 输出候选 facts
+- `now`
+- `past_point`
+- `past_range`
 
-collector 不可以：
-- 判断哪条 fact 最相关
-- 判断某个活动是否仍在持续
-- 判断用户到底在问当前状态还是近期回忆
-- 判断是否应该生成
+但当前 `timeline_resolve` 的外部输入仍保留过渡态字段：
 
-### 2.2 reasoner 不直接写盘
+```ts
+target_time_range: 'now' | 'recent_3d' | 'explicit' | 'natural_language'
+```
 
-reasoner 只负责给出结构化判断结果。
-它不能直接改 memory，也不能直接跳过 runtime guard。
+这层外部输入会先被归一化，再交给 collector 和 reasoner。归一化结果体现在：
 
-### 2.3 guard 不补做语义判断
+- `window.semantic_target`
+- `window.collection_scope`
 
-guard 只负责验证：
-- 是否违反硬事实
-- 输出结构是否合法
-- 是否允许写盘
+例如：
 
-guard 不能在 reasoner 失败后自己补做“差不多的判断”。
+- “你在干嘛” -> `semantic_target = now`
+- “昨晚八点你在做什么” -> `semantic_target = past_point`
+- “昨晚在做什么” -> `semantic_target = past_range`
+- “最近有什么有趣的事吗” -> `semantic_target = past_range`，同时 `collection_scope = recent_3d`
+
+`recent_3d` 不是第四类查询语义，只是“最近”这一口语表达的内部收集范围约定。
 
 ## 3. Collector 输入
 
-collector 的输入来自 `timeline_resolve` 的 runtime 上下文。
+collector 的直接输入来自 `timeline_resolve` 与已归一化的窗口：
 
 ```ts
-interface TimelineCollectorRequest {
+interface TimelineCollectorInput {
   request_id: string;
-  user_query?: string;
-  target_time_range: 'now' | 'recent_3d' | 'explicit' | 'natural_language';
-  start?: string;
-  end?: string;
-  reason: 'current_status' | 'past_recall' | 'compaction_flush' | 'heartbeat' | 'snapshot' | 'debug';
-  now: string;
-  timezone: string;
+  input: TimelineResolveInput;
+  window: ResolvedWindow;
+  sources: CollectedSources;
 }
 ```
 
+其中：
+
+- `TimelineResolveInput` 仍保留外部请求形态
+- `ResolvedWindow` 提供归一化后的时间语义
+- `CollectedSources` 提供 sessions history、daily logs、memory search、persona 上下文
+
 ## 4. Collector 输出
 
-collector 的目标不是输出结论，而是输出供 reasoner 判断的完整事实包。
+collector 的目标不是给出结论，而是产出供 reasoner 判断的结构化事实包。
+
+当前代码中的稳定输出如下：
 
 ```ts
 interface TimelineCollectorOutput {
@@ -74,7 +79,8 @@ interface TimelineCollectorOutput {
   request: {
     user_query?: string;
     target_time_range: 'now' | 'recent_3d' | 'explicit' | 'natural_language';
-    reason: 'current_status' | 'past_recall' | 'compaction_flush' | 'heartbeat' | 'snapshot' | 'debug';
+    reason: string;
+    mode: 'read_only' | 'allow_generate';
   };
   anchor: {
     now: string;
@@ -82,6 +88,8 @@ interface TimelineCollectorOutput {
   };
   window: {
     query_range: 'now' | 'recent_3d' | 'explicit';
+    semantic_target: string;
+    collection_scope: string;
     start: string;
     end: string;
     calendar_dates: string[];
@@ -95,7 +103,7 @@ interface TimelineCollectorOutput {
     daily_logs: Array<{
       calendar_date: string;
       raw_content: string;
-      parsed_episodes: ParsedTimelineEpisode[];
+      parsed_episode_count: number;
     }>;
   };
   semantic_memory: {
@@ -106,11 +114,11 @@ interface TimelineCollectorOutput {
     memory: string;
     identity: string;
   };
-  candidate_facts: Array<CollectedTimelineFact>;
+  candidate_facts: CollectedTimelineFact[];
 }
 ```
 
-其中 `candidate_facts` 是给 reasoner 的候选事实池，不是已选中的结论。
+`candidate_facts` 是候选事实池，不是已选中的答案。
 
 ```ts
 interface CollectedTimelineFact {
@@ -129,29 +137,29 @@ interface CollectedTimelineFact {
 }
 ```
 
-## 5. 什么信息不该由 collector 提前算好
+## 5. Collector 明确不做的事
 
-collector 不应提前给出这些字段：
+collector 不应提前计算这些结论：
 
-- `selected_fact_id`
-- `is_continuing`
-- `should_generate`
-- `request_type`
-- `best_match_reason`
+- 哪条候选事实最相关
+- 是否属于连续性覆盖
+- 是否应生成
+- “最近”里哪件事更值得提
+- “有趣”“轻松”“忙”这类语义筛选结果
 
-这些都属于 LLM reasoner 的职责。
+这些都属于 reasoner 职责。
 
 ## 6. Reasoner 输入
 
-reasoner 输入就是整个 collector 输出。
+reasoner 输入就是完整的 `TimelineCollectorOutput`。
 
-可以把它理解成：
+可以理解成：
 
-> Timeline runtime 已经把所有可用事实按秩序收集好了，现在请 LLM 在这些事实与 persona 上下文之上做结构化判断。
+> runtime 已经按固定顺序收集好了事实、候选集、persona 和时间锚点，现在由 LLM 负责判断查询类型、事实命中、连续性和是否需要生成。
 
 ## 7. Reasoner 输出
 
-reasoner 的返回必须是结构化 JSON，而不是自然语言。
+当前代码中的稳定返回结构如下：
 
 ```ts
 interface TimelineReasonerOutput {
@@ -192,114 +200,117 @@ interface TimelineReasonerOutput {
     internalMonologue: string;
     naturalText: string;
     confidence: number;
-    reason: string;
+    reason?: string;
   };
 }
 ```
 
-## 8. Reasoner 输出语义
+## 8. Reasoner 输出语义要求
 
-其中：
+### 8.1 `request_type`
 
-- `recent_3d` 只是 `past_range` 的一个内部特殊范围约定
-- 连续性不是独立 `request_type`，而是 `now` 或 `past_point` 查询里的推理结论
-- 当 `generate_new_fact` 用于 `past_point` 或 `past_range` 时，优先提供合理的 `timestamp`，让事实落到正确的过去时间，而不是默认落到当前时刻
+只允许：
 
-`time_interpretation` 用于记录 reasoner 是如何理解用户时间语义的。
+- `now`
+- `past_point`
+- `past_range`
 
-### 8.1 `reuse_existing_fact`
+连续性不是第四类 `request_type`，而是 `now` 或 `past_point` 查询中的推理策略。
 
-表示 reasoner 判断已有候选事实已经足够回答当前问题。
+### 8.2 `time_interpretation`
 
-它必须返回：
-- `selected_fact_id`
+用于记录 reasoner 是怎样理解用户时间语义的，包括：
+
+- 归一化到时间点还是时间范围
+- 采用精确命中、连续性覆盖、范围摘要还是生成
+- 对“昨晚”“最近”“今晚八点”这类口语表达的解释
+
+### 8.3 `reuse_existing_fact`
+
+表示已有候选事实足以回答问题。
+
+必须满足：
+
+- `selected_fact_id` 存在于 `candidate_facts`
 - `should_write_canon = false`
 
-### 8.2 `generate_new_fact`
+### 8.4 `generate_new_fact`
 
-表示 reasoner 判断当前问题没有足够事实命中，需要生成新的 timeline fact。
+表示候选事实不足，需要新建 Timeline fact。
 
-它必须返回：
-- `generated_fact`
-- `should_write_canon = true` 或 `false`
+必须满足：
 
-### 8.3 `return_empty`
+- `generated_fact` 完整
+- `should_write_canon = true`
+- 如查询是 `past_point` 或 `past_range`，优先提供合理的过去 `timestamp`
 
-表示当前问题不应强行生成，也不应错误复用。
+### 8.5 `return_empty`
 
-这个分支应极少出现，通常只用于：
+表示当前请求既不应错误复用，也不应勉强生成。
+
+这个分支应尽量少见，只用于：
+
 - 输入严重不足
-- persona 上下文不足以支持可信生成
-- 请求本身并不适合被 Timeline 解释成事实问题
+- persona 上下文无法支撑可信生成
+- 当前请求本身不应被解释为时间事实查询
 
-## 9. Guard 输入
+## 9. Guard 输入与职责
 
-guard 的输入由两部分组成：
+guard 的输入固定为：
 
 1. `TimelineCollectorOutput`
 2. `TimelineReasonerOutput`
 
 guard 负责验证：
 
-- reasoner 是否引用了不存在的 `selected_fact_id`
-- 是否违反会话硬事实
-- 是否试图改写既有 canon
+- `request_id` 是否一致
+- `selected_fact_id` 是否真实存在于候选集中
 - `generated_fact` 结构是否完整
-- 是否允许写盘
+- 在 `read_only` 模式下是否错误请求生成
+- 是否具备 canon 写入许可
+
+guard 不负责：
+
+- 自己选一条“差不多的候选事实”
+- 自己推理活动是否持续
+- 在 reasoner 失败后补做生成
 
 ## 10. Guard 输出
 
-guard 的输出不是新的语义判断，而是执行许可。
+当前 guard 的执行许可结构如下：
 
 ```ts
 interface TimelineGuardResult {
   ok: boolean;
   outcome: 'reuse_existing_fact' | 'generate_new_fact' | 'return_empty' | 'blocked';
-  selected_fact_id?: string;
-  validated_generated_fact?: {
-    location: string;
-    action: string;
-    emotionTags: string[];
-    appearance: string;
-    internalMonologue: string;
-    naturalText: string;
-    confidence: number;
-    reason: string;
-  };
+  selected_fact?: CollectedTimelineFact;
+  selected_episode?: ParsedEpisode;
+  generated_fact?: TimelineGeneratedDraft;
   write_allowed: boolean;
   block_reason?: string;
 }
 ```
 
-## 11. `timeline_resolve` 最终如何使用这套接口
+如果 `outcome = blocked`，主流程应停止，不得偷偷降级到脚本 heuristics。
 
-未来 `timeline_resolve` 应收敛成下面的主流程：
+## 11. Writer 接入要求
 
-1. 校验输入
-2. 解析硬时间窗口
-3. collector 收集事实与候选集
-4. 调用 reasoner 做结构化判断
-5. guard 验证 reasoner 结果
-6. 若允许则写盘
-7. 返回 `timeline.window`
-8. 记录 trace / status
+writer 不直接接 collector，也不直接接 reasoner。
 
-## 12. 对当前代码重构的直接要求
+writer 只能消费经 guard 验证后的 `generated_fact`，并继续负责：
 
-按这份接口草案，当前代码后续需要变成：
+- append-only 写入
+- 目标日期选择
+- 锁与冲突处理
+- trace 与 status 记录
 
-- `resolve_window.ts`
-  只保留硬时间窗口归一化，不再扩展自然语言语义判断
+## 12. 对下游的影响
 
-- `map_window.ts`
-  不再负责“选择哪条 episode 最相关”
+这份接口规范保障的是 Timeline 内部职责边界。
 
-- `select_episode.ts`
-  不应继续作为最终 selector；后续应改造成候选集整理器，或被 collector 模块替代
+对聊天层、selfie skill 等下游消费者，稳定消费入口不是 `candidate_facts` 或 `reasoner` 原始字段，而是 `timeline_resolve` 最终返回中的：
 
-- `timeline_resolve.ts`
-  从“自己做大部分决策”改成“协调 collector / reasoner / guard / writer”
+- `result.window`
+- `result.consumption`
 
-## 13. 一句话总结
-
-> Timeline runtime 的正确方向，不是让脚本逐步变聪明，而是让脚本把事实准备好，再让 LLM 在受约束的接口里做真正的时间语义判断。
+其中 `result.consumption.selfie_ready` 是当前为下游技能准备的稳定现实锚点。

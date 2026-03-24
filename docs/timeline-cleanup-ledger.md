@@ -13,6 +13,9 @@
 - [src/core/generation_prompt.ts](/Users/zangtao/Workspace/tower1229/Her/src/core/generation_prompt.ts) 已删除。
   该文件未接入任何主流程，继续保留只会制造“还有另一套生成路径”的误导。
 - [docs/timeline-integration-test-cases.md](/Users/zangtao/Workspace/tower1229/Her/docs/timeline-integration-test-cases.md) 已同步到 `now / past_point / past_range` 查询模型。
+- [docs/timeline-collector-reasoner-interface.md](/Users/zangtao/Workspace/tower1229/Her/docs/timeline-collector-reasoner-interface.md) 已重写到当前 collector / reasoner / guard 主路径，不再引用已删除的 `map_window.ts`、`select_episode.ts`。
+- 构建输出已从发布产物里排除测试代码，`build` 现在走 [tsconfig.build.json](/Users/zangtao/Workspace/tower1229/Her/tsconfig.build.json)。
+- 真实环境 [openclaw-live-experience.e2e.test.ts](/Users/zangtao/Workspace/tower1229/Her/src/integration/openclaw-live-experience.e2e.test.ts) 已纳入 `AGENTS.md` 夹具，覆盖安装文档要求的 daily log 结构化写入契约。
 
 ## 3. 清理原则
 

@@ -23,7 +23,7 @@
   },
   "scripts": {
     "prebuild": "rm -rf dist",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "node node_modules/jest/bin/jest.js --runInBand",
     "test:unit": "node node_modules/jest/bin/jest.js --runInBand",
