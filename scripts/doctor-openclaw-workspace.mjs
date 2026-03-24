@@ -64,7 +64,7 @@ function main() {
   let ok = true;
   ok = check(
     'AGENTS contract',
-    fs.existsSync(agentsPath) && detectAgentsContract(agentsContent, options.canonicalRootName),
+    fs.existsSync(agentsPath) && detectAgentsContract(agentsContent),
     agentsPath,
     `${agentsPath} is missing the Timeline daily-log contract`,
   ) && ok;

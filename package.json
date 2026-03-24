@@ -58,6 +58,7 @@
     "dist",
     "bin",
     "scripts",
+    "templates",
     "skills",
     "openclaw.plugin.json",
     "CHANGELOG.md",

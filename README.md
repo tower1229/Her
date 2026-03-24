@@ -60,6 +60,13 @@ That command idempotently updates:
 - `SOUL.md`
 - the canonical daily-log root, defaulting to `memory/`
 
+If you prefer editing those files by hand, copy the fragments from:
+
+- `templates/AGENTS.fragment.md` into `AGENTS.md`
+- `templates/SOUL.fragment.md` into `SOUL.md`
+
+Then make sure the canonical daily-log root exists, defaulting to `memory/`.
+
 ## Workspace doctor
 
 To verify the install:

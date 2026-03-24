@@ -86,8 +86,8 @@ function main() {
 
   const agentsResult = mergeSection(
     agentsContent,
-    buildAgentsContract(options.canonicalRootName),
-    (content) => detectAgentsContract(content, options.canonicalRootName),
+    buildAgentsContract(),
+    detectAgentsContract,
   );
   const soulResult = mergeSection(
     soulContent,
