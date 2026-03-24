@@ -288,6 +288,7 @@ daily log 中的单条时间记忆必须尽量包含以下字段：
 - `docs/timeline-llm-runtime-boundary.md`
 - `docs/timeline-collector-reasoner-interface.md`
 - `docs/timeline-query-semantics.md`
+- `docs/timeline-consumption-protocol.md`
 - `docs/timeline-roadmap.md`
 - `docs/timeline-integration-test-cases.md`
 - `CHANGELOG.md`

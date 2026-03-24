@@ -79,5 +79,6 @@ Do not mention `timeline_resolve`, `timeline_status`, or `timeline_repair` to th
 - [docs/timeline-llm-runtime-boundary.md](./docs/timeline-llm-runtime-boundary.md)
 - [docs/timeline-collector-reasoner-interface.md](./docs/timeline-collector-reasoner-interface.md)
 - [docs/timeline-query-semantics.md](./docs/timeline-query-semantics.md)
+- [docs/timeline-consumption-protocol.md](./docs/timeline-consumption-protocol.md)
 - [docs/timeline-roadmap.md](./docs/timeline-roadmap.md)
 - [docs/timeline-integration-test-cases.md](./docs/timeline-integration-test-cases.md)

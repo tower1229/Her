@@ -30,6 +30,7 @@ export interface TimelineWindow {
     mode: 'read_only_hit' | 'empty_window' | 'generated_new' | 'already_present' | 'write_blocked' | 'write_conflict' | 'write_failed' | 'error';
     notes?: string;
   };
+  consumption?: TimelineConsumptionView;
   episodes: Episode[];
 }
 
@@ -77,4 +78,52 @@ export interface Episode {
 export interface WorldHooks {
   weekday: boolean;
   holiday_key: string | null;
+}
+
+export interface TimelineConsumptionView {
+  schema_version: '1.0';
+  document_type: 'timeline.consumption';
+  query: {
+    preset: string;
+    semantic_target?: string;
+    collection_scope?: string;
+    resolution_mode: string;
+    time_interpretation?: {
+      normalized_kind?: 'now' | 'point' | 'range';
+      normalized_point?: string;
+      normalized_start?: string;
+      normalized_end?: string;
+      match_strategy?: 'exact_match' | 'continuation' | 'range_summary' | 'generated';
+      summary?: string;
+    };
+  };
+  fact: {
+    status: 'resolved' | 'empty';
+    source_type: 'canon' | 'generated' | 'none';
+    timestamp?: string;
+    summary?: string;
+    confidence?: number;
+    continuity?: {
+      judged: boolean;
+      is_continuing?: boolean;
+      reason?: string;
+    };
+  };
+  scene?: {
+    location: string;
+    activity: string;
+    emotion_primary: string | null;
+    emotion_secondary: string | null;
+    appearance: string;
+    time_of_day: string;
+    summary: string;
+  };
+  selfie_ready?: {
+    location: string;
+    activity: string;
+    emotion: string | null;
+    appearance: string;
+    time_of_day: string;
+    summary: string;
+  };
 }

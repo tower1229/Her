@@ -7,6 +7,8 @@ import { materializeGeneratedCandidate } from '../core/materialize_generated_can
 import { TimelineCollectorOutput, TimelineReasonerOutput } from '../core/timeline_reasoner_contract';
 import { validateTimelineReasonerOutput } from '../core/runtime_guard';
 import { buildTrace, TimelineTrace } from '../core/trace';
+import { buildConsumptionView } from '../core/build_consumption_view';
+import { TimelineConsumptionView } from '../lib/types';
 import { mapToEpisode } from '../lib/parse-memory';
 import { computeFingerprint } from '../lib/fingerprint';
 import { dayOfWeek, formatDate, parseTimestampParts } from '../lib/time-utils';
@@ -87,6 +89,7 @@ export interface TimelineWindowResult {
     mode: TimelineResolutionMode;
     notes?: string;
   };
+  consumption?: TimelineConsumptionView;
   episodes: unknown[];
 }
 
@@ -395,6 +398,15 @@ function buildReadOnlyHitOutput(
         mode: 'read_only_hit',
         notes: buildReasonerNotes(reasoned).join(' | '),
       },
+      consumption: buildConsumptionView({
+        preset: window.query_range,
+        semanticTarget: window.semantic_target,
+        collectionScope: window.collection_scope,
+        resolutionMode: 'read_only_hit',
+        reasoned,
+        episode,
+        sourceType: 'canon',
+      }),
       episodes: [episode],
     },
     notes: buildReasonerNotes(reasoned),
@@ -436,6 +448,14 @@ function buildEmptyOutput(
         mode: 'empty_window',
         notes: buildReasonerNotes(reasoned).join(' | '),
       },
+      consumption: buildConsumptionView({
+        preset: window.query_range,
+        semanticTarget: window.semantic_target,
+        collectionScope: window.collection_scope,
+        resolutionMode: 'empty_window',
+        reasoned,
+        sourceType: 'none',
+      }),
       episodes: [],
     },
     notes: buildReasonerNotes(reasoned),
@@ -657,6 +677,15 @@ export async function timelineResolve(
               mode: resolutionMode,
               notes: [...buildReasonerNotes(reasoned), resolutionNotes].join(' | '),
             },
+            consumption: buildConsumptionView({
+              preset: window.query_range,
+              semanticTarget: window.semantic_target,
+              collectionScope: window.collection_scope,
+              resolutionMode,
+              reasoned,
+              episode: generated.episode,
+              sourceType: normalizedWriteResult.success ? 'generated' : 'generated',
+            }),
             episodes: [generated.episode],
           },
           notes: buildReasonerNotes(reasoned).concat(

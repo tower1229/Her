@@ -3,7 +3,7 @@
 > 状态：面向北极星目标的执行路线图
 > 目的：把 Timeline 从“可调用 runtime”推进到“OpenClaw 的时间现实层”
 > 读者：项目维护者与实现者
-> 关联：`docs/timeline-north-star.md`、`docs/timeline-query-semantics.md`
+> 关联：`docs/timeline-north-star.md`、`docs/timeline-query-semantics.md`、`docs/timeline-consumption-protocol.md`
 
 ## 1. 路线图原则
 
@@ -147,8 +147,10 @@
 
 ### 建议消费字段
 
-- `window`
-- `episodes`
+- `result.consumption.query`
+- `result.consumption.fact`
+- `result.consumption.scene`
+- `result.consumption.selfie_ready`
 - 地点、行为、情绪、外观、可信度
 - 事实来源类型
 - 当前状态是否为延续推理 / 新生成 / 只读命中

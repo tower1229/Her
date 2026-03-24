@@ -67,6 +67,9 @@ describe('timelineResolve', () => {
     expect(result.result?.window.calendar_date).toBe('2026-03-22');
     expect(result.result?.episodes).toHaveLength(1);
     expect(result.notes.join(' ')).toContain('Time interpretation: The user is asking about the current moment');
+    expect(result.result?.consumption?.fact.source_type).toBe('canon');
+    expect(result.result?.consumption?.scene?.location).toContain('书房');
+    expect(result.result?.consumption?.selfie_ready?.activity).toContain('整理');
   });
 
   it('returns a contract error for natural_language requests without query', async () => {

@@ -105,6 +105,8 @@ describe('timelineResolve generation path', () => {
     expect(generatedEpisode?.state_snapshot?.scene?.location_label).toContain('cafe');
     expect(generatedEpisode?.state_snapshot?.scene?.activity).toContain('writing down scattered thoughts');
     expect(result.notes.join(' ')).toContain('llm persona synthesis');
+    expect(result.result?.consumption?.fact.source_type).toBe('generated');
+    expect(result.result?.consumption?.selfie_ready?.location).toContain('cafe');
   });
 
   it('reports write_conflict with a recovery hint when the append-only writer detects an occupied bucket', async () => {
