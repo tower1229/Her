@@ -45,6 +45,7 @@ export function buildTimelineCollectorOutput(
     hard_facts: {
       sessions_history: sources.sessionsHistory,
     },
+    conversation_context: sources.conversationContext,
     canon_memory: {
       daily_logs: dailyLogs.map((entry) => ({
         calendar_date: entry.calendar_date,

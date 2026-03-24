@@ -43,6 +43,13 @@ describe('buildTimelineCollectorOutput', () => {
           available_sources: ['soul'],
           should_constrain_generation: true,
         },
+        conversationContext: {
+          is_recently_active: false,
+          minutes_since_last_turn: null,
+          stickiness_window_minutes: 10,
+          active_topic_summary: '',
+          should_prefer_conversation_continuity_for_now: false,
+        },
       },
     );
 
@@ -57,6 +64,7 @@ describe('buildTimelineCollectorOutput', () => {
     ]);
     expect(collector.request.user_query).toBe('最近有什么有趣的事吗');
     expect(collector.request.mode).toBe('allow_generate');
+    expect(collector.conversation_context.should_prefer_conversation_continuity_for_now).toBe(false);
     expect(collector.world_context.target).toBeNull();
     expect(collector.world_context.range_calendar.map((slot) => slot.calendar_date)).toEqual([
       '2026-03-20',

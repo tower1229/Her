@@ -10,9 +10,19 @@ export interface TimelineCoreContext {
   should_constrain_generation: boolean;
 }
 
+export interface TimelineConversationContext {
+  is_recently_active: boolean;
+  minutes_since_last_turn: number | null;
+  stickiness_window_minutes: number;
+  active_topic_summary: string;
+  should_prefer_conversation_continuity_for_now: boolean;
+  last_active_timestamp?: string;
+}
+
 export interface TimelineSourceDependencies {
   currentTime: () => Promise<{ now: string; timezone: string }>;
   sessionsHistory: (window: ResolvedWindow, input: TimelineResolveInput) => Promise<string[]>;
+  conversationContext?: (window: ResolvedWindow, input: TimelineResolveInput) => Promise<TimelineConversationContext>;
   memoryGet: (calendarDate: string, window: ResolvedWindow, input: TimelineResolveInput) => Promise<string>;
   memorySearch?: (window: ResolvedWindow, input: TimelineResolveInput) => Promise<string[]>;
   coreFiles?: () => Promise<TimelineCoreContext>;
@@ -27,6 +37,7 @@ export interface CollectedSources {
   }>;
   memorySearch: string[];
   coreContext: TimelineCoreContext;
+  conversationContext: TimelineConversationContext;
 }
 
 export async function collectSources(
@@ -63,6 +74,15 @@ export async function collectSources(
         available_sources: [],
         should_constrain_generation: false,
       };
+  const conversationContext = deps.conversationContext
+    ? await deps.conversationContext(window, input)
+    : {
+        is_recently_active: false,
+        minutes_since_last_turn: null,
+        stickiness_window_minutes: 10,
+        active_topic_summary: '',
+        should_prefer_conversation_continuity_for_now: false,
+      };
 
-  return { sourceOrder, sessionsHistory, dailyLogs, memorySearch, coreContext };
+  return { sourceOrder, sessionsHistory, dailyLogs, memorySearch, coreContext, conversationContext };
 }

@@ -140,6 +140,82 @@ describe('timelineResolve generation path', () => {
     expect(result.result?.consumption?.selfie_ready?.location).toContain('cafe');
   });
 
+  it('prefers sticky conversation continuity for now queries inside the recent session window', async () => {
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-22T20:15:00+08:00', timezone: 'Asia/Shanghai' }),
+      sessionsHistory: async () => [
+        'user: 我们刚才一直在聊 timeline 的现实逻辑和穿着连续性',
+        'assistant: 我正在把这套状态机和 guard 接到生成链路里。',
+      ],
+      conversationContext: async () => ({
+        is_recently_active: true,
+        minutes_since_last_turn: 3,
+        stickiness_window_minutes: 10,
+        active_topic_summary: '刚才一直在讨论 timeline 的现实逻辑和穿着连续性',
+        should_prefer_conversation_continuity_for_now: true,
+        last_active_timestamp: '2026-03-22T20:12:00+08:00',
+      }),
+      memoryGet: async () => '',
+      reasonTimeline: async (collector) => {
+        expect(collector.conversation_context.should_prefer_conversation_continuity_for_now).toBe(true);
+        expect(collector.conversation_context.active_topic_summary).toContain('穿着连续性');
+        return {
+          schema_version: '1.0',
+          request_id: collector.request_id,
+          request_type: 'now',
+          decision: {
+            action: 'generate_new_fact',
+            should_write_canon: true,
+          },
+          continuity: {
+            judged: true,
+            is_continuing: true,
+            reason: 'the current moment is still attached to the conversation that happened a few minutes ago',
+          },
+          rationale: {
+            summary: 'Generated a conversation-continuity current state instead of jumping to an unrelated off-thread life scene.',
+            hard_fact_basis: ['user: 我们刚才一直在聊 timeline 的现实逻辑和穿着连续性'],
+            canon_basis: [],
+            persona_basis: [],
+            constraint_basis: ['stay attached to the active conversation inside the stickiness window'],
+          },
+          generated_fact: {
+            location: '和你继续这段对话的当前会话里',
+            action: '顺着刚才关于 timeline 现实逻辑和穿着连续性的讨论继续往下想和回应',
+            emotionTags: ['专注', '投入'],
+            appearance: '舒适的家居服，注意力还停留在这段对话上',
+            internalMonologue: '刚才那段讨论还没断开，现在最真实的当下就是继续和你把这件事聊清楚。',
+            confidence: 0.86,
+            reason: 'session stickiness should keep the current moment attached to the active conversation',
+            sceneSemantics: {
+              activityMode: 'work_or_study',
+              continuityRelation: 'same_scene_continuation',
+              rationale: 'the current moment is still part of the same ongoing conversation scene',
+            },
+            appearanceLogic: {
+              transition: 'inherit',
+              changeReason: 'same_day_continuation',
+              outfitMode: 'casual_home',
+            },
+          },
+        };
+      },
+      memoryFilePath: () => tmpFile,
+    });
+
+    const result = await timelineResolve({
+      query: '你在干嘛啊',
+      mode: 'allow_generate',
+      trace: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected sticky-conversation success envelope');
+    const episode: any = result.result?.episodes[0];
+    expect(String(episode?.state_snapshot?.scene?.activity || '')).toContain('刚才关于 timeline');
+    expect(result.notes.join(' ')).toContain('conversation-continuity');
+  });
+
   it('reports write_conflict with a recovery hint when the append-only writer detects an occupied bucket', async () => {
     setTimelineResolveDependencies({
       currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),

@@ -4,6 +4,7 @@ import {
   TimelineCollectorOutput,
   TimelineReasonerOutput,
 } from '../core/timeline_reasoner_contract';
+import { buildConversationContextFromMessages } from './conversation_context';
 import { TimelineQueryPlan } from '../core/resolve_window';
 import {
   timelineResolve,
@@ -71,6 +72,7 @@ interface TimelinePluginRuntimeConfig {
   reasonerMessageLimit: number;
   sessionHistoryLimit: number;
   memorySearchMaxResults: number;
+  conversationStickinessWindowMinutes: number;
 }
 
 function readString(value: unknown): string | undefined {
@@ -95,6 +97,7 @@ function resolvePluginRuntimeConfig(pluginConfig?: Record<string, unknown>): Tim
     reasonerMessageLimit: readInteger(pluginConfig?.reasonerMessageLimit, 24),
     sessionHistoryLimit: readInteger(pluginConfig?.sessionHistoryLimit, 12),
     memorySearchMaxResults: readInteger(pluginConfig?.memorySearchMaxResults, 6),
+    conversationStickinessWindowMinutes: readInteger(pluginConfig?.conversationStickinessWindowMinutes, 10),
   };
 }
 
@@ -196,12 +199,26 @@ function extractMessageText(value: unknown): string {
   return '';
 }
 
+function extractMessageRole(value: unknown): string {
+  if (!value || typeof value !== 'object') return 'unknown';
+  const directRole = (value as { role?: unknown }).role;
+  if (typeof directRole === 'string' && directRole.trim()) {
+    return directRole.trim();
+  }
+  const nestedMessage = (value as { message?: unknown }).message;
+  if (nestedMessage && typeof nestedMessage === 'object') {
+    const nestedRole = (nestedMessage as { role?: unknown }).role;
+    if (typeof nestedRole === 'string' && nestedRole.trim()) {
+      return nestedRole.trim();
+    }
+  }
+  return 'unknown';
+}
+
 function normalizeSessionHistory(messages: unknown[], limit: number): string[] {
   return messages
     .map((message) => {
-      const role = typeof (message as { role?: unknown })?.role === 'string'
-        ? String((message as { role?: string }).role).trim()
-        : 'unknown';
+      const role = extractMessageRole(message);
       const text = extractMessageText(message);
       return text ? `${role}: ${text}` : '';
     })
@@ -375,10 +392,12 @@ function buildTimelineReasonerSystemPrompt(): string {
     '19. 还必须遵守 collector.world_context 提供的现实时间逻辑：一日三餐、睡眠、工作/学习、休闲、周末、工作日、节假日的安排都应尽量符合普通现实生活节奏。',
     '20. 如果生成的是凌晨或深夜时段，优先考虑睡眠、休息、安静活动；如果生成的是早餐/午餐/晚餐，则时间应落在合理餐段；不要生成明显违背现实作息的片段。',
     '21. 如果 decision.action 是 generate_new_fact，generated_fact.sceneSemantics 必须完整输出，用来说明本次编织的事件属于什么活动类型、与当天已知状态是什么连续关系，以及为什么这样判断。',
-    '22. 如果 decision.action 是 generate_new_fact，generated_fact.appearanceLogic 必须完整输出，用来说明这次事件是否延续当天穿着、是否需要换装、换装原因是什么、最终服装类型属于哪一类。',
-    '23. 外貌与穿着必须依赖具体事件本身，而不是脱离事件单独生成；例如运动、洗澡、入睡、正式出门、买到并换上新衣物，都会显著影响 appearanceLogic。',
-    '24. 如果没有足够理由触发换装，优先认为当天穿着具有连续性；不要无缘无故在同一天内频繁改变外貌描述。',
-  ].join('\n');
+      '22. 如果 decision.action 是 generate_new_fact，generated_fact.appearanceLogic 必须完整输出，用来说明这次事件是否延续当天穿着、是否需要换装、换装原因是什么、最终服装类型属于哪一类。',
+      '23. 外貌与穿着必须依赖具体事件本身，而不是脱离事件单独生成；例如运动、洗澡、入睡、正式出门、买到并换上新衣物，都会显著影响 appearanceLogic。',
+      '24. 如果没有足够理由触发换装，优先认为当天穿着具有连续性；不要无缘无故在同一天内频繁改变外貌描述。',
+      '25. 对 now 查询，如果 collector.conversation_context.should_prefer_conversation_continuity_for_now=true，则“刚刚还在和用户继续这段对话”应被视为最高优先级的近场现实。',
+      '26. 如果当前会话仍处于粘连窗口内，优先把当前状态理解为还在和用户继续刚才的话题、思考上一轮内容或准备回应，而不是立即跳到脱离当前会话的生活片段。',
+    ].join('\n');
 }
 
 function createTimelineQueryPlanner(
@@ -472,9 +491,17 @@ function buildTimelineReasonerMessage(collector: TimelineCollectorOutput): strin
         judged: true,
         is_continuing: true,
         reason: 'continuity reasoning summary',
-      },
-      rationale: {
-        summary: 'short summary',
+        },
+        conversation_context: {
+          is_recently_active: true,
+          minutes_since_last_turn: 3,
+          stickiness_window_minutes: 10,
+          active_topic_summary: 'what the conversation was just about',
+          should_prefer_conversation_continuity_for_now: true,
+          last_active_timestamp: 'optional timestamp',
+        },
+        rationale: {
+          summary: 'short summary',
         hard_fact_basis: ['...'],
         canon_basis: ['...'],
         persona_basis: ['...'],
@@ -594,7 +621,44 @@ function createTimelineResolveDependencies(
         pluginApi.logger?.debug?.('timeline sessionsHistory fallback to empty', {
           error: error instanceof Error ? error.message : String(error),
         });
-        return [];
+          return [];
+        }
+      },
+    conversationContext: async (window, input) => {
+      const sessionKey = toolContext.sessionKey;
+      const getSessionMessages = pluginApi.runtime?.subagent?.getSessionMessages;
+      if (!sessionKey || !getSessionMessages) {
+        return {
+          is_recently_active: false,
+          minutes_since_last_turn: null,
+          stickiness_window_minutes: runtimeConfig.conversationStickinessWindowMinutes,
+          active_topic_summary: '',
+          should_prefer_conversation_continuity_for_now: false,
+        };
+      }
+      try {
+        const session = await getSessionMessages({
+          sessionKey,
+          limit: runtimeConfig.sessionHistoryLimit,
+        });
+        return buildConversationContextFromMessages(
+          session.messages || [],
+          window.end,
+          input,
+          runtimeConfig.conversationStickinessWindowMinutes,
+          window.query_range,
+        );
+      } catch (error) {
+        pluginApi.logger?.debug?.('timeline conversationContext fallback to inactive', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          is_recently_active: false,
+          minutes_since_last_turn: null,
+          stickiness_window_minutes: runtimeConfig.conversationStickinessWindowMinutes,
+          active_topic_summary: '',
+          should_prefer_conversation_continuity_for_now: false,
+        };
       }
     },
     memoryGet: async (calendarDate) => {

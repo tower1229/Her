@@ -63,6 +63,14 @@ export interface TimelineCollectorOutput {
   hard_facts: {
     sessions_history: string[];
   };
+  conversation_context: {
+    is_recently_active: boolean;
+    minutes_since_last_turn: number | null;
+    stickiness_window_minutes: number;
+    active_topic_summary: string;
+    should_prefer_conversation_continuity_for_now: boolean;
+    last_active_timestamp?: string;
+  };
   canon_memory: {
     daily_logs: Array<{
       calendar_date: string;
