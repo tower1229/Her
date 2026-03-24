@@ -1,6 +1,6 @@
 {
-  "name": "timeline-plugin",
-  "version": "2.0.0-draft",
+  "name": "stella-timeline-plugin",
+  "version": "2.0.0",
   "description": "Native OpenClaw timeline plugin with a canonical timeline_resolve tool, bundled skill routing, and guarded append-only writes.",
   "keywords": [
     "openclaw",
@@ -11,13 +11,16 @@
     "episode",
     "persona"
   ],
-  "author": "",
+  "author": "tao.zang",
   "license": "MIT-0",
   "repository": {
     "type": "git",
     "url": "https://github.com/tower1229/Her"
   },
   "homepage": "https://github.com/tower1229/Her#readme",
+  "bugs": {
+    "url": "https://github.com/tower1229/Her/issues"
+  },
   "engines": {
     "node": ">=22.0.0"
   },
@@ -30,8 +33,18 @@
     "test:smoke": "node ./scripts/run-openclaw-smoke.mjs",
     "test:live-experience": "node ./scripts/run-openclaw-live-e2e.mjs",
     "migrate:memory": "node ./scripts/migrate-existing-memory.mjs --apply",
+    "setup:workspace": "node ./scripts/setup-openclaw-workspace.mjs",
+    "doctor:workspace": "node ./scripts/doctor-openclaw-workspace.mjs",
     "verify": "npm run typecheck && npm run build && npm run test:unit",
-    "pack:plugin": "npm pack"
+    "pack:plugin": "npm pack",
+    "release": "node ./scripts/release.mjs"
+  },
+  "bin": {
+    "openclaw-timeline-setup": "./bin/openclaw-timeline-setup.mjs",
+    "openclaw-timeline-doctor": "./bin/openclaw-timeline-doctor.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
@@ -43,8 +56,12 @@
   "main": "dist/index.js",
   "files": [
     "dist",
+    "bin",
+    "scripts",
     "skills",
     "openclaw.plugin.json",
+    "CHANGELOG.md",
+    "LICENSE",
     "README.md",
     "README_ZH.md"
   ],

@@ -27,21 +27,6 @@ Timeline 从头到尾想完成的核心目标其实一直很明确：
 
 当前仓库只是用新的 OpenClaw 插件架构来实现这个目标。
 
-## 文档语言约定
-
-从当前版本开始，项目中的设计文档、路线图、实现说明、验收说明统一使用中文撰写。
-
-这条约定的目的不是形式统一，而是降低设计讨论和实现协作中的语义漂移。
-不再保留继续扩散的英文设计文档；如确有对外需要，应以中文文档为源再做派生。
-
-## 当前设计约束
-
-从当前阶段开始，项目增加一条硬约束：
-
-- 需要 LLM 才能高质量完成的语义理解、人格化生成、回忆拼接和持续性推理，不允许 fallback 给脚本 heuristics。
-
-脚本层只负责秩序与约束，例如读取顺序、结构验证、冲突检查、append-only 写盘、trace 与诊断。
-
 ---
 
 ## 为什么需要 Timeline
@@ -113,14 +98,20 @@ Timeline 的价值不只是“答对一次”，而是让整条回答链路变�
 - 你只需要一个普通聊天 persona；
 - 你更想要自由写作式日记，而不是 canonical timeline memory；
 - 你不需要 trace / 诊断这类运维能力；
-- 你现在就必须要一个完全成熟的 GA 正式版插件。
+- 你更希望使用 OpenClaw 官方内建、而不是独立维护的时间线插件。
 
 ---
 
 ## 安装
 
-> 当前项目更适合作为 **draft 本地插件 / 可试运行的 runtime slice** 来看待。
-> 目前最现实的使用方式，是本地开发安装，或在你自己控制的 OpenClaw 环境中侧载。
+### 从 npm 安装
+
+```bash
+openclaw plugins install stella-timeline-plugin --pin
+openclaw plugins enable timeline-plugin
+```
+
+npm 包名使用 `stella-timeline-plugin`，但 OpenClaw 内部的插件 ID 仍然是 `timeline-plugin`。
 
 ### 从本地仓库安装
 
@@ -130,6 +121,7 @@ cd Her
 npm install
 npm run build
 openclaw plugins install -l .
+openclaw plugins enable timeline-plugin
 ```
 
 完成插件安装后，继续执行下面的必做步骤，不要跳过。
@@ -141,7 +133,7 @@ openclaw plugins install -l .
 - `package.json` 中的 `openclaw.extensions`
 - `index.ts`
 
-### 当前 draft 配置项
+### 当前配置项
 
 当前 manifest 暴露的配置项有：
 - `enableTrace`
@@ -153,7 +145,29 @@ openclaw plugins install -l .
 - `sessionHistoryLimit`
 - `memorySearchMaxResults`
 
-### 安装步骤 2：补充 `AGENTS.md`
+### 安装步骤 2：初始化 workspace 合约文件
+
+推荐直接执行：
+
+```bash
+npm exec --package=stella-timeline-plugin openclaw-timeline-setup -- --workspace ~/.openclaw/workspace
+```
+
+如果你是从本地仓库开发安装，也可以执行：
+
+```bash
+npm run setup:workspace -- --workspace ~/.openclaw/workspace
+```
+
+这个命令会幂等地补齐：
+
+- `AGENTS.md`
+- `SOUL.md`
+- canonical daily-log 根目录，默认是 `memory/`
+
+下面是它写入的合约内容，方便你审阅。
+
+### 安装步骤 2.1：补充 `AGENTS.md`
 
 把下面这段追加到你的 `~/.openclaw/workspace/AGENTS.md`：
 
@@ -241,6 +255,7 @@ npm run migrate:memory
 2. 确认插件能访问你配置的 canonical timeline 目录，默认是 `memory/`；
 3. 提一个明显的时间相关问题；
 4. 检查是否生成或复用了符合 Timeline 格式的 daily log；
+5. 运行 `npm exec --package=stella-timeline-plugin openclaw-timeline-doctor -- --workspace ~/.openclaw/workspace` 做一次自检；
 5. 如需验证真实自然问法行为，运行仓库自带的 `live-e2e`。
 
 当前默认 reasoner 路径会通过 OpenClaw subagent 复用你现有的 provider / model 链路，而不是在插件里再硬编码一条独立模型调用通道。

@@ -1,86 +1,133 @@
-# OpenClaw Timeline 插件
+# OpenClaw Timeline Plugin
 
-本仓库文档统一使用中文。
+Timeline gives OpenClaw a canonical time-aware memory layer for questions like:
 
-## Installation
+- What are you doing now?
+- What happened last night?
+- What have you been up to recently?
 
-After installing the plugin, complete the required post-installation step below.
+Instead of answering those from loose prompt conventions, Timeline routes them through a structured runtime that can reuse existing daily-log facts, reason over a time window, and append guarded new entries when policy allows it.
 
-### Required Step 2: Update `AGENTS.md`
+## What it ships
 
-Append the block below to `~/.openclaw/workspace/AGENTS.md`.
+- `timeline_resolve` as the canonical timeline tool
+- append-only daily-log writes with path and lock guards
+- bundled Timeline skill routing
+- trace logging for runtime diagnosis
+- smoke and unit test coverage for the plugin runtime
 
-This is part of installation, not an optional recommendation.
+## Install
 
-```markdown
-## Timeline Daily Log Contract
+### Install from npm
 
-`memory/YYYY-MM-DD.md` is the daily log for time-bound memories.
-
-When you write "what I am doing now", "what happened at a specific time", or "what I was doing during a period" into the daily log, you must use Timeline's structured format instead of free-form prose.
-
-Each daily-log memory should include these fields whenever possible:
-
-- `Timestamp`
-- `Location`
-- `Action`
-- `Emotion_Tags`
-- `Appearance`
-- `Internal_Monologue` (optional)
-
-Recommended shape:
-
-    ### [09:30:00] Reviewing today's tasks in the study...
-
-    - Timestamp: 2026-03-24 09:30:00
-    - Location: Home study
-    - Action: Sitting in the study reviewing today's tasks before starting the morning's work
-    - Emotion_Tags: [calm, focused]
-    - Appearance: Light home top, hair loosely tied up, a fresh cup of coffee on the desk
-    - Internal_Monologue: I want to finish the two most important things this morning first, then maybe go out later if the day goes well
-
-Do not store long-term durable facts in `memory/YYYY-MM-DD.md`; stable preferences, relationships, and long-term decisions still belong in `MEMORY.md`.
-
-Do not mix free-form daily-log writing with Timeline format. If a memory is about temporal state or recall, prefer Timeline-readable structure.
+```bash
+openclaw plugins install stella-timeline-plugin --pin
+openclaw plugins enable timeline-plugin
 ```
 
-### Required Step 2.5: Migrate Existing `memory/*.md`
+The npm package name is `stella-timeline-plugin`. The OpenClaw plugin id remains `timeline-plugin`.
 
-If you already had many daily memory files before installing Timeline, run:
+### Install from a local checkout
+
+```bash
+git clone https://github.com/tower1229/Her.git
+cd Her
+npm install
+npm run build
+openclaw plugins install -l .
+openclaw plugins enable timeline-plugin
+```
+
+## Required workspace setup
+
+Timeline needs contract text in the OpenClaw workspace so the agent writes and consumes daily logs consistently.
+
+Run:
+
+```bash
+npm exec --package=stella-timeline-plugin openclaw-timeline-setup -- --workspace ~/.openclaw/workspace
+```
+
+If you are working from a local checkout, you can also run:
+
+```bash
+npm run setup:workspace -- --workspace ~/.openclaw/workspace
+```
+
+That command idempotently updates:
+
+- `AGENTS.md`
+- `SOUL.md`
+- the canonical daily-log root, defaulting to `memory/`
+
+## Workspace doctor
+
+To verify the install:
+
+```bash
+npm exec --package=stella-timeline-plugin openclaw-timeline-doctor -- --workspace ~/.openclaw/workspace
+```
+
+From a local checkout:
+
+```bash
+npm run doctor:workspace -- --workspace ~/.openclaw/workspace
+```
+
+## Migrating existing daily logs
+
+If you already have `memory/YYYY-MM-DD.md` files, run:
 
 ```bash
 npm run migrate:memory
 ```
 
-The migration script rewrites only files it can safely recognize as Timeline-style daily logs, removes trailing free-form prose, and keeps a `.bak` backup next to every changed file. Files that are mostly free-form prose are left untouched.
+The migration script only rewrites files it can safely recognize as Timeline-style daily logs, keeps `.bak` backups, and leaves mostly free-form prose files untouched.
 
-### Required Step 3: Update `SOUL.md`
+## Configuration
 
-Append the block below to `~/.openclaw/workspace/SOUL.md`.
+The plugin manifest exposes:
 
-This is part of installation, not an optional recommendation.
+- `enableTrace`
+- `traceLogPath`
+- `canonicalMemoryRoot`
+- `reasonerTimeoutMs`
+- `reasonerSessionPrefix`
+- `reasonerMessageLimit`
+- `sessionHistoryLimit`
+- `memorySearchMaxResults`
 
-```markdown
-## Temporal Awareness And Recall
+## Operations notes
 
-You have clear temporal awareness and continuous recall.
+- Treat the plugin as trusted in-process code inside OpenClaw.
+- Keep the canonical memory root under versioned backup if the timeline matters to you.
+- Leave `enableTrace` on while integrating; disable it only if you have another observability path.
+- If you want Timeline data isolated from older free-form logs, point `canonicalMemoryRoot` at a dedicated directory.
 
-When the user asks about temporal state or recall-related questions, you must not answer directly from persona, recent chat context, `SOUL`, `IDENTITY`, `MEMORY`, or manually read timeline logs.
+## Development
 
-In those cases, you must first enter the timeline skill, and only then follow the skill's rules to decide how Timeline should be called and how the reply should be composed.
-
-You must not bypass the timeline skill by directly reading files under `memory/` and assembling the answer yourself.
-
-You must not treat `SOUL`, `IDENTITY`, or `MEMORY` as temporal facts.
-
-Only Timeline results are the final factual basis for temporal-state and recall questions.
-
-If the timeline skill decides to call `timeline_resolve`, follow the skill's specific instructions first.
-
-Do not mention `timeline_resolve` to the user. Speak naturally.
+```bash
+npm run verify
+npm run test:smoke
 ```
 
-请优先阅读：
+Optional live experience test:
+
+```bash
+npm run test:live-experience
+```
+
+## Publishing
+
+Use the release script to publish `stella-timeline-plugin`:
+
+```bash
+npm run release -- --version 2.0.0 --package-name stella-timeline-plugin --push
+```
+
+See [docs/PUBLISHING.md](./docs/PUBLISHING.md) for the local maintainer release flow.
+
+## Further reading
 
 - [README_ZH.md](./README_ZH.md)
 - [docs/timeline-north-star.md](./docs/timeline-north-star.md)

@@ -1,7 +1,7 @@
 {
   "id": "timeline-plugin",
   "name": "Timeline Plugin",
-  "version": "2.0.0-draft",
+  "version": "2.0.0",
   "description": "OpenClaw timeline runtime with canonical timeline_resolve, LLM-based temporal reasoning, and guarded append-only writes.",
   "entry": "dist/index.js",
   "skills": ["skills/timeline"],
@@ -11,40 +11,40 @@
       "enableTrace": {
         "type": "boolean",
         "default": true,
-        "description": "是否为 timeline 运行写入 trace 记录。"
+        "description": "Whether Timeline writes trace records for each runtime execution."
       },
       "traceLogPath": {
         "type": "string",
-        "description": "可选的 trace 日志路径；相对路径会相对 workspace 解析。"
+        "description": "Optional trace log path. Relative paths are resolved from the workspace."
       },
       "canonicalMemoryRoot": {
         "type": "string",
-        "description": "canonical timeline 日志根目录；相对路径会相对 workspace 解析。"
+        "description": "Root directory for canonical timeline daily logs. Relative paths are resolved from the workspace."
       },
       "reasonerTimeoutMs": {
         "type": "integer",
         "default": 45000,
-        "description": "内部时间推理 subagent 的超时时间，单位毫秒。"
+        "description": "Timeout for the internal timeline reasoner subagent, in milliseconds."
       },
       "reasonerSessionPrefix": {
         "type": "string",
         "default": "timeline-reasoner",
-        "description": "内部时间推理 subagent 的 session key 前缀。"
+        "description": "Session key prefix used for the internal timeline reasoner subagent."
       },
       "reasonerMessageLimit": {
         "type": "integer",
         "default": 24,
-        "description": "读取内部时间推理 subagent transcript 时保留的最大消息数。"
+        "description": "Maximum number of messages retained when reading the internal reasoner transcript."
       },
       "sessionHistoryLimit": {
         "type": "integer",
         "default": 12,
-        "description": "collector 读取当前会话历史时保留的最大消息数。"
+        "description": "Maximum number of current-session messages retained by the collector."
       },
       "memorySearchMaxResults": {
         "type": "integer",
         "default": 6,
-        "description": "collector 调用 OpenClaw memory_search 时请求的最大结果数。"
+        "description": "Maximum number of results requested when the collector calls OpenClaw memory_search."
       }
     },
     "additionalProperties": false
