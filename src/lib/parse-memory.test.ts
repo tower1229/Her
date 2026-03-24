@@ -74,7 +74,7 @@ describe('mapToEpisode', () => {
     expect(ep.temporal.start).toBe('2026-03-22T09:00:00+08:00');
     expect(ep.temporal.end).toBe('2026-03-22T10:00:00+08:00');
     expect(ep.temporal.time_of_day).toBe('morning');
-    expect(ep.state_snapshot.scene.location_kind).toBe('home');
+    expect(ep.state_snapshot.scene.location_kind).toBe('literal');
     expect(ep.state_snapshot.scene.location_label).toBe('卧室床边');
     expect(ep.state_snapshot.emotion.primary).toBe('sleepy');
     expect(ep.narrative.summary).toBe('在卧室床边醒来');

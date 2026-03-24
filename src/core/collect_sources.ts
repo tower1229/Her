@@ -47,7 +47,7 @@ export async function collectSources(
   );
 
   let memorySearch: string[] = [];
-  if (deps.memorySearch && (input.target_time_range === 'recent_3d' || input.target_time_range === 'natural_language')) {
+  if (deps.memorySearch && input.target_time_range !== 'now') {
     sourceOrder.push('memory_search');
     memorySearch = await deps.memorySearch(window, input);
   }

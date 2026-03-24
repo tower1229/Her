@@ -75,12 +75,13 @@ description: 当问题在询问当前状态、过去某个具体时间点、过�
 
 调用方式：
 
-如果用户原话里已经包含明确时间点或明确时间范围，优先把原话交给 Timeline：
+把用户原话交给 Timeline，并尽量在调用前把时间点归一化；如果你还没有把时间点归一化出来，也可以只传原话，让 Timeline 内部的时间 planner 先做归一化：
 
 ```json
 {
-  "target_time_range": "natural_language",
+  "target_time_range": "past_point",
   "query": "用户的原话",
+  "point_time": "如果你已经能归一化出明确时间点，就传 ISO-like 时间；否则省略",
   "mode": "allow_generate",
   "reason": "past_recall",
   "trace": true
@@ -110,31 +111,22 @@ description: 当问题在询问当前状态、过去某个具体时间点、过�
 
 调用方式：
 
-- 问“最近”时，`recent_3d` 是内部约定的特殊范围查询，表示“从此刻回看最近三天”：
+- 把用户原话交给 Timeline，并尽量在调用前把时间范围归一化；如果还没归一化出来，也可以只传原话，让 Timeline 内部的时间 planner 先做归一化：
 
 ```json
 {
-  "target_time_range": "recent_3d",
-  "mode": "allow_generate",
-  "reason": "past_recall",
-  "trace": true
-}
-```
-
-- 问“昨晚在做什么”“前天下午在忙什么”“这几天怎么样”这类更一般的时间范围问题时，应把用户原话直接交给 Timeline：
-
-```json
-{
-  "target_time_range": "natural_language",
+  "target_time_range": "past_range",
   "query": "用户的原话",
+  "start": "如果你已经能归一化出明确起点，就传 ISO-like 时间；否则省略",
+  "end": "如果你已经能归一化出明确终点，就传 ISO-like 时间；否则省略",
   "mode": "allow_generate",
   "reason": "past_recall",
   "trace": true
 }
 ```
 
-- “最近”只是这个场景里的一个特例，不是独立路由大类。
-- “昨晚”“昨天上午”“前天下午”这类自然语言范围，本质也属于范围查询，应让 Timeline 先理解成精确范围再检索或生成。
+- “最近”不是独立接口类型，而是 `past_range` 里的口语时间范围。
+- “昨晚”“昨天上午”“前天下午”这类自然语言范围，本质也属于 `past_range`，应先归一化成结构化时间范围，再交给 Timeline。
 
 回答要求：
 

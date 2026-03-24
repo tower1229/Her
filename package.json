@@ -46,8 +46,7 @@
     "skills",
     "openclaw.plugin.json",
     "README.md",
-    "README_ZH.md",
-    "CHANGELOG.md"
+    "README_ZH.md"
   ],
   "openclaw": {
     "extensions": [

@@ -206,7 +206,7 @@ Timeline 是否“做成了”，不以工具注册是否成功为判断标准�
 - Timeline 插件与工具骨架已成立；
 - `timeline_resolve` 已成为统一 runtime 入口；
 - collector / reasoner / guard / writer 四层主流程已落地；
-- `recent_3d` / 跨日窗口的 collector 已能收集多日日志事实；
+- 跨日窗口的 collector 已能收集多日日志事实；
 - 默认生产 reasoner 已通过 OpenClaw subagent 复用当前模型链路；
 - 受控 append-only 写入、trace、status、repair 已有基础实现；
 - 基础 skill 路由与 OpenClaw runtime 集成已打通。

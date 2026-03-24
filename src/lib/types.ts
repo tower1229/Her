@@ -20,7 +20,7 @@ export interface TimelineWindow {
   };
   window: {
     calendar_date: string;
-    preset: string; // "now" | "recent_3d" | "explicit"
+    preset: string; // "now" | "past_point" | "past_range"
     semantic_target?: string;
     collection_scope?: string;
     start: string;

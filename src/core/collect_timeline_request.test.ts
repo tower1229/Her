@@ -4,20 +4,22 @@ import { ResolvedWindow } from './resolve_window';
 describe('buildTimelineCollectorOutput', () => {
   it('collects candidate facts across multiple daily logs in the same window', () => {
     const window: ResolvedWindow = {
-      query_range: 'recent_3d',
+      query_range: 'past_range',
       semantic_target: 'past_range',
-      collection_scope: 'recent_3d',
+      collection_scope: 'explicit_range',
       start: '2026-03-20T00:00:00+08:00',
       end: '2026-03-22T21:00:00+08:00',
       calendar_date: '2026-03-22',
       timezone: 'Asia/Shanghai',
-      normalization_notes: ['recent_3d 是 past_range 的内部特殊范围约定。'],
+      normalization_notes: ['上游已将查询归一化为结构化时间范围。'],
     };
 
     const collector = buildTimelineCollectorOutput(
       'req-1',
       {
-        target_time_range: 'recent_3d',
+        target_time_range: 'past_range',
+        start: '2026-03-20T00:00:00+08:00',
+        end: '2026-03-22T21:00:00+08:00',
         mode: 'allow_generate',
         reason: 'past_recall',
       },

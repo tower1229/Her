@@ -87,6 +87,10 @@ function sanitizeVisibleText(raw: string): string {
   return lines.join('\n').trim();
 }
 
+function isProviderRateLimitText(text: string): boolean {
+  return /rate limit/i.test(text) || /too many requests/i.test(text) || /quota/i.test(text);
+}
+
 function runCommand(args: string[]): { status: number | null; stdout: string; stderr: string } {
   const result = spawnSync(openClawBin, args, {
     encoding: 'utf8',
@@ -229,6 +233,16 @@ async function runAgentTurn(sessionId: string, message: string): Promise<{ paylo
   const text = extractVisibleText(payload);
   if (!text) {
     throw new Error(`agent 返回中没有可见文本:\n${JSON.stringify(payload, null, 2)}`);
+  }
+  if (isProviderRateLimitText(text)) {
+    throw new Error(
+      [
+        '真实环境 E2E 被模型 provider 限流阻塞，而不是 Timeline 功能断言失败。',
+        `session_id: ${sessionId}`,
+        '当前可见回复：',
+        text,
+      ].join('\n'),
+    );
   }
   return { payload, text };
 }

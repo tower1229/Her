@@ -35,7 +35,7 @@ export interface TimelineTrace {
     error_code?: string;
     error?: string;
     recovery_hint?: string;
-    guard: 'not_attempted' | 'canonical_path' | 'range_policy' | 'lock' | 'conflict' | 'write_dependency';
+    guard: 'not_attempted' | 'canonical_path' | 'lock' | 'conflict' | 'write_dependency';
     writer: 'openclaw-timeline-plugin';
   };
   decision: {

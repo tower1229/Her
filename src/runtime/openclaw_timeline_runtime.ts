@@ -4,10 +4,12 @@ import {
   TimelineCollectorOutput,
   TimelineReasonerOutput,
 } from '../core/timeline_reasoner_contract';
+import { TimelineQueryPlan } from '../core/resolve_window';
 import {
   timelineResolve,
   timelineResolveToolSpec,
   TimelineRuntimeDependencies,
+  TimelineResolveInput,
 } from '../tools/timeline_resolve';
 
 interface PluginLoggerLike {
@@ -247,6 +249,50 @@ function tryExtractJsonObject(text: string): string {
   return candidate.slice(firstBrace, lastBrace + 1);
 }
 
+function makePlannerRequestId(): string {
+  return `timeline-plan-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+}
+
+function buildTimelineQueryPlannerSystemPrompt(): string {
+  return [
+    '你是 Timeline 插件内部的时间查询归一化器。',
+    '你的唯一任务，是把已经被上游判定为 past_point 或 past_range 的自然语言时间请求，归一化为结构化时间。',
+    '禁止调用任何工具，禁止输出 Markdown、解释或多余文本，只输出严格 JSON。',
+    '必须遵守这些约束：',
+    '1. now 查询不由你处理；这里只处理 past_point 或 past_range。',
+    '2. 你不能靠关键词机械枚举，而要真正理解用户语言中的时间语义。',
+    '3. past_point 必须输出 normalized_point。',
+    '4. past_range 必须输出 normalized_start 和 normalized_end。',
+    '5. 对“最近”这类口语范围，要结合 anchor.now 归一化成具体起止时间。',
+    '6. 对“昨晚”“今天”“昨天上午”这类表达，要给出符合现实习惯的合理时间范围。',
+    '7. 输出时间必须是带时区偏移的 ISO-like 时间戳。',
+  ].join('\n');
+}
+
+function buildTimelineQueryPlannerMessage(input: TimelineResolveInput, anchor: { now: string; timezone: string }, requestId: string): string {
+  return [
+    '请只根据下面的信息做时间归一化。',
+    '输出 JSON 对象，字段必须满足下列结构：',
+    JSON.stringify({
+      schema_version: '1.0',
+      request_id: requestId,
+      target_time_range: input.target_time_range,
+      normalized_point: 'past_point 时必填',
+      normalized_start: 'past_range 时必填',
+      normalized_end: 'past_range 时必填',
+      summary: '你如何理解用户时间语义的简短说明',
+    }, null, 2),
+    '',
+    'input:',
+    JSON.stringify({
+      target_time_range: input.target_time_range,
+      query: input.query,
+      anchor,
+      reason: input.reason,
+    }, null, 2),
+  ].join('\n');
+}
+
 function buildTimelineReasonerSystemPrompt(): string {
   return [
     '你是 Timeline 插件内部的时间语义推理器。',
@@ -260,14 +306,79 @@ function buildTimelineReasonerSystemPrompt(): string {
     '5. 如果当前信息不足且不应复用或生成，才允许 return_empty。',
     '6. continuity 字段必须如实表达是否做了延续性判断，以及判断理由。',
     '7. request_type 只能是 now、past_point、past_range。',
-    '8. recent_3d 只是口语“最近”的内部范围约定，本质属于 past_range。',
-    '9. continuity 不是独立请求类型；它只是 now 或 past_point 查询中的推理结果。',
-    '10. past_point 可以通过精确命中，或通过“较早事实自然持续到目标时间点”的方式命中。',
-    '11. past_range 需要先理解自然语言对应的时间范围，再从该范围内挑选最相关、最鲜活、最值得提的事实。',
-    '12. 如果用户在问“有趣”“好玩”“忙不忙”这类语义筛选词，必须先理解筛选语义，再决定复用什么事实或生成什么事实。',
-    '13. 如果为 past_point 或 past_range 生成新事实，generated_fact 应尽量提供一个合理的 timestamp，并保证它落在目标时间点或目标时间范围内，而不是默认落在当前时刻。',
-    '14. generated_fact 只输出结构化字段，不要输出自然正文、解释或额外叙述。',
+    '8. continuity 不是独立请求类型；它只是 now 或 past_point 查询中的推理结果。',
+    '9. past_point 可以通过精确命中，或通过“较早事实自然持续到目标时间点”的方式命中。',
+    '10. past_range 需要先理解已经归一化的时间范围，再从该范围内挑选最相关、最鲜活、最值得提的事实。',
+    '11. 如果用户在问“有趣”“好玩”“忙不忙”这类语义筛选词，必须先理解筛选语义，再决定复用什么事实或生成什么事实。',
+    '12. 如果为 past_point 或 past_range 生成新事实，generated_fact 应尽量提供一个合理的 timestamp，并保证它落在目标时间点或目标时间范围内，而不是默认落在当前时刻。',
+    '13. generated_fact 只输出结构化字段，不要输出自然正文、解释或额外叙述。',
   ].join('\n');
+}
+
+function createTimelineQueryPlanner(
+  pluginApi: PluginApiLike,
+  toolContext: PluginToolContextLike,
+  runtimeConfig: TimelinePluginRuntimeConfig,
+): TimelineRuntimeDependencies['planTimelineQuery'] {
+  return async (input, anchor) => {
+    const subagentRuntime = pluginApi.runtime?.subagent;
+    if (!subagentRuntime?.run || !subagentRuntime.waitForRun || !subagentRuntime.getSessionMessages) {
+      throw new Error('Timeline query planner dependency missing');
+    }
+    if (!String(input.query || '').trim()) {
+      throw new Error('Timeline query planner dependency missing query');
+    }
+
+    const requestId = makePlannerRequestId();
+    const baseSessionKey = toolContext.sessionKey || `plugin:${runtimeConfig.reasonerSessionPrefix}`;
+    const plannerSessionKey = `${baseSessionKey}:${runtimeConfig.reasonerSessionPrefix}:planner:${requestId}`;
+
+    try {
+      const runResult = await subagentRuntime.run({
+        sessionKey: plannerSessionKey,
+        message: buildTimelineQueryPlannerMessage(input, anchor, requestId),
+        extraSystemPrompt: buildTimelineQueryPlannerSystemPrompt(),
+        deliver: false,
+        idempotencyKey: requestId,
+      });
+      const waitResult = await subagentRuntime.waitForRun({
+        runId: runResult.runId,
+        timeoutMs: runtimeConfig.reasonerTimeoutMs,
+      });
+      if (waitResult.status === 'timeout') {
+        throw new Error('Timeline query planner returned no decision');
+      }
+      if (waitResult.status === 'error') {
+        throw new Error(waitResult.error || 'Timeline query planner returned no decision');
+      }
+
+      const session = await subagentRuntime.getSessionMessages({
+        sessionKey: plannerSessionKey,
+        limit: runtimeConfig.reasonerMessageLimit,
+      });
+      const assistantText = extractLatestAssistantText(session.messages || []);
+      const jsonText = tryExtractJsonObject(assistantText);
+      const parsed = JSON.parse(jsonText) as TimelineQueryPlan & { request_id?: string };
+      if (parsed.request_id && parsed.request_id !== requestId) {
+        throw new Error('Timeline query planner returned mismatched request_id');
+      }
+      if (parsed.target_time_range !== input.target_time_range) {
+        throw new Error('Timeline query planner changed the requested target_time_range');
+      }
+      return parsed;
+    } finally {
+      try {
+        await subagentRuntime.deleteSession?.({
+          sessionKey: plannerSessionKey,
+          deleteTranscript: true,
+        });
+      } catch (error) {
+        pluginApi.logger?.debug?.('timeline query planner session cleanup skipped', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  };
 }
 
 function buildTimelineReasonerMessage(collector: TimelineCollectorOutput): string {
@@ -450,6 +561,7 @@ function createTimelineResolveDependencies(
     memoryFilePath: (calendarDate) => path.join(canonicalRootPath, `${calendarDate}.md`),
     canonicalRootName,
     traceLogPath,
+    planTimelineQuery: createTimelineQueryPlanner(pluginApi, toolContext, runtimeConfig),
     reasonTimeline: createSubagentReasoner(pluginApi, toolContext, runtimeConfig),
   };
 }

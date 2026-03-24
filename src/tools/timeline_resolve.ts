@@ -17,7 +17,7 @@ import { assertCanonicalDailyLogPath } from '../storage/daily_log';
 import { FileLockError, withFileLock } from '../storage/lock';
 import { appendTraceLog } from '../storage/trace_log';
 import { writeEpisode, WriteEpisodeInput, WriteResult } from '../storage/write-episode';
-import { resolveWindow } from '../core/resolve_window';
+import { resolveWindow, TimelineQueryPlan } from '../core/resolve_window';
 
 export type TimelineResolveMode = 'read_only' | 'allow_generate';
 export type TimelineResolveReason =
@@ -52,7 +52,8 @@ export type TimelineResolutionMode =
   | 'error';
 
 export interface TimelineResolveInput {
-  target_time_range: 'now' | 'recent_3d' | 'explicit' | 'natural_language';
+  target_time_range: 'now' | 'past_point' | 'past_range';
+  point_time?: string;
   start?: string;
   end?: string;
   query?: string;
@@ -123,6 +124,7 @@ export interface TimelineRuntimeDependencies extends TimelineSourceDependencies 
   memoryFilePath?: (calendarDate: string) => string;
   canonicalRootName?: string;
   traceLogPath?: string;
+  planTimelineQuery?: (input: TimelineResolveInput, anchor: { now: string; timezone: string }) => Promise<TimelineQueryPlan>;
   reasonTimeline?: (collector: TimelineCollectorOutput) => Promise<TimelineReasonerOutput | null>;
 }
 
@@ -173,20 +175,45 @@ function getEffectiveTimelineDependencies(
 }
 
 function validateTimelineResolveInput(input: TimelineResolveInput): void {
-  if (input.target_time_range === 'natural_language' && !(input.query || '').trim()) {
-    throw new Error('natural_language range requires query');
+  if (input.target_time_range === 'past_point' && !String(input.point_time || '').trim() && !String(input.query || '').trim()) {
+    throw new Error('past_point requires point_time or query');
   }
 
-  if (input.target_time_range === 'explicit' && (!input.start || !input.end)) {
-    throw new Error('explicit range requires start and end');
+  if (input.target_time_range === 'past_range') {
+    const hasRange = String(input.start || '').trim() && String(input.end || '').trim();
+    const hasQuery = String(input.query || '').trim();
+    if (!hasRange && !hasQuery) {
+      throw new Error('past_range requires start/end or query');
+    }
+    if ((input.start && !input.end) || (!input.start && input.end)) {
+      throw new Error('past_range requires both start and end when using explicit range input');
+    }
   }
 }
 
 function classifyTimelineResolveError(error: Error): TimelineResolveErrorCode {
   const message = error.message || 'Unknown timeline_resolve failure';
-  if (message.includes('natural_language range requires query')) return 'INVALID_INPUT';
-  if (message.includes('Invalid explicit') || message.includes('explicit range')) return 'INVALID_RANGE';
-  if (message.includes('Timeline reasoner dependency missing') || message.includes('Timeline reasoner returned no decision')) {
+  if (
+    message.includes('past_point requires point_time or query')
+    || message.includes('past_range requires start/end or query')
+    || message.includes('past_range requires both start and end')
+  ) {
+    return 'INVALID_INPUT';
+  }
+  if (
+    message.includes('Invalid explicit range')
+    || message.includes('Invalid point_time')
+    || message.includes('Invalid start')
+    || message.includes('Invalid end')
+  ) {
+    return 'INVALID_RANGE';
+  }
+  if (
+    message.includes('Timeline reasoner dependency missing')
+    || message.includes('Timeline reasoner returned no decision')
+    || message.includes('Timeline query planner dependency missing')
+    || message.includes('Timeline query planner returned no decision')
+  ) {
     return 'REASONER_UNAVAILABLE';
   }
   if (message.includes('LLM generation')) return 'GENERATION_UNAVAILABLE';
@@ -304,6 +331,34 @@ function finalizeTimelineOutput(
 
 function makeRequestId(): string {
   return `timeline-request-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+}
+
+async function maybePlanTimelineQuery(
+  input: TimelineResolveInput,
+  deps: TimelineRuntimeDependencies,
+  anchor: { now: string; timezone: string },
+): Promise<TimelineQueryPlan | undefined> {
+  if (input.target_time_range === 'now') {
+    return undefined;
+  }
+
+  if (input.target_time_range === 'past_point' && input.point_time) {
+    return undefined;
+  }
+
+  if (input.target_time_range === 'past_range' && input.start && input.end) {
+    return undefined;
+  }
+
+  if (!deps.planTimelineQuery) {
+    throw new Error('Timeline query planner dependency missing');
+  }
+
+  const plan = await deps.planTimelineQuery(input, anchor);
+  if (!plan) {
+    throw new Error('Timeline query planner returned no decision');
+  }
+  return plan;
 }
 
 function buildWorldHooks(timestamp: string): { weekday: boolean; holiday_key: string | null } {
@@ -446,7 +501,11 @@ export async function timelineResolve(
     validateTimelineResolveInput(input);
 
     const currentTime = await deps.currentTime();
-    const window = resolveWindow(input, currentTime.now, input.timezone || currentTime.timezone);
+    const queryPlan = await maybePlanTimelineQuery(input, deps, {
+      now: currentTime.now,
+      timezone: input.timezone || currentTime.timezone,
+    });
+    const window = resolveWindow(input, currentTime.now, input.timezone || currentTime.timezone, queryPlan);
     const sources = await collectSources(deps, window, input);
     sourceOrder = sources.sourceOrder;
     const collector = buildTimelineCollectorOutput(makeRequestId(), input, window, sources);
@@ -790,8 +849,9 @@ export const timelineResolveToolSpec = {
     properties: {
       target_time_range: {
         type: 'string',
-        enum: ['now', 'recent_3d', 'explicit', 'natural_language'],
+        enum: ['now', 'past_point', 'past_range'],
       },
+      point_time: { type: 'string' },
       start: { type: 'string' },
       end: { type: 'string' },
       query: { type: 'string' },

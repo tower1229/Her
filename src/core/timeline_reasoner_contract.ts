@@ -28,7 +28,7 @@ export interface TimelineCollectorOutput {
   request_id: string;
   request: {
     user_query?: string;
-    target_time_range: 'now' | 'recent_3d' | 'explicit' | 'natural_language';
+    target_time_range: 'now' | 'past_point' | 'past_range';
     reason: string;
     mode: 'read_only' | 'allow_generate';
   };
@@ -37,7 +37,7 @@ export interface TimelineCollectorOutput {
     timezone: string;
   };
   window: {
-    query_range: 'now' | 'recent_3d' | 'explicit';
+    query_range: 'now' | 'past_point' | 'past_range';
     semantic_target: string;
     collection_scope: string;
     start: string;

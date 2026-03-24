@@ -103,16 +103,6 @@ export function mapTimeOfDay(timestamp: string): string {
   return 'evening';
 }
 
-export function mapLocationKind(location: string): string {
-  const lowerLoc = location.toLowerCase();
-  if (lowerLoc.includes('home') || lowerLoc.includes('家') || lowerLoc.includes('卧室') || lowerLoc.includes('书房')) return 'home';
-  if (lowerLoc.includes('cafe') || lowerLoc.includes('咖啡')) return 'cafe';
-  if (lowerLoc.includes('work') || lowerLoc.includes('office') || lowerLoc.includes('公司') || lowerLoc.includes('办公')) return 'work';
-  if (lowerLoc.includes('transit') || lowerLoc.includes('车') || lowerLoc.includes('地铁') || lowerLoc.includes('bus') || lowerLoc.includes('car')) return 'transit';
-  if (lowerLoc.includes('outdoor') || lowerLoc.includes('公园') || lowerLoc.includes('外') || lowerLoc.includes('park') || lowerLoc.includes('street')) return 'outdoor';
-  return 'other';
-}
-
 function buildNarrativeSummary(parsed: ParsedEpisode): string {
   const action = parsed.action && parsed.action !== 'unknown' ? parsed.action : '记录一个时间片段';
   const location = parsed.location && parsed.location !== 'unknown' ? `在${parsed.location}` : '';
@@ -166,7 +156,7 @@ export function mapToEpisode(
     },
     state_snapshot: {
       scene: {
-        location_kind: mapLocationKind(parsed.location),
+        location_kind: 'literal',
         location_label: parsed.location,
         activity: parsed.action,
         time_of_day: timeOfDay

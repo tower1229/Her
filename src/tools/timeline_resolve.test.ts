@@ -72,9 +72,9 @@ describe('timelineResolve', () => {
     expect(result.result?.consumption?.selfie_ready?.activity).toContain('整理');
   });
 
-  it('returns a contract error for natural_language requests without query', async () => {
+  it('returns a contract error for past_range requests without query or explicit range', async () => {
     const result = await timelineResolve({
-      target_time_range: 'natural_language',
+      target_time_range: 'past_range',
       mode: 'read_only',
       reason: 'past_recall',
       trace: true,
@@ -83,7 +83,7 @@ describe('timelineResolve', () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('expected contract error');
     expect(result.error.code).toBe('INVALID_INPUT');
-    expect(result.error.message).toContain('requires query');
+    expect(result.error.message).toContain('requires start/end or query');
     expect(result.trace_id).toContain('timeline-');
   });
 
@@ -282,7 +282,9 @@ describe('timelineResolve', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'natural_language',
+      target_time_range: 'past_range',
+      start: '2026-03-22T00:00:00+08:00',
+      end: '2026-03-22T12:00:00+08:00',
       query: '你上午不是在健身吗',
       mode: 'read_only',
       reason: 'past_recall',

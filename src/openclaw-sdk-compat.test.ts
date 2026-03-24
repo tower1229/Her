@@ -22,8 +22,7 @@ describe('timeline plugin entry compatibility shape', () => {
     if (!tool) throw new Error('timeline_resolve tool not registered');
 
     const result = await tool.execute('call-1', {
-      target_time_range: 'natural_language',
-      query: '你在干嘛',
+      target_time_range: 'now',
       mode: 'read_only',
       reason: 'current_status',
     });

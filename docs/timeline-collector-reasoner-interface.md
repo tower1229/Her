@@ -27,13 +27,13 @@ Timeline 内部查询语义只有三类：
 - `past_point`
 - `past_range`
 
-但当前 `timeline_resolve` 的外部输入仍保留过渡态字段：
+当前 `timeline_resolve` 的外部输入已经收敛为语义型字段：
 
 ```ts
-target_time_range: 'now' | 'recent_3d' | 'explicit' | 'natural_language'
+target_time_range: 'now' | 'past_point' | 'past_range'
 ```
 
-这层外部输入会先被归一化，再交给 collector 和 reasoner。归一化结果体现在：
+对 `past_point / past_range` 来说，上游应尽量提供结构化时间；如果还没有结构化时间，则由 Timeline 内部的 LLM query planner 先归一化，再交给 collector 和 reasoner。归一化结果体现在：
 
 - `window.semantic_target`
 - `window.collection_scope`
@@ -41,11 +41,9 @@ target_time_range: 'now' | 'recent_3d' | 'explicit' | 'natural_language'
 例如：
 
 - “你在干嘛” -> `semantic_target = now`
-- “昨晚八点你在做什么” -> `semantic_target = past_point`
-- “昨晚在做什么” -> `semantic_target = past_range`
-- “最近有什么有趣的事吗” -> `semantic_target = past_range`，同时 `collection_scope = recent_3d`
-
-`recent_3d` 不是第四类查询语义，只是“最近”这一口语表达的内部收集范围约定。
+- “昨晚八点你在做什么” -> `target_time_range = past_point`，再由 planner 或上游归一化出 `normalized_point`
+- “昨晚在做什么” -> `target_time_range = past_range`，再由 planner 或上游归一化出 `normalized_start / normalized_end`
+- “最近有什么有趣的事吗” -> `target_time_range = past_range`，再由 planner 或上游归一化出具体范围
 
 ## 3. Collector 输入
 
@@ -78,7 +76,7 @@ interface TimelineCollectorOutput {
   request_id: string;
   request: {
     user_query?: string;
-    target_time_range: 'now' | 'recent_3d' | 'explicit' | 'natural_language';
+    target_time_range: 'now' | 'past_point' | 'past_range';
     reason: string;
     mode: 'read_only' | 'allow_generate';
   };
@@ -87,7 +85,7 @@ interface TimelineCollectorOutput {
     timezone: string;
   };
   window: {
-    query_range: 'now' | 'recent_3d' | 'explicit';
+    query_range: 'now' | 'past_point' | 'past_range';
     semantic_target: string;
     collection_scope: string;
     start: string;
@@ -131,7 +129,6 @@ interface CollectedTimelineFact {
   emotion_tags: string[];
   appearance: string;
   internal_monologue?: string;
-  natural_text?: string;
   parse_level: 'A' | 'B';
   confidence: number;
 }
@@ -198,7 +195,6 @@ interface TimelineReasonerOutput {
     emotionTags: string[];
     appearance: string;
     internalMonologue: string;
-    naturalText: string;
     confidence: number;
     reason?: string;
   };

@@ -271,7 +271,9 @@ describe('timelineResolve generation path', () => {
     });
 
     const result = await timelineResolve({
-      target_time_range: 'recent_3d',
+      target_time_range: 'past_range',
+      start: '2026-03-19T21:30:00+08:00',
+      end: '2026-03-22T21:30:00+08:00',
       mode: 'allow_generate',
       reason: 'past_recall',
       trace: true,

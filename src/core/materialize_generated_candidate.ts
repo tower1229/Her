@@ -73,7 +73,7 @@ export function materializeGeneratedCandidate(
   const dayEpisodes = parseMemoryFile(currentDayLog?.raw_content || '');
 
   const priorEpisode = dayEpisodes[dayEpisodes.length - 1];
-  const appearanceResolution = resolveAppearance(dayEpisodes, normalized.action, normalized.appearance);
+  const appearanceResolution = resolveAppearance(dayEpisodes, normalized.appearance);
   const parsed: ParsedEpisode = {
     timestamp: candidateTimestamp,
     location: normalized.location,
