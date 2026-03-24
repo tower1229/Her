@@ -1,3 +1,4 @@
+import { parseTimestampParts } from './time-utils';
 import { ParsedEpisode } from './types';
 
 function normalize(s: string): string {
@@ -5,21 +6,27 @@ function normalize(s: string): string {
 }
 
 function toTimeBucket(timestamp: string): string {
-  // Try to parse timestamp e.g. "2026-03-22 14:35:00" or "2026-03-22T14:35:00+08:00"
-  let dateObj = new Date(timestamp);
-  if (isNaN(dateObj.getTime())) {
-    // If invalid, try basic regex parsing for HH:mm
-    const timeMatch = timestamp.match(/(\d{2}):(\d{2})/);
-    if (timeMatch) {
-      dateObj = new Date();
-      dateObj.setHours(parseInt(timeMatch[1], 10), parseInt(timeMatch[2], 10), 0, 0);
-    } else {
-      return 'unknown_time';
-    }
+  const parts = parseTimestampParts(timestamp);
+  if (parts) {
+    const hours = String(parts.hour).padStart(2, '0');
+    const minutes = parts.minute >= 30 ? '30' : '00';
+    return `${hours}:${minutes}`;
   }
 
-  const hours = dateObj.getHours().toString().padStart(2, '0');
-  const minutes = dateObj.getMinutes() >= 30 ? '30' : '00';
+  // Try to parse timestamp e.g. "2026-03-22 14:35:00" or other host-local date strings.
+  const dateObj = new Date(timestamp);
+  if (!isNaN(dateObj.getTime())) {
+    const hours = dateObj.getHours().toString().padStart(2, '0');
+    const minutes = dateObj.getMinutes() >= 30 ? '30' : '00';
+    return `${hours}:${minutes}`;
+  }
+
+  const timeMatch = timestamp.match(/(\d{2}):(\d{2})/);
+  if (!timeMatch) {
+    return 'unknown_time';
+  }
+  const hours = timeMatch[1];
+  const minutes = Number(timeMatch[2]) >= 30 ? '30' : '00';
   return `${hours}:${minutes}`;
 }
 

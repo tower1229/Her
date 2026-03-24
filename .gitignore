@@ -3,3 +3,5 @@ dist/
 scripts/.cache/
 test-out.txt
 memory/
+.env
+.env.*
