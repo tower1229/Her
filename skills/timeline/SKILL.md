@@ -22,8 +22,8 @@ description: 当问题在询问当前状态、过去某个具体时间点、过�
 1. 涉及时间现实的问题，先调用 `timeline_resolve`，后回答。
 2. 不要只根据 `SOUL.md`、`IDENTITY.md`、`MEMORY.md` 直接回答“现在在做什么”或“最近发生了什么”。
 3. `SOUL` / `IDENTITY` / `MEMORY` 只用于帮助理解和表述，不能替代 Timeline 事实。
-4. 不要自己把请求拆成 `now / past_point / past_range` 再硬编码进参数；直接把自然语言 query 交给 Timeline。
-5. 不要自己归一化“昨晚八点”“最近”“昨晚”之类时间表达；这由 Timeline 内部 planner 处理。
+4. 不要在调用前自行把 query 改写成结构化时间参数。
+5. 时间分类与时间归一化统一交给 Timeline 内部处理。
 6. `timeline_resolve` 返回既有事实时，优先复用；不要改写它。
 7. 如果用户是普通闲聊而不是严格只读校验，允许 Timeline 生成缺失事实并写入 canon。
 
@@ -33,21 +33,11 @@ description: 当问题在询问当前状态、过去某个具体时间点、过�
 
 ```json
 {
-  "query": "用户的原话",
-  "mode": "allow_generate"
+  "query": "用户的原话"
 }
 ```
 
-只有在你明确不希望这次调用生成新事实时，才改成：
-
-```json
-{
-  "query": "用户的原话",
-  "mode": "read_only"
-}
-```
-
-不要向 `timeline_resolve` 传时间点、时间范围、请求类型或调试字段。它的公开入口就是自然语言 query。
+不要向 `timeline_resolve` 传时间点、时间范围、请求类型、模式或调试字段。它的公开入口就是自然语言 query。
 
 ## 场景拆分
 

@@ -816,7 +816,6 @@ export const timelineResolveToolSpec = {
     type: 'object',
     properties: {
       query: { type: 'string' },
-      mode: { type: 'string', enum: ['read_only', 'allow_generate'] },
     },
     required: ['query'],
     additionalProperties: false,

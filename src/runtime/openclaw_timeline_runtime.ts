@@ -344,7 +344,6 @@ function buildTimelineQueryPlannerMessage(input: TimelineResolveInput, anchor: {
     JSON.stringify({
       query: input.query,
       anchor,
-      mode: input.mode || 'allow_generate',
     }, null, 2),
   ].join('\n');
 }

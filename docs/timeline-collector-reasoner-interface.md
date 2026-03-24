@@ -32,7 +32,6 @@ Timeline 内部查询语义只有三类：
 ```ts
 {
   query: string;
-  mode?: 'read_only' | 'allow_generate';
 }
 ```
 

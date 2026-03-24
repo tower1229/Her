@@ -138,7 +138,6 @@ describe('openclaw timeline runtime factories', () => {
 
     const result = await tool.execute('call-1', {
       query: '你在干嘛',
-      mode: 'allow_generate',
     });
 
     const payload = result.details as { ok: boolean; resolution_summary: { mode: string }; result?: { episodes: unknown[] } };

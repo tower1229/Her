@@ -23,7 +23,6 @@ describe('timeline plugin entry compatibility shape', () => {
 
     const result = await tool.execute('call-1', {
       query: '你在干嘛',
-      mode: 'read_only',
     });
 
     expect(result.content[0]?.type).toBe('text');
