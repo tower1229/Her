@@ -1,37 +1,42 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { execFileSync, execSync } from 'child_process';
-
-function findOpenClawReplyModule(): string {
-  const npmRoot = execSync('npm root -g', { encoding: 'utf8' }).trim();
-  const distDir = path.join(npmRoot, 'openclaw', 'dist');
-  const replyModule = fs.readdirSync(distDir).find((entry) => /^reply-.*\.js$/.test(entry));
-  if (!replyModule) {
-    throw new Error(`Unable to locate OpenClaw reply bundle under ${distDir}`);
-  }
-  return path.join(distDir, replyModule);
-}
+import { execFileSync } from 'child_process';
 
 const smokeEnabled = process.env.OPENCLAW_RUNTIME_SMOKE === '1';
-const describeIfSmoke = smokeEnabled ? describe : describe.skip;
+const runtimeModulePath = process.env.OPENCLAW_RUNTIME_MODULE?.trim() || '';
+const smokeNodeBin = process.env.OPENCLAW_NODE_BIN?.trim() || process.execPath;
+const runtimeModuleSource = runtimeModulePath && fs.existsSync(runtimeModulePath)
+  ? fs.readFileSync(runtimeModulePath, 'utf8')
+  : '';
+
+function resolveExportAlias(source: string, symbolName: string): string {
+  const aliasMatch = source.match(new RegExp(`\\b${symbolName} as ([\\w$]+)`));
+  if (aliasMatch?.[1]) return aliasMatch[1];
+  return symbolName;
+}
+
+const loadOpenClawPluginsExport = resolveExportAlias(runtimeModuleSource, 'loadOpenClawPlugins');
+const resolvePluginToolsExport = resolveExportAlias(runtimeModuleSource, 'resolvePluginTools');
+const smokeReady = smokeEnabled && runtimeModulePath && fs.existsSync(runtimeModulePath) && Boolean(runtimeModuleSource);
+const describeIfSmoke = smokeReady ? describe : describe.skip;
 
 describeIfSmoke('OpenClaw runtime smoke', () => {
   it('loads the plugin through the real OpenClaw loader and resolves the canonical tool', () => {
-    const replyModulePath = findOpenClawReplyModule();
     const repoRoot = path.resolve(__dirname, '..', '..');
     const script = `
       import { pathToFileURL } from 'node:url';
-      const runtime = await import(pathToFileURL(${JSON.stringify(replyModulePath)}).href);
-      const findRuntimeExport = (signature) => {
-        for (const value of Object.values(runtime)) {
-          if (typeof value === 'function' && String(value).includes(signature)) {
-            return value;
-          }
-        }
-        throw new Error('Unable to find OpenClaw runtime export containing signature: ' + signature);
-      };
-      const loadOpenClawPlugins = findRuntimeExport('function loadOpenClawPlugins');
-      const resolvePluginTools = findRuntimeExport('function resolvePluginTools');
+      const runtime = await import(pathToFileURL(${JSON.stringify(runtimeModulePath)}).href);
+      const loadOpenClawPlugins = runtime[${JSON.stringify(loadOpenClawPluginsExport)}]
+        || runtime.loadOpenClawPlugins
+        || runtime.default?.[${JSON.stringify(loadOpenClawPluginsExport)}]
+        || runtime.default?.loadOpenClawPlugins;
+      const resolvePluginTools = runtime[${JSON.stringify(resolvePluginToolsExport)}]
+        || runtime.resolvePluginTools
+        || runtime.default?.[${JSON.stringify(resolvePluginToolsExport)}]
+        || runtime.default?.resolvePluginTools;
+      if (typeof loadOpenClawPlugins !== 'function' || typeof resolvePluginTools !== 'function') {
+        throw new Error('Unable to resolve OpenClaw runtime exports from ' + ${JSON.stringify(runtimeModulePath)});
+      }
       const config = {
         plugins: {
           allow: ['stella-timeline-plugin'],
@@ -51,6 +56,7 @@ describeIfSmoke('OpenClaw runtime smoke', () => {
         toolAllowlist: ['stella-timeline-plugin'],
       });
       console.log(JSON.stringify({
+        runtimeModulePath: ${JSON.stringify(runtimeModulePath)},
         plugin: plugin ? {
           status: plugin.status,
           toolNames: plugin.toolNames,
@@ -58,7 +64,7 @@ describeIfSmoke('OpenClaw runtime smoke', () => {
         resolvedToolNames: resolvedTools.map((tool) => tool.name),
       }));
     `;
-    const raw = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+    const raw = execFileSync(smokeNodeBin, ['--input-type=module', '-e', script], {
       cwd: repoRoot,
       encoding: 'utf8',
     }).trim();
@@ -71,6 +77,7 @@ describeIfSmoke('OpenClaw runtime smoke', () => {
       throw new Error(`OpenClaw smoke script did not emit a JSON payload.\n${raw}`);
     }
     const payload = JSON.parse(jsonLine) as {
+      runtimeModulePath?: string;
       plugin: null | {
         status: string;
         toolNames: string[];
