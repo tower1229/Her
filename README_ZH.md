@@ -214,7 +214,7 @@ openclaw plugins install -l .
 
 但它仍然**不是最终的 GA 正式版**。
 当前距离正式发布，最大的差距主要在：
-- 自然对话路由与体验型 E2E 还没成为主验收标准；
+- 自然问法 live-e2e 虽然已经落地，但连续性追问与下游技能联调还没纳入主回归集；
 - 连续性推理与 gap-fill generation 的质量还需要继续打磨；
 - 下游 skill 的稳定消费协议尚未定稿；
 - timeline -> selfie 等跨 skill 联动还未正式打通。
@@ -235,4 +235,28 @@ openclaw plugins install -l .
 npm install
 npm run build
 npm test
+```
+
+如果要运行直接驱动你本机已安装、已启动 OpenClaw 的真实环境体验 E2E，可额外执行：
+
+```bash
+npm run test:live-experience
+```
+
+这组测试会直接复用你当前活配置中的 OpenClaw、真实 plugin 安装态、真实 workspace 和真实模型链路。它会在测试开始时临时覆盖 workspace 里的 `SOUL.md`、`MEMORY.md`、`IDENTITY.md` 以及目标日期对应的 timeline 文件，运行自然问法后检查真实回复与真实 trace，再把这些文件恢复。
+
+当前覆盖的自然问法包括：
+- “你在干嘛”
+- “最近有什么有趣的事吗”
+
+如果你的 `openclaw` 不在默认 PATH 中，也可以显式指定：
+
+```bash
+OPENCLAW_BIN=/Users/zangtao/.nvm/versions/node/v24.9.0/bin/openclaw npm run test:live-experience
+```
+
+如果你希望指定非默认配置文件，也可以显式传入：
+
+```bash
+OPENCLAW_LIVE_CONFIG_PATH=/绝对路径/openclaw.json OPENCLAW_BIN=/Users/zangtao/.nvm/versions/node/v24.9.0/bin/openclaw npm run test:live-experience
 ```

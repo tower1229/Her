@@ -27,6 +27,7 @@
     "test": "node node_modules/jest/bin/jest.js --runInBand",
     "test:unit": "node node_modules/jest/bin/jest.js --runInBand",
     "test:smoke": "node ./scripts/run-openclaw-smoke.mjs",
+    "test:live-experience": "node ./scripts/run-openclaw-live-e2e.mjs",
     "verify": "npm run typecheck && npm run build && npm run test:unit",
     "pack:plugin": "npm pack"
   },
