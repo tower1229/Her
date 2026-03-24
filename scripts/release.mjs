@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -9,7 +10,7 @@ const packageJsonPath = path.join(repoRoot, 'package.json');
 const packageLockPath = path.join(repoRoot, 'package-lock.json');
 const pluginManifestPath = path.join(repoRoot, 'openclaw.plugin.json');
 const pluginMetadataPath = path.join(repoRoot, 'src', 'plugin_metadata.ts');
-const changelogPath = path.join(repoRoot, 'CHANGELOG.md');
+const releaseTempDir = process.platform === 'win32' ? os.tmpdir() : '/tmp';
 
 function parseArgs(argv) {
   const options = {
@@ -89,6 +90,14 @@ function run(command, args, extra = {}) {
   const result = spawnSync(command, args, {
     cwd: repoRoot,
     stdio: 'inherit',
+    env: {
+      ...process.env,
+      npm_config_cache: path.join(releaseTempDir, 'stella-timeline-plugin-npm-cache'),
+      TMPDIR: releaseTempDir,
+      TMP: releaseTempDir,
+      TEMP: releaseTempDir,
+      ...extra.env,
+    },
     ...extra,
   });
   if (result.status !== 0) {
@@ -122,20 +131,6 @@ function updatePluginMetadata(content, version) {
   );
 }
 
-function updateChangelog(content, version) {
-  const date = new Date().toISOString().slice(0, 10);
-  const heading = `## [${version}] - ${date}`;
-  if (content.includes(heading)) return content;
-  const unreleasedHeading = '## [Unreleased]';
-  if (content.includes(unreleasedHeading)) {
-    return content.replace(
-      unreleasedHeading,
-      `${unreleasedHeading}\n\n## [${version}] - ${date}\n\n- Formal release.`,
-    );
-  }
-  return `${content.trimEnd()}\n\n${heading}\n\n- Formal release.\n`;
-}
-
 function validatePackageMetadata(packageJson) {
   const version = String(packageJson.version || '').trim();
   const packageName = String(packageJson.name || '').trim();
@@ -164,7 +159,6 @@ function main() {
     [packageLockPath, readText(packageLockPath)],
     [pluginManifestPath, readText(pluginManifestPath)],
     [pluginMetadataPath, readText(pluginMetadataPath)],
-    [changelogPath, readText(changelogPath)],
   ]);
 
   try {
@@ -185,7 +179,6 @@ function main() {
     writeJson(packageLockPath, packageLock);
     writeJson(pluginManifestPath, pluginManifest);
     writeText(pluginMetadataPath, updatePluginMetadata(readText(pluginMetadataPath), version));
-    writeText(changelogPath, updateChangelog(readText(changelogPath), version));
 
     run(npmCommand(), ['run', 'verify']);
     run(npmCommand(), ['pack', '--dry-run']);
@@ -199,7 +192,7 @@ function main() {
     }
 
     if (options.commit) {
-      run('git', ['add', 'package.json', 'package-lock.json', 'openclaw.plugin.json', 'src/plugin_metadata.ts', 'CHANGELOG.md']);
+      run('git', ['add', 'package.json', 'package-lock.json', 'openclaw.plugin.json', 'src/plugin_metadata.ts']);
       run('git', ['commit', '-m', `release: ${version}`]);
     }
 

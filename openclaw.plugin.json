@@ -4,7 +4,9 @@
   "version": "2.0.0",
   "description": "OpenClaw timeline runtime with canonical timeline_resolve, LLM-based temporal reasoning, and guarded append-only writes.",
   "entry": "dist/index.js",
-  "skills": ["skills/timeline"],
+  "skills": [
+    "skills/timeline"
+  ],
   "configSchema": {
     "type": "object",
     "properties": {

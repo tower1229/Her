@@ -22,10 +22,9 @@ npm run release -- --push
 That command:
 
 1. synchronizes the version across package metadata;
-2. updates `CHANGELOG.md`;
-3. runs `npm run verify`;
-4. runs `npm pack --dry-run`;
-5. creates a git commit and tag.
+2. runs `npm run verify`;
+3. runs `npm pack --dry-run`;
+4. creates a git commit and tag.
 
 Add `--publish` to publish directly to npm from your machine after verification:
 
