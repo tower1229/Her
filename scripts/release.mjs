@@ -2,8 +2,22 @@
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+function syncPluginVersion() {
+  const pkgPath = path.join(repoRoot, 'package.json');
+  const pluginManifestPath = path.join(repoRoot, 'openclaw.plugin.json');
+
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+  const pluginManifest = JSON.parse(fs.readFileSync(pluginManifestPath, 'utf8'));
+
+  if (pluginManifest.version !== pkg.version) {
+    pluginManifest.version = pkg.version;
+    fs.writeFileSync(pluginManifestPath, `${JSON.stringify(pluginManifest, null, 2)}\n`, 'utf8');
+  }
+}
 
 function npmCommand() {
   return process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -42,6 +56,9 @@ function main() {
     printHelp();
     return;
   }
+
+  // Keep OpenClaw plugin manifest version aligned with the npm package version.
+  syncPluginVersion();
 
   run(npmCommand(), ['run', 'verify']);
   run(npmCommand(), ['publish', ...publishArgs]);
