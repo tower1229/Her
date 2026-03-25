@@ -19,6 +19,27 @@ function syncPluginVersion() {
   }
 }
 
+function syncPluginMetadataVersion() {
+  const pkgPath = path.join(repoRoot, 'package.json');
+  const metadataPath = path.join(repoRoot, 'src', 'plugin_metadata.ts');
+
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+  const metadataSource = fs.readFileSync(metadataPath, 'utf8');
+  const nextVersion = String(pkg.version);
+
+  const updatedSource = metadataSource.replace(
+    /export const TIMELINE_PLUGIN_VERSION\s*=\s*'[^']*';/,
+    `export const TIMELINE_PLUGIN_VERSION = '${nextVersion}';`,
+  );
+
+  // If the regex doesn't match, don't silently proceed with a wrong release.
+  if (updatedSource === metadataSource) {
+    throw new Error(`Unable to sync TIMELINE_PLUGIN_VERSION in ${metadataPath}`);
+  }
+
+  fs.writeFileSync(metadataPath, `${updatedSource}\n`, 'utf8');
+}
+
 function npmCommand() {
   return process.platform === 'win32' ? 'npm.cmd' : 'npm';
 }
@@ -59,6 +80,7 @@ function main() {
 
   // Keep OpenClaw plugin manifest version aligned with the npm package version.
   syncPluginVersion();
+  syncPluginMetadataVersion();
 
   run(npmCommand(), ['run', 'verify']);
   run(npmCommand(), ['publish', ...publishArgs]);
