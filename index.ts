@@ -16,7 +16,7 @@ export const timelinePluginEntry = definePluginEntry({
   name: TIMELINE_PLUGIN_NAME,
   description: TIMELINE_PLUGIN_DESCRIPTION,
   register(api) {
-    api.registerTool(makeTimelineToolRegistration(), { optional: true });
+    api.registerTool(makeTimelineToolRegistration());
   },
 });
 
@@ -42,7 +42,7 @@ const openClawTimelinePlugin = {
     ) => void;
   }) {
     const runtimeApi = api as any;
-    api.registerTool(makeOpenClawTimelineResolveToolFactory(runtimeApi), { optional: true });
+    api.registerTool(makeOpenClawTimelineResolveToolFactory(runtimeApi));
   },
 };
 

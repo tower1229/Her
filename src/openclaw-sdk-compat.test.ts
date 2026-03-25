@@ -4,7 +4,7 @@ describe('timeline plugin entry compatibility shape', () => {
   it('materializes a definePluginEntry-style registration with the canonical tool only', () => {
     expect(timelinePluginEntry.id).toBe('stella-timeline-plugin');
     expect(timelinePlugin.tools.map((tool) => tool.name)).toEqual(['timeline_resolve']);
-    expect(timelinePlugin.tools.find((tool) => tool.name === 'timeline_resolve')?.optional).toBe(true);
+    expect(timelinePlugin.tools.find((tool) => tool.name === 'timeline_resolve')?.optional).toBeUndefined();
   });
 
   it('keeps manifest, package, and runtime entry metadata aligned', () => {
