@@ -27,17 +27,20 @@ function syncPluginMetadataVersion() {
   const metadataSource = fs.readFileSync(metadataPath, 'utf8');
   const nextVersion = String(pkg.version);
 
-  const updatedSource = metadataSource.replace(
-    /export const TIMELINE_PLUGIN_VERSION\s*=\s*'[^']*';/,
-    `export const TIMELINE_PLUGIN_VERSION = '${nextVersion}';`,
-  );
-
+  const versionDeclRegex = /export const TIMELINE_PLUGIN_VERSION\s*=\s*'[^']*';/;
   // If the regex doesn't match, don't silently proceed with a wrong release.
-  if (updatedSource === metadataSource) {
+  if (!versionDeclRegex.test(metadataSource)) {
     throw new Error(`Unable to sync TIMELINE_PLUGIN_VERSION in ${metadataPath}`);
   }
 
-  fs.writeFileSync(metadataPath, `${updatedSource}\n`, 'utf8');
+  const updatedSource = metadataSource.replace(
+    versionDeclRegex,
+    `export const TIMELINE_PLUGIN_VERSION = '${nextVersion}';`,
+  );
+
+  if (updatedSource !== metadataSource) {
+    fs.writeFileSync(metadataPath, `${updatedSource}\n`, 'utf8');
+  }
 }
 
 function npmCommand() {
