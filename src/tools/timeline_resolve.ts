@@ -198,6 +198,16 @@ function classifyTimelineResolveError(error: Error): TimelineResolveErrorCode {
   ) {
     return 'REASONER_UNAVAILABLE';
   }
+  if (
+    message.includes('Timeline reasoner returned mismatched request_id')
+    || message.includes('Timeline reasoner did not return a JSON object')
+    || message.includes('Timeline reasoner did not return a parseable JSON object')
+    || message.includes('Timeline query planner returned mismatched request_id')
+    || message.includes('Timeline query planner did not return a JSON object')
+    || message.includes('Timeline query planner did not return a parseable JSON object')
+  ) {
+    return 'INVALID_REASONER_OUTPUT';
+  }
   if (message.includes('LLM generation')) return 'GENERATION_UNAVAILABLE';
   if (message.includes('Generated draft')) return 'GENERATION_UNAVAILABLE';
   if (message.includes('Invalid reasoner output')) return 'INVALID_REASONER_OUTPUT';

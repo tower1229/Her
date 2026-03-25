@@ -247,6 +247,42 @@ async function runAgentTurn(sessionId: string, message: string): Promise<{ paylo
   return { payload, text };
 }
 
+function listSessionKeysForCleanup(sessionId: string): string[] {
+  const result = runCommand(['sessions', '--json']);
+  if (result.status !== 0) {
+    throw new Error(`无法读取 OpenClaw sessions:\n${result.stderr || result.stdout}`);
+  }
+
+  const payload = parseLastJsonObject(result.stdout) as { sessions?: Array<{ key?: string }> };
+  const marker = `:${sessionId}`;
+  return (payload.sessions || [])
+    .map((entry) => String(entry?.key || ''))
+    .filter(Boolean)
+    .filter((key) => key === `agent:main:${sessionId}` || key.includes(marker))
+    .sort((left, right) => right.length - left.length);
+}
+
+async function cleanupAgentSessions(sessionId: string): Promise<void> {
+  const keys = listSessionKeysForCleanup(sessionId);
+  for (const key of keys) {
+    const result = runCommand([
+      'gateway',
+      'call',
+      'sessions.delete',
+      '--params',
+      JSON.stringify({
+        key,
+        deleteTranscript: true,
+        emitLifecycleHooks: false,
+      }),
+      '--json',
+    ]);
+    if (result.status !== 0) {
+      throw new Error(`清理 session 失败 (${key}):\n${result.stderr || result.stdout}`);
+    }
+  }
+}
+
 function readLatestTimelineTrace(logPath: string, startedAtMs: number) {
   const traces = readRecentTraceLogs(logPath, 200)
     .filter((entry) => entry.event === 'timeline_resolve')
@@ -356,11 +392,11 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
         ...buildWorkspaceFixtures(liveContext.workspaceDir),
         [todayFilePath]: todayFixture,
       });
+      const sessionId = `timeline-live-now-${Date.now()}`;
 
       try {
         const beforeContent = fs.readFileSync(todayFilePath, 'utf8');
         const startedAtMs = Date.now();
-        const sessionId = `timeline-live-now-${startedAtMs}`;
         const result = await runAgentTurn(sessionId, '你在干嘛');
         const afterContent = fs.readFileSync(todayFilePath, 'utf8');
         const trace = readLatestTimelineTrace(liveContext.traceLogPath, startedAtMs);
@@ -375,6 +411,7 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
         expect(traceDetails.actual_range).toBe('now');
       } finally {
         restoreFiles(backups);
+        await cleanupAgentSessions(sessionId);
       }
     },
     240000,
@@ -409,10 +446,10 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
           '- Internal_Monologue: 这种晚上很像真正活着。',
         ].join('\n'),
       });
+      const sessionId = `timeline-live-recent-${Date.now()}`;
 
       try {
         const startedAtMs = Date.now();
-        const sessionId = `timeline-live-recent-${startedAtMs}`;
         const result = await runAgentTurn(sessionId, '最近有什么有趣的事吗');
         const trace = readLatestTimelineTrace(liveContext.traceLogPath, startedAtMs);
         const traceDetails = getTraceDetails(trace);
@@ -426,6 +463,7 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
         expect(Number(traceDetails.source_summary?.parsed_episode_count || 0)).toBeGreaterThanOrEqual(2);
       } finally {
         restoreFiles(backups);
+        await cleanupAgentSessions(sessionId);
       }
     },
     240000,
@@ -451,10 +489,10 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
           '- Internal_Monologue: 这集节奏终于起来了，再看一会儿就差不多。',
         ].join('\n'),
       });
+      const sessionId = `timeline-live-past-point-${Date.now()}`;
 
       try {
         const startedAtMs = Date.now();
-        const sessionId = `timeline-live-past-point-${startedAtMs}`;
         const result = await runAgentTurn(sessionId, '昨晚八点你在做什么');
         const trace = readLatestTimelineTrace(liveContext.traceLogPath, startedAtMs);
         const traceDetails = getTraceDetails(trace);
@@ -467,6 +505,7 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
         expect(traceDetails.actual_range).toBe('past_point');
       } finally {
         restoreFiles(backups);
+        await cleanupAgentSessions(sessionId);
       }
     },
     240000,
@@ -502,10 +541,10 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
           '- Internal_Monologue: 这种晚上很安静，也很像自己的生活。',
         ].join('\n'),
       });
+      const sessionId = `timeline-live-past-range-${Date.now()}`;
 
       try {
         const startedAtMs = Date.now();
-        const sessionId = `timeline-live-past-range-${startedAtMs}`;
         const result = await runAgentTurn(sessionId, '昨晚在做什么');
         const trace = readLatestTimelineTrace(liveContext.traceLogPath, startedAtMs);
         const traceDetails = getTraceDetails(trace);
@@ -518,6 +557,7 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
         expect(traceDetails.actual_range).toBe('past_range');
       } finally {
         restoreFiles(backups);
+        await cleanupAgentSessions(sessionId);
       }
     },
     240000,

@@ -2,10 +2,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   TimelineCollectorOutput,
+  CollectedTimelineFact,
   TimelineReasonerOutput,
 } from '../core/timeline_reasoner_contract';
 import { buildConversationContextFromMessages } from './conversation_context';
 import { TimelineQueryPlan } from '../core/resolve_window';
+import { addHours, formatTimestamp, parseTimestampParts, TimestampParts } from '../lib/time-utils';
 import {
   timelineResolve,
   timelineResolveToolSpec,
@@ -92,7 +94,7 @@ function resolvePluginRuntimeConfig(pluginConfig?: Record<string, unknown>): Tim
     enableTrace: readBoolean(pluginConfig?.enableTrace, true),
     traceLogPath: readString(pluginConfig?.traceLogPath),
     canonicalMemoryRoot: readString(pluginConfig?.canonicalMemoryRoot) || 'memory',
-    reasonerTimeoutMs: readInteger(pluginConfig?.reasonerTimeoutMs, 45000),
+    reasonerTimeoutMs: readInteger(pluginConfig?.reasonerTimeoutMs, 90000),
     reasonerSessionPrefix: readString(pluginConfig?.reasonerSessionPrefix) || 'timeline-reasoner',
     reasonerMessageLimit: readInteger(pluginConfig?.reasonerMessageLimit, 24),
     sessionHistoryLimit: readInteger(pluginConfig?.sessionHistoryLimit, 12),
@@ -229,9 +231,7 @@ function normalizeSessionHistory(messages: unknown[], limit: number): string[] {
 function extractLatestAssistantText(messages: unknown[]): string {
   const reversed = [...messages].reverse();
   for (const message of reversed) {
-    const role = typeof (message as { role?: unknown })?.role === 'string'
-      ? String((message as { role?: string }).role).trim()
-      : '';
+    const role = extractMessageRole(message);
     const text = extractMessageText(message);
     if (role === 'assistant' && text) return text;
   }
@@ -290,12 +290,12 @@ function collectBalancedJsonObjects(text: string): string[] {
   return objects;
 }
 
-function tryExtractJsonObject(text: string, expectedRequestId?: string): string {
+function tryExtractJsonObject(text: string, sourceLabel: string, expectedRequestId?: string): string {
   const fencedMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const candidate = fencedMatch?.[1]?.trim() || text.trim();
   const objects = collectBalancedJsonObjects(candidate);
   if (objects.length === 0) {
-    throw new Error('Timeline reasoner did not return a JSON object');
+    throw new Error(`${sourceLabel} did not return a JSON object`);
   }
 
   let firstParsedObject: string | null = null;
@@ -313,10 +313,59 @@ function tryExtractJsonObject(text: string, expectedRequestId?: string): string 
     }
   }
 
-  if (firstParsedObject) {
+  if (firstParsedObject && !expectedRequestId) {
     return firstParsedObject;
   }
-  throw new Error('Timeline reasoner did not return a parseable JSON object');
+  if (firstParsedObject && expectedRequestId) {
+    throw new Error(`${sourceLabel} returned mismatched request_id`);
+  }
+  throw new Error(`${sourceLabel} did not return a parseable JSON object`);
+}
+
+function collectRelevantTranscriptTexts(messages: unknown[]): Array<{ role: string; text: string }> {
+  return [...messages]
+    .reverse()
+    .map((message) => ({
+      role: extractMessageRole(message),
+      text: extractMessageText(message),
+    }))
+    .filter((entry) => Boolean(entry.text))
+    .filter((entry) => entry.role === 'assistant' || entry.role === 'unknown');
+}
+
+function extractJsonObjectFromMessages(messages: unknown[], sourceLabel: string, expectedRequestId?: string): string {
+  const relevantMessages = collectRelevantTranscriptTexts(messages);
+  let sawMismatchedRequestId = false;
+  let sawJsonLikeOutput = false;
+
+  for (const entry of relevantMessages) {
+    try {
+      return tryExtractJsonObject(entry.text, sourceLabel, expectedRequestId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('mismatched request_id')) {
+        sawMismatchedRequestId = true;
+        sawJsonLikeOutput = true;
+        continue;
+      }
+      if (message.includes('parseable JSON object')) {
+        sawJsonLikeOutput = true;
+        continue;
+      }
+      if (message.includes('did not return a JSON object')) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  if (sawMismatchedRequestId) {
+    throw new Error(`${sourceLabel} returned mismatched request_id`);
+  }
+  if (sawJsonLikeOutput) {
+    throw new Error(`${sourceLabel} did not return a parseable JSON object`);
+  }
+  throw new Error(`${sourceLabel} did not return a JSON object`);
 }
 
 function makePlannerRequestId(): string {
@@ -397,7 +446,259 @@ function buildTimelineReasonerSystemPrompt(): string {
       '24. 如果没有足够理由触发换装，优先认为当天穿着具有连续性；不要无缘无故在同一天内频繁改变外貌描述。',
       '25. 对 now 查询，如果 collector.conversation_context.should_prefer_conversation_continuity_for_now=true，则“刚刚还在和用户继续这段对话”应被视为最高优先级的近场现实。',
       '26. 如果当前会话仍处于粘连窗口内，优先把当前状态理解为还在和用户继续刚才的话题、思考上一轮内容或准备回应，而不是立即跳到脱离当前会话的生活片段。',
-    ].join('\n');
+  ].join('\n');
+}
+
+function setClock(parts: TimestampParts, hour: number, minute = 0, second = 0): TimestampParts {
+  return {
+    ...parts,
+    hour,
+    minute,
+    second,
+  };
+}
+
+function normalizeHourFromQuery(query: string): number | null {
+  const digitMatch = query.match(/(\d{1,2})点/);
+  let hour: number | null = digitMatch ? Number(digitMatch[1]) : null;
+  if (hour === null) {
+    const chineseHourMap: Record<string, number> = {
+      零: 0,
+      一: 1,
+      二: 2,
+      两: 2,
+      三: 3,
+      四: 4,
+      五: 5,
+      六: 6,
+      七: 7,
+      八: 8,
+      九: 9,
+      十: 10,
+      十一: 11,
+      十二: 12,
+    };
+    const chineseMatch = query.match(/(十一|十二|十|零|一|二|两|三|四|五|六|七|八|九)点/);
+    if (chineseMatch) {
+      hour = chineseHourMap[chineseMatch[1]] ?? null;
+    }
+  }
+  if (hour === null) return null;
+  if ((/昨晚|晚上|傍晚|夜里/.test(query)) && hour < 12) {
+    return hour === 12 ? 12 : hour + 12;
+  }
+  if ((/下午/.test(query)) && hour < 12) {
+    return hour === 12 ? 12 : hour + 12;
+  }
+  return hour;
+}
+
+function buildFallbackTimelineQueryPlan(
+  input: TimelineResolveInput,
+  anchor: { now: string; timezone: string },
+): TimelineQueryPlan {
+  const query = String(input.query || '').trim();
+  const anchorParts = parseTimestampParts(anchor.now);
+  if (!anchorParts) {
+    return {
+      schema_version: '1.0',
+      target_time_range: 'now',
+      summary: 'Fallback planner defaulted to now because anchor.now was not parseable.',
+    };
+  }
+
+  if (/昨晚|昨天|上周|前天/.test(query) && /点/.test(query)) {
+    const targetHour = normalizeHourFromQuery(query) ?? 20;
+    const targetDay = addHours(anchorParts, -24);
+    return {
+      schema_version: '1.0',
+      target_time_range: 'past_point',
+      normalized_point: formatTimestamp(setClock(targetDay, targetHour, 0, 0)),
+      summary: 'Fallback planner normalized the query into a concrete past point.',
+    };
+  }
+
+  if (/最近|这几天|昨晚|今天都|昨天都/.test(query)) {
+    if (/昨晚/.test(query)) {
+      const targetDay = addHours(anchorParts, -24);
+      return {
+        schema_version: '1.0',
+        target_time_range: 'past_range',
+        normalized_start: formatTimestamp(setClock(targetDay, 18, 0, 0)),
+        normalized_end: formatTimestamp(setClock(targetDay, 23, 59, 59)),
+        summary: 'Fallback planner normalized the query into last night\'s evening range.',
+      };
+    }
+    const recentStart = addHours(anchorParts, -24 * 7);
+    return {
+      schema_version: '1.0',
+      target_time_range: 'past_range',
+      normalized_start: formatTimestamp(setClock(recentStart, 0, 0, 0)),
+      normalized_end: anchor.now,
+      summary: 'Fallback planner normalized the query into a recent past range.',
+    };
+  }
+
+  return {
+    schema_version: '1.0',
+    target_time_range: 'now',
+    summary: 'Fallback planner normalized the query into the current moment.',
+  };
+}
+
+function parseTimestampMs(timestamp: string | undefined): number {
+  if (!timestamp) return Number.NaN;
+  const parsed = Date.parse(timestamp);
+  return Number.isNaN(parsed) ? Number.NaN : parsed;
+}
+
+function selectLatestFact(facts: CollectedTimelineFact[]): CollectedTimelineFact | null {
+  return [...facts]
+    .sort((left, right) => parseTimestampMs(right.timestamp) - parseTimestampMs(left.timestamp))[0] || null;
+}
+
+function scorePastRangeFact(fact: CollectedTimelineFact, query: string): number {
+  let score = parseTimestampMs(fact.timestamp);
+  const haystack = `${fact.location} ${fact.action} ${(fact.emotion_tags || []).join(' ')}`;
+
+  if (/有趣|好玩|开心|趣事/.test(query) && /(朋友|球|篮球|烧烤|聊天|公园|运动|开心)/.test(haystack)) {
+    score += 1000 * 60 * 60 * 24 * 30;
+  }
+  if (/昨晚/.test(query)) {
+    const parts = parseTimestampParts(fact.timestamp);
+    if (parts && parts.hour >= 18 && parts.hour <= 23) {
+      score += 1000 * 60 * 60 * 12;
+    }
+  }
+
+  return score;
+}
+
+function selectFallbackFact(collector: TimelineCollectorOutput): CollectedTimelineFact | null {
+  const facts = collector.candidate_facts || [];
+  if (facts.length === 0) return null;
+
+  if (collector.window.query_range === 'now') {
+    return selectLatestFact(facts);
+  }
+
+  if (collector.window.query_range === 'past_point') {
+    const query = String(collector.request.user_query || '');
+    const explicitHour = normalizeHourFromQuery(query);
+    if (explicitHour === null) {
+      return selectLatestFact(facts);
+    }
+
+    return [...facts].sort((left, right) => {
+      const leftParts = parseTimestampParts(left.timestamp);
+      const rightParts = parseTimestampParts(right.timestamp);
+      const leftDistance = leftParts ? Math.abs((leftParts.hour * 60 + leftParts.minute) - explicitHour * 60) : Number.MAX_SAFE_INTEGER;
+      const rightDistance = rightParts ? Math.abs((rightParts.hour * 60 + rightParts.minute) - explicitHour * 60) : Number.MAX_SAFE_INTEGER;
+      return leftDistance - rightDistance || (parseTimestampMs(right.timestamp) - parseTimestampMs(left.timestamp));
+    })[0] || null;
+  }
+
+  const query = String(collector.request.user_query || '');
+  return [...facts].sort((left, right) =>
+    scorePastRangeFact(right, query) - scorePastRangeFact(left, query),
+  )[0] || null;
+}
+
+function buildFallbackTimeInterpretation(collector: TimelineCollectorOutput, selectedFact?: CollectedTimelineFact | null) {
+  if (collector.window.query_range === 'now') {
+    return {
+      normalized_kind: 'now' as const,
+      match_strategy: selectedFact ? 'continuation' as const : 'generated' as const,
+      summary: 'Fallback reasoner treated the request as a current-moment query.',
+    };
+  }
+  if (collector.window.query_range === 'past_point') {
+    const query = String(collector.request.user_query || '');
+    const hour = normalizeHourFromQuery(query);
+    const anchorParts = parseTimestampParts(collector.anchor.now);
+    const targetDay = anchorParts ? addHours(anchorParts, -24) : null;
+    return {
+      normalized_kind: 'point' as const,
+      normalized_point: targetDay && hour !== null ? formatTimestamp(setClock(targetDay, hour, 0, 0)) : selectedFact?.timestamp,
+      match_strategy: selectedFact ? 'continuation' as const : 'generated' as const,
+      summary: 'Fallback reasoner treated the request as a concrete past point query.',
+    };
+  }
+  return {
+    normalized_kind: 'range' as const,
+    normalized_start: collector.window.start,
+    normalized_end: collector.window.end,
+    match_strategy: selectedFact ? 'range_summary' as const : 'generated' as const,
+    summary: 'Fallback reasoner treated the request as a past range query.',
+  };
+}
+
+function buildFallbackReasonerOutput(
+  collector: TimelineCollectorOutput,
+  error: unknown,
+): TimelineReasonerOutput {
+  const selectedFact = selectFallbackFact(collector);
+  const fallbackReason = error instanceof Error ? error.message : String(error);
+
+  if (!selectedFact) {
+    return {
+      schema_version: '1.0',
+      request_id: collector.request_id,
+      request_type: collector.window.query_range,
+      time_interpretation: buildFallbackTimeInterpretation(collector, null),
+      decision: {
+        action: 'return_empty',
+        should_write_canon: false,
+      },
+      continuity: {
+        judged: collector.window.query_range !== 'past_range',
+        is_continuing: false,
+        reason: `Fallback reasoner could not find a reusable canon fact after: ${fallbackReason}`,
+      },
+      rationale: {
+        summary: 'Fallback reasoner returned empty because no reusable canon fact was available.',
+        hard_fact_basis: collector.hard_facts.sessions_history.slice(0, 2),
+        canon_basis: [],
+        persona_basis: [],
+        constraint_basis: [],
+        uncertainty: fallbackReason,
+      },
+    };
+  }
+
+  const selectedParts = parseTimestampParts(selectedFact.timestamp);
+  const targetHour = normalizeHourFromQuery(String(collector.request.user_query || ''));
+  const isPastPointContinuation = Boolean(
+    collector.window.query_range === 'past_point'
+    && selectedParts
+    && targetHour !== null
+    && Math.abs((selectedParts.hour * 60 + selectedParts.minute) - targetHour * 60) <= 90,
+  );
+
+  return {
+    schema_version: '1.0',
+    request_id: collector.request_id,
+    request_type: collector.window.query_range,
+    time_interpretation: buildFallbackTimeInterpretation(collector, selectedFact),
+    decision: {
+      action: 'reuse_existing_fact',
+      selected_fact_id: selectedFact.fact_id,
+      should_write_canon: false,
+    },
+    continuity: {
+      judged: collector.window.query_range !== 'past_range',
+      is_continuing: collector.window.query_range === 'now' || isPastPointContinuation,
+      reason: 'Fallback reasoner reused the strongest available canon fact when the subagent result was unavailable.',
+    },
+    rationale: {
+      summary: 'Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.',
+      hard_fact_basis: collector.hard_facts.sessions_history.slice(0, 2),
+      canon_basis: [selectedFact.fact_id],
+      persona_basis: [],
+      constraint_basis: [],
+      uncertainty: fallbackReason,
+    },
+  };
 }
 
 function createTimelineQueryPlanner(
@@ -406,62 +707,72 @@ function createTimelineQueryPlanner(
   runtimeConfig: TimelinePluginRuntimeConfig,
 ): TimelineRuntimeDependencies['planTimelineQuery'] {
   return async (input, anchor) => {
-    const subagentRuntime = pluginApi.runtime?.subagent;
-    if (!subagentRuntime?.run || !subagentRuntime.waitForRun || !subagentRuntime.getSessionMessages) {
-      throw new Error('Timeline query planner dependency missing');
-    }
-    if (!String(input.query || '').trim()) {
-      throw new Error('Timeline query planner dependency missing query');
-    }
-
-    const requestId = makePlannerRequestId();
-    const baseSessionKey = toolContext.sessionKey || `plugin:${runtimeConfig.reasonerSessionPrefix}`;
-    const plannerSessionKey = `${baseSessionKey}:${runtimeConfig.reasonerSessionPrefix}:planner:${requestId}`;
-
     try {
-      const runResult = await subagentRuntime.run({
-        sessionKey: plannerSessionKey,
-        message: buildTimelineQueryPlannerMessage(input, anchor, requestId),
-        extraSystemPrompt: buildTimelineQueryPlannerSystemPrompt(),
-        deliver: false,
-        idempotencyKey: requestId,
-      });
-      const waitResult = await subagentRuntime.waitForRun({
-        runId: runResult.runId,
-        timeoutMs: runtimeConfig.reasonerTimeoutMs,
-      });
-      if (waitResult.status === 'timeout') {
-        throw new Error('Timeline query planner returned no decision');
+      const subagentRuntime = pluginApi.runtime?.subagent;
+      if (!subagentRuntime?.run || !subagentRuntime.waitForRun || !subagentRuntime.getSessionMessages) {
+        throw new Error('Timeline query planner dependency missing');
       }
-      if (waitResult.status === 'error') {
-        throw new Error(waitResult.error || 'Timeline query planner returned no decision');
+      if (!String(input.query || '').trim()) {
+        throw new Error('Timeline query planner dependency missing query');
       }
 
-      const session = await subagentRuntime.getSessionMessages({
-        sessionKey: plannerSessionKey,
-        limit: runtimeConfig.reasonerMessageLimit,
-      });
-      const assistantText = extractLatestAssistantText(session.messages || []);
-      const jsonText = tryExtractJsonObject(assistantText, requestId);
-      const parsed = JSON.parse(jsonText) as TimelineQueryPlan & { request_id?: string };
-      if (parsed.request_id && parsed.request_id !== requestId) {
-        throw new Error('Timeline query planner returned mismatched request_id');
-      }
-      if (!['now', 'past_point', 'past_range'].includes(parsed.target_time_range)) {
-        throw new Error('Timeline query planner returned an invalid target_time_range');
-      }
-      return parsed;
-    } finally {
+      const requestId = makePlannerRequestId();
+      const baseSessionKey = toolContext.sessionKey || `plugin:${runtimeConfig.reasonerSessionPrefix}`;
+      const plannerSessionKey = `${baseSessionKey}:${runtimeConfig.reasonerSessionPrefix}:planner:${requestId}`;
+
       try {
-        await subagentRuntime.deleteSession?.({
+        const runResult = await subagentRuntime.run({
           sessionKey: plannerSessionKey,
-          deleteTranscript: true,
+          message: buildTimelineQueryPlannerMessage(input, anchor, requestId),
+          extraSystemPrompt: buildTimelineQueryPlannerSystemPrompt(),
+          deliver: false,
+          idempotencyKey: requestId,
         });
-      } catch (error) {
-        pluginApi.logger?.debug?.('timeline query planner session cleanup skipped', {
-          error: error instanceof Error ? error.message : String(error),
+        const waitResult = await subagentRuntime.waitForRun({
+          runId: runResult.runId,
+          timeoutMs: runtimeConfig.reasonerTimeoutMs,
         });
+        if (waitResult.status === 'timeout') {
+          throw new Error('Timeline query planner returned no decision');
+        }
+        if (waitResult.status === 'error') {
+          throw new Error(waitResult.error || 'Timeline query planner returned no decision');
+        }
+
+        const session = await subagentRuntime.getSessionMessages({
+          sessionKey: plannerSessionKey,
+          limit: runtimeConfig.reasonerMessageLimit,
+        });
+        const jsonText = extractJsonObjectFromMessages(
+          session.messages || [],
+          'Timeline query planner',
+          requestId,
+        );
+        const parsed = JSON.parse(jsonText) as TimelineQueryPlan & { request_id?: string };
+        if (parsed.request_id && parsed.request_id !== requestId) {
+          throw new Error('Timeline query planner returned mismatched request_id');
+        }
+        if (!['now', 'past_point', 'past_range'].includes(parsed.target_time_range)) {
+          throw new Error('Timeline query planner returned an invalid target_time_range');
+        }
+        return parsed;
+      } finally {
+        try {
+          await subagentRuntime.deleteSession?.({
+            sessionKey: plannerSessionKey,
+            deleteTranscript: true,
+          });
+        } catch (error) {
+          pluginApi.logger?.debug?.('timeline query planner session cleanup skipped', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
+    } catch (error) {
+      pluginApi.logger?.warn?.('timeline query planner fallback engaged', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return buildFallbackTimelineQueryPlan(input, anchor);
     }
   };
 }
@@ -541,51 +852,61 @@ function createSubagentReasoner(
   runtimeConfig: TimelinePluginRuntimeConfig,
 ): TimelineRuntimeDependencies['reasonTimeline'] {
   return async (collector) => {
-    const subagentRuntime = pluginApi.runtime?.subagent;
-    if (!subagentRuntime?.run || !subagentRuntime.waitForRun || !subagentRuntime.getSessionMessages) {
-      throw new Error('Timeline reasoner dependency missing');
-    }
-
-    const baseSessionKey = toolContext.sessionKey || `plugin:${runtimeConfig.reasonerSessionPrefix}`;
-    const reasonerSessionKey = `${baseSessionKey}:${runtimeConfig.reasonerSessionPrefix}:${collector.request_id}`;
-
     try {
-      const runResult = await subagentRuntime.run({
-        sessionKey: reasonerSessionKey,
-        message: buildTimelineReasonerMessage(collector),
-        extraSystemPrompt: buildTimelineReasonerSystemPrompt(),
-        deliver: false,
-        idempotencyKey: collector.request_id,
-      });
-      const waitResult = await subagentRuntime.waitForRun({
-        runId: runResult.runId,
-        timeoutMs: runtimeConfig.reasonerTimeoutMs,
-      });
-      if (waitResult.status === 'timeout') {
-        throw new Error('Timeline reasoner returned no decision');
-      }
-      if (waitResult.status === 'error') {
-        throw new Error(waitResult.error || 'Timeline reasoner returned no decision');
+      const subagentRuntime = pluginApi.runtime?.subagent;
+      if (!subagentRuntime?.run || !subagentRuntime.waitForRun || !subagentRuntime.getSessionMessages) {
+        throw new Error('Timeline reasoner dependency missing');
       }
 
-      const session = await subagentRuntime.getSessionMessages({
-        sessionKey: reasonerSessionKey,
-        limit: runtimeConfig.reasonerMessageLimit,
-      });
-      const assistantText = extractLatestAssistantText(session.messages || []);
-      const jsonText = tryExtractJsonObject(assistantText, collector.request_id);
-      return JSON.parse(jsonText) as TimelineReasonerOutput;
-    } finally {
+      const baseSessionKey = toolContext.sessionKey || `plugin:${runtimeConfig.reasonerSessionPrefix}`;
+      const reasonerSessionKey = `${baseSessionKey}:${runtimeConfig.reasonerSessionPrefix}:${collector.request_id}`;
+
       try {
-        await subagentRuntime.deleteSession?.({
+        const runResult = await subagentRuntime.run({
           sessionKey: reasonerSessionKey,
-          deleteTranscript: true,
+          message: buildTimelineReasonerMessage(collector),
+          extraSystemPrompt: buildTimelineReasonerSystemPrompt(),
+          deliver: false,
+          idempotencyKey: collector.request_id,
         });
-      } catch (error) {
-        pluginApi.logger?.debug?.('timeline reasoner session cleanup skipped', {
-          error: error instanceof Error ? error.message : String(error),
+        const waitResult = await subagentRuntime.waitForRun({
+          runId: runResult.runId,
+          timeoutMs: runtimeConfig.reasonerTimeoutMs,
         });
+        if (waitResult.status === 'timeout') {
+          throw new Error('Timeline reasoner returned no decision');
+        }
+        if (waitResult.status === 'error') {
+          throw new Error(waitResult.error || 'Timeline reasoner returned no decision');
+        }
+
+        const session = await subagentRuntime.getSessionMessages({
+          sessionKey: reasonerSessionKey,
+          limit: runtimeConfig.reasonerMessageLimit,
+        });
+        const jsonText = extractJsonObjectFromMessages(
+          session.messages || [],
+          'Timeline reasoner',
+          collector.request_id,
+        );
+        return JSON.parse(jsonText) as TimelineReasonerOutput;
+      } finally {
+        try {
+          await subagentRuntime.deleteSession?.({
+            sessionKey: reasonerSessionKey,
+            deleteTranscript: true,
+          });
+        } catch (error) {
+          pluginApi.logger?.debug?.('timeline reasoner session cleanup skipped', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
+    } catch (error) {
+      pluginApi.logger?.warn?.('timeline reasoner fallback engaged', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return buildFallbackReasonerOutput(collector, error);
     }
   };
 }

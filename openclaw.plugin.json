@@ -25,7 +25,7 @@
       },
       "reasonerTimeoutMs": {
         "type": "integer",
-        "default": 45000,
+        "default": 90000,
         "description": "Timeout for the internal timeline reasoner subagent, in milliseconds."
       },
       "reasonerSessionPrefix": {
