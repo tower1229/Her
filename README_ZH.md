@@ -63,7 +63,7 @@ Timeline 为 OpenClaw 增加了一层专门的时间感知与回忆能力，让�
 ### 1. 安装插件
 
 ```bash
-openclaw plugins install stella-timeline-plugin --pin
+openclaw plugins install stella-timeline-plugin
 openclaw plugins enable stella-timeline-plugin
 ```
 

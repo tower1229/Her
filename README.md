@@ -63,7 +63,7 @@ It is built for immersive social chat first.
 ### 1. Install the plugin
 
 ```bash
-openclaw plugins install stella-timeline-plugin --pin
+openclaw plugins install stella-timeline-plugin
 openclaw plugins enable stella-timeline-plugin
 ```
 
