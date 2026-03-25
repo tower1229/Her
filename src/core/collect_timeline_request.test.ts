@@ -12,7 +12,7 @@ describe('buildTimelineCollectorOutput', () => {
       calendar_date: '2026-03-22',
       calendar_dates: ['2026-03-20', '2026-03-21', '2026-03-22'],
       timezone: 'Asia/Shanghai',
-      normalization_notes: ['上游已将查询归一化为结构化时间范围。'],
+      normalization_notes: ['Upstream already normalized the query into a structured time range.'],
     };
 
     const collector = buildTimelineCollectorOutput(
@@ -37,7 +37,7 @@ describe('buildTimelineCollectorOutput', () => {
         ],
         memorySearch: ['memory/2026-03-21.md#L1-L7'],
         coreContext: {
-          soul: '热爱运动，也喜欢和朋友聚会。',
+          soul: 'She loves sports and also enjoys spending time with friends.',
           memory: '',
           identity: '',
           available_sources: ['soul'],

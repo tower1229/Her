@@ -7,7 +7,7 @@ describe('timelineResolve canonical path guard', () => {
       planTimelineQuery: async () => ({
         schema_version: '1.0',
         target_time_range: 'now',
-        summary: '将请求解释为当前状态查询。',
+        summary: 'Interpreted the request as a current-state query.',
       }),
     });
   });

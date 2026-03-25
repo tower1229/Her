@@ -1,95 +1,95 @@
 ---
 name: timeline
-description: 当问题在询问当前状态、过去某个具体时间点、过去一段时间，或下游技能需要时间状态事实时，先进入 timeline skill，再把原始自然语言 query 交给 Timeline；禁止只根据人设直接回答。
+description: When a request asks about the current state, a specific past time, a past range, or a downstream skill needs time-state facts, enter the timeline skill first and pass the raw natural-language query to Timeline. Never answer from persona alone.
 ---
 
 # Timeline
 
-遇到和时间状态或回忆有关的请求时，先调用 Timeline，再组织回答。不要先按人设猜，也不要先直接读 `memory/` 自己下结论。
+When a request is about time-state facts or recall, call Timeline first and then compose the reply. Do not guess from persona first, and do not read `memory/` directly and make your own conclusion.
 
-## 这个 skill 负责什么
+## Scope
 
-这个 skill 只负责两件事：
+This skill does only two things:
 
-1. 判断这次请求是否属于 Timeline 应接管的时间现实问题。
-2. 把用户原话或下游技能的自然语言问题，原样交给 `timeline_resolve`。
+1. Decide whether the request is a time-grounded reality question that Timeline should own.
+2. Pass the user's exact wording, or the downstream skill's natural-language question, straight into `timeline_resolve`.
 
-它不直接生成事实，也不负责自己归一化时间，更不负责绕过 Timeline 直接回答。
-当目标时间缺少既有事实时，生成与写入的决定交给 Timeline 内部处理。
+It does not generate facts directly, normalize time on its own, or bypass Timeline and answer directly.
+When the target time lacks an existing fact, Timeline decides whether to generate and write.
 
-## 强制规则
+## Hard Rules
 
-1. 涉及时间现实的问题，先调用 `timeline_resolve`，后回答。
-2. 不要只根据 `SOUL.md`、`IDENTITY.md`、`MEMORY.md` 直接回答“现在在做什么”或“最近发生了什么”。
-3. `SOUL` / `IDENTITY` / `MEMORY` 只用于帮助理解和表述，不能替代 Timeline 事实。
-4. 不要在调用前自行把 query 改写成结构化时间参数。
-5. 时间分类与时间归一化统一交给 Timeline 内部处理。
-6. `timeline_resolve` 返回既有事实时，优先复用；不要改写它。
-7. 如果用户是普通闲聊而不是严格只读校验，允许 Timeline 生成缺失事实并写入 canon。
+1. For time-reality questions, call `timeline_resolve` first and answer second.
+2. Do not answer "what are you doing now" or "what happened recently" from `SOUL.md`, `IDENTITY.md`, or `MEMORY.md` alone.
+3. `SOUL` / `IDENTITY` / `MEMORY` help with interpretation and phrasing, but they cannot replace Timeline facts.
+4. Do not rewrite the query into structured time parameters before the call.
+5. Let Timeline own time classification and time normalization.
+6. If `timeline_resolve` returns an existing fact, reuse it as-is.
+7. If the user is doing ordinary conversation rather than strict read-only verification, Timeline may generate missing facts and write canon.
 
-## 调用格式
+## Call Shape
 
-默认主路径：
+Default path:
 
 ```json
 {
-  "query": "用户的原话"
+  "query": "the user's exact words"
 }
 ```
 
-不要向 `timeline_resolve` 传时间点、时间范围、请求类型、模式或调试字段。它的公开入口就是自然语言 query。
+Do not pass time points, time ranges, request types, modes, or debug fields into `timeline_resolve`. Its public interface is the natural-language query.
 
-## 场景拆分
+## Scenarios
 
-### 场景 A：当前状态
+### Scenario A: Current State
 
-抽象描述：
+Abstract shape:
 
-- 用户在问“此刻”或“当前这一小段时间”的状态。
-- 目标是回答现在在哪里、在做什么、是什么状态。
+- The user is asking about "right now" or the current short stretch of time.
+- The goal is to answer where she is, what she is doing, or what state she is in.
 
-示例：
+Examples:
 
 - “你在干嘛”
 - “你现在在哪”
 - “你现在什么状态”
 - “你刚才不是在打球吗，现在还在吗”
-- 下游技能要取当前状态，例如自拍、场景描述、状态卡片
+- A downstream skill needs the current state, such as a selfie, scene description, or status card
 
-处理方式：
+Handling:
 
-- 调 `timeline_resolve`
-- `query` 就是用户原话
-- 不要自己先判断它是不是 `now`
+- Call `timeline_resolve`
+- Set `query` to the user's exact wording
+- Do not decide `now` yourself before calling
 
-### 场景 B：过去某个具体时间点
+### Scenario B: A Specific Past Time
 
-抽象描述：
+Abstract shape:
 
-- 用户在问某个足够明确的时间点。
-- 目标是围绕明确时间锚点回忆事实。
+- The user is asking about a sufficiently specific point in time.
+- The goal is to recall facts around that time anchor.
 
-示例：
+Examples:
 
 - “昨晚八点你在做什么”
 - “你昨天上午十点在哪”
 - “你昨晚八点是不是还在看电视”
 - “上周六晚上九点你在忙什么”
 
-处理方式：
+Handling:
 
-- 调 `timeline_resolve`
-- `query` 就是用户原话
-- 不要自己把时间点归一化后再传
+- Call `timeline_resolve`
+- Set `query` to the user's exact wording
+- Do not normalize the time point yourself before passing it through
 
-### 场景 C：过去一段时间
+### Scenario C: A Past Range
 
-抽象描述：
+Abstract shape:
 
-- 用户在问一个时间段内的整体情况，而不是某个点。
-- 目标是组织一段时间里的回忆、活动概览或最近动态。
+- The user is asking about the overall state of a time range rather than a single point.
+- The goal is to organize recall, an activity overview, or recent updates from that range.
 
-示例：
+Examples:
 
 - “最近有什么有趣的事吗”
 - “你最近都在忙什么”
@@ -97,15 +97,15 @@ description: 当问题在询问当前状态、过去某个具体时间点、过�
 - “你今天都忙了什么”
 - “昨晚在做什么”
 
-处理方式：
+Handling:
 
-- 调 `timeline_resolve`
-- `query` 就是用户原话
-- “最近”“昨晚”“今天都”这类自然语言范围，统一交给 Timeline 内部 planner 理解
+- Call `timeline_resolve`
+- Set `query` to the user's exact wording
+- Let Timeline's internal planner interpret natural-language ranges such as “最近”, “昨晚”, or “今天都”
 
-## 回答要求
+## Reply Requirements
 
-- 对用户说人话，不要提 `timeline_resolve`。
-- 语气自然，像真人在回忆或描述当下。
-- 如果 Timeline 返回的是空窗口或失败，不要假装已有确定事实；按可用结果谨慎表达。
-- 除非用户明确要求看原始结果，否则不要输出 JSON。
+- Speak naturally to the user and do not mention `timeline_resolve`.
+- Keep the tone human, like natural recall or present-moment description.
+- If Timeline returns an empty window or a failure, do not pretend you have certain facts; phrase the answer cautiously from what is available.
+- Do not output JSON unless the user explicitly asks for raw results.

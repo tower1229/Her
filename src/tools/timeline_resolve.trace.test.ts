@@ -17,13 +17,13 @@ describe('timelineResolve trace schema', () => {
             target_time_range: 'past_range',
             normalized_start: '2026-03-19T14:30:00+08:00',
             normalized_end: '2026-03-22T14:30:00+08:00',
-            summary: '将“最近”归一化为过去三天到当前时刻。',
+            summary: 'Normalized “最近” into the past three days up to the current moment.',
           };
         }
         return {
           schema_version: '1.0',
           target_time_range: 'now',
-          summary: '将请求解释为当前状态查询。',
+          summary: 'Interpreted the request as a current-state query.',
         };
       },
     });

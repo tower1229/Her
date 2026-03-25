@@ -8,7 +8,7 @@ describe('resolveWindow', () => {
     const plan: TimelineQueryPlan = {
       schema_version: '1.0',
       target_time_range: 'now',
-      summary: '将请求解释为当前状态查询。',
+      summary: 'Interpreted the request as a current-state query.',
     };
 
     const window = resolveWindow(plan, now, timezone);
@@ -28,7 +28,7 @@ describe('resolveWindow', () => {
       schema_version: '1.0',
       target_time_range: 'past_point',
       normalized_point: '2026-03-21T20:00:00+08:00',
-      summary: 'LLM 将“昨晚八点”归一化为昨天 20:00。',
+      summary: 'The LLM normalized “昨晚八点” into yesterday at 20:00.',
     };
 
     const window = resolveWindow(plan, now, timezone);
@@ -49,7 +49,7 @@ describe('resolveWindow', () => {
       target_time_range: 'past_range',
       normalized_start: '2026-03-21T18:00:00+08:00',
       normalized_end: '2026-03-21T23:00:00+08:00',
-      summary: 'LLM 将“昨晚”归一化为昨天晚饭后到睡前。',
+      summary: 'The LLM normalized “昨晚” into yesterday evening after dinner through bedtime.',
     };
 
     const window = resolveWindow(plan, now, timezone);

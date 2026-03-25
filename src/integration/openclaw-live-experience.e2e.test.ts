@@ -42,7 +42,7 @@ function parseLastJsonObject(raw: string): any {
   const start = raw.indexOf('{');
   const end = raw.lastIndexOf('}');
   if (start === -1 || end === -1 || end < start) {
-    throw new Error(`未找到 JSON 输出:\n${raw}`);
+    throw new Error(`Could not find JSON output:\n${raw}`);
   }
   return JSON.parse(raw.slice(start, end + 1));
 }
@@ -111,7 +111,7 @@ function resolveActiveConfigPath(): string {
 
   const result = runCommand(['config', 'file']);
   if (result.status !== 0) {
-    throw new Error(`无法定位 OpenClaw 配置文件:\n${result.stderr || result.stdout}`);
+    throw new Error(`Could not resolve the OpenClaw config file:\n${result.stderr || result.stdout}`);
   }
 
   const lines = result.stdout
@@ -121,7 +121,7 @@ function resolveActiveConfigPath(): string {
     .filter((line) => !line.startsWith('[plugins]'));
   const last = expandUserPath(lines[lines.length - 1] || '');
   if (!last || !fs.existsSync(last)) {
-    throw new Error(`OpenClaw 配置文件不存在: ${last || '(empty)'}`);
+    throw new Error(`OpenClaw config file does not exist: ${last || '(empty)'}`);
   }
   return last;
 }
@@ -131,7 +131,7 @@ function resolveLiveRuntimeContext(): LiveRuntimeContext {
   const baseConfig = readJsonFile(configPath);
   const workspaceRaw = String(baseConfig?.agents?.defaults?.workspace || '').trim();
   if (!workspaceRaw) {
-    throw new Error('当前 OpenClaw 配置缺少 agents.defaults.workspace，无法运行 live-e2e。');
+    throw new Error('The current OpenClaw config is missing agents.defaults.workspace, so live-e2e cannot run.');
   }
 
   const workspaceDir = resolveConfiguredPath(path.dirname(configPath), workspaceRaw, '.');
@@ -158,10 +158,10 @@ function resolveLiveRuntimeContext(): LiveRuntimeContext {
 function assertTimelinePluginLoaded(): void {
   const result = runCommand(['plugins', 'info', 'stella-timeline-plugin']);
   if (result.status !== 0) {
-    throw new Error(`无法读取 stella-timeline-plugin 状态:\n${result.stderr || result.stdout}`);
+    throw new Error(`Could not read stella-timeline-plugin status:\n${result.stderr || result.stdout}`);
   }
   if (!result.stdout.includes('Status: loaded')) {
-    throw new Error(`stella-timeline-plugin 当前未处于 loaded 状态:\n${result.stdout}`);
+    throw new Error(`stella-timeline-plugin is not currently in loaded state:\n${result.stdout}`);
   }
 }
 
@@ -227,19 +227,19 @@ function formatTimestamp(date: Date): string {
 async function runAgentTurn(sessionId: string, message: string): Promise<{ payload: any; text: string }> {
   const result = runCommand(['agent', '--session-id', sessionId, '--message', message, '--json', '--timeout', '180']);
   if (result.status !== 0) {
-    throw new Error(`agent 调用失败:\nSTDOUT:\n${result.stdout}\nSTDERR:\n${result.stderr}`);
+    throw new Error(`Agent invocation failed:\nSTDOUT:\n${result.stdout}\nSTDERR:\n${result.stderr}`);
   }
   const payload = parseLastJsonObject(result.stdout);
   const text = extractVisibleText(payload);
   if (!text) {
-    throw new Error(`agent 返回中没有可见文本:\n${JSON.stringify(payload, null, 2)}`);
+    throw new Error(`Agent returned no visible text:\n${JSON.stringify(payload, null, 2)}`);
   }
   if (isProviderRateLimitText(text)) {
     throw new Error(
       [
-        '真实环境 E2E 被模型 provider 限流阻塞，而不是 Timeline 功能断言失败。',
+        'The live E2E run was blocked by model-provider rate limiting rather than a Timeline assertion failure.',
         `session_id: ${sessionId}`,
-        '当前可见回复：',
+        'Visible reply:',
         text,
       ].join('\n'),
     );
@@ -250,7 +250,7 @@ async function runAgentTurn(sessionId: string, message: string): Promise<{ paylo
 function listSessionKeysForCleanup(sessionId: string): string[] {
   const result = runCommand(['sessions', '--json']);
   if (result.status !== 0) {
-    throw new Error(`无法读取 OpenClaw sessions:\n${result.stderr || result.stdout}`);
+    throw new Error(`Could not read OpenClaw sessions:\n${result.stderr || result.stdout}`);
   }
 
   const payload = parseLastJsonObject(result.stdout) as { sessions?: Array<{ key?: string }> };
@@ -278,7 +278,7 @@ async function cleanupAgentSessions(sessionId: string): Promise<void> {
       '--json',
     ]);
     if (result.status !== 0) {
-      throw new Error(`清理 session 失败 (${key}):\n${result.stderr || result.stdout}`);
+      throw new Error(`Failed to clean up session (${key}):\n${result.stderr || result.stdout}`);
     }
   }
 }
@@ -306,10 +306,10 @@ function assertTraceObserved(
   if (trace) return;
   throw new Error(
     [
-      `未在真实环境中观测到 timeline_resolve 的 trace 记录。`,
-      `trace 路径: ${traceLogPath}`,
-      '这通常意味着自然问法没有自动路由到 Timeline，或者当前运行没有把 trace 落到预期路径。',
-      '当前模型回复如下：',
+      'Did not observe a timeline_resolve trace record in the live environment.',
+      `trace path: ${traceLogPath}`,
+      'This usually means the natural-language prompt was not automatically routed to Timeline, or the current run did not write trace output to the expected path.',
+      'Model reply:',
       responseText,
     ].join('\n'),
   );
@@ -318,39 +318,39 @@ function assertTraceObserved(
 function buildWorkspaceFixtures(workspaceDir: string): Record<string, string> {
   return {
     [path.join(workspaceDir, 'AGENTS.md')]: [
-      '## Timeline Daily Log 约定',
+      '## Timeline Daily Log Contract',
       '',
-      '`memory/YYYY-MM-DD.md` 是按天组织的时间性记忆日志。',
-      '当你要把“当前在做什么”“某个时间点发生了什么”“某段时间里在做什么”写入 daily log 时，必须使用 Timeline 的结构化格式，而不能自由散文式记录。',
-      'daily log 中的单条时间记忆必须尽量包含以下字段：',
+      '`memory/YYYY-MM-DD.md` stores time-based memory logs organized by day.',
+      'When writing what is happening now, what happened at a specific time, or what happened over a time range into the daily log, you must use Timeline\'s structured format rather than free-form prose.',
+      'Each daily-log memory should include these fields whenever possible:',
       '',
       '- `Timestamp`',
       '- `Location`',
       '- `Action`',
       '- `Emotion_Tags`',
       '- `Appearance`',
-      '- `Internal_Monologue`（可选）',
+      '- `Internal_Monologue` (optional)',
       '',
-      '不要把长期稳定事实写进 `memory/YYYY-MM-DD.md`；长期偏好、关系、长期决策仍应写入 `MEMORY.md`。',
-      '不要在 daily log 里混用自由格式和 Timeline 格式；涉及时间状态与回忆的 daily memory，应优先写成 Timeline 可解析的格式。',
+      'Do not write long-term stable facts into `memory/YYYY-MM-DD.md`; long-term preferences, relationships, and decisions still belong in `MEMORY.md`.',
+      'Do not mix free-form notes and Timeline format in daily logs. Time-state and recall entries should prefer the Timeline-parsable structure.',
     ].join('\n'),
     [path.join(workspaceDir, 'SOUL.md')]: [
-      '她平时偏安静，但确实喜欢运动，也会认真描述自己当下的生活状态。',
+      'She is usually quiet, but she genuinely likes exercise and can describe her present lived state carefully.',
       '',
-      '她有明确的时间感知和连续回忆能力。',
-      '当用户询问时间状态或回忆相关问题时，她不能直接根据人设、对话上下文、SOUL、IDENTITY、MEMORY 或手动读取到的时间日志作答。',
-      '这类情况下，她必须先进入 timeline skill，再按照 skill 中的规则决定如何调用 Timeline 工具并组织回答。',
-      '她不能绕过 timeline skill 直接调用 read 去拼接 memory/ 里的时间日志并自行下结论。',
-      '她也不能把 SOUL、IDENTITY、MEMORY 里的设定直接当成时间事实。',
-      '只有 Timeline 返回的结果，才是时间状态和回忆问题的最终事实依据。',
-      '如果 timeline skill 需要调用 timeline_resolve，应先遵守 skill 中的具体指引。',
-      '她在对用户说话时不会提 timeline_resolve 这个工具名，只会像真人一样自然表达。',
+      'She has explicit time awareness and continuity of recall.',
+      'When the user asks about time-state or recall questions, she must not answer directly from persona, dialogue context, SOUL, IDENTITY, MEMORY, or by manually reading time logs.',
+      'In those cases, she must enter the timeline skill first and then follow that skill\'s rules to decide how to call Timeline and compose the reply.',
+      'She must not bypass the timeline skill by directly reading files under memory/ and stitching together her own conclusion.',
+      'She must not treat statements in SOUL, IDENTITY, or MEMORY as time facts.',
+      'Only Timeline results are the final factual basis for time-state and recall questions.',
+      'If the timeline skill needs to call timeline_resolve, it must follow the skill\'s concrete guidance first.',
+      'When speaking to the user, she never mentions the tool name timeline_resolve and instead answers naturally like a real person.',
     ].join('\n'),
     [path.join(workspaceDir, 'MEMORY.md')]: [
-      '她最近在练习把当前状态和近期经历说得更像真人，并保持前后一致。',
-      '她知道自己的“现在”和“最近”必须以 Timeline 返回的事实为准，而不是凭空编造成看似真实的状态。',
+      'She has recently been practicing describing her current state and recent experiences in a more human way while staying consistent over time.',
+      'She knows that her “now” and “recently” must follow Timeline-returned facts rather than invented states that only sound plausible.',
     ].join('\n'),
-    [path.join(workspaceDir, 'IDENTITY.md')]: '她住在城市里，常在家里书房工作，也会去球场和朋友活动。',
+    [path.join(workspaceDir, 'IDENTITY.md')]: 'She lives in the city, often works from her home study, and also goes to the court to spend time with friends.',
   };
 }
 
@@ -362,7 +362,7 @@ function applyFixtures(fixtures: Record<string, string>): FileBackup[] {
   return backups;
 }
 
-describeIfLive('OpenClaw 真实环境体验 E2E', () => {
+describeIfLive('OpenClaw live-experience E2E', () => {
   let liveContext: LiveRuntimeContext;
 
   beforeAll(() => {
@@ -373,7 +373,7 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
   });
 
   test(
-    '会在真实环境自然问法“你在干嘛”下复用既有当前事实，并保持文件不被改写',
+    'reuses an existing current fact for the natural live prompt “你在干嘛” without rewriting files',
     async () => {
       const now = new Date();
       const today = formatDate(now);
@@ -418,7 +418,7 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
   );
 
   test(
-    '会在真实环境自然问法“最近有什么有趣的事吗”下组织近期回忆，并命中真实 trace',
+    'organizes recent recall for the natural live prompt “最近有什么有趣的事吗” and records a real trace',
     async () => {
       const now = new Date();
       const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -470,7 +470,7 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
   );
 
   test(
-    '会在真实环境自然问法“昨晚八点你在做什么”下命中过去时间点，并允许连续性覆盖',
+    'hits a past point for the natural live prompt “昨晚八点你在做什么” and allows continuity coverage',
     async () => {
       const now = new Date();
       const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -512,7 +512,7 @@ describeIfLive('OpenClaw 真实环境体验 E2E', () => {
   );
 
   test(
-    '会在真实环境自然问法“昨晚在做什么”下命中过去时间范围，并组织成自然回忆',
+    'hits a past range for the natural live prompt “昨晚在做什么” and organizes a natural recall',
     async () => {
       const now = new Date();
       const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);

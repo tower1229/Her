@@ -15,7 +15,7 @@ describe('timelineResolve', () => {
             schema_version: '1.0',
             target_time_range: 'past_point',
             normalized_point: '2026-03-21T20:00:00+08:00',
-            summary: '将“昨晚八点”归一化为 2026-03-21 20:00。',
+            summary: 'Normalized “昨晚八点” into 2026-03-21 20:00.',
           };
         }
         if (query.includes('最近')) {
@@ -24,7 +24,7 @@ describe('timelineResolve', () => {
             target_time_range: 'past_range',
             normalized_start: '2026-03-19T14:30:00+08:00',
             normalized_end: '2026-03-22T14:30:00+08:00',
-            summary: '将“最近”归一化为过去三天到当前时刻。',
+            summary: 'Normalized “最近” into the past three days up to the current moment.',
           };
         }
         if (query.includes('上午')) {
@@ -33,13 +33,13 @@ describe('timelineResolve', () => {
             target_time_range: 'past_range',
             normalized_start: '2026-03-22T00:00:00+08:00',
             normalized_end: '2026-03-22T12:00:00+08:00',
-            summary: '将“上午”归一化为当天 00:00 到 12:00。',
+            summary: 'Normalized “上午” into today from 00:00 to 12:00.',
           };
         }
         return {
           schema_version: '1.0',
           target_time_range: 'now',
-          summary: '将请求解释为当前状态查询。',
+          summary: 'Interpreted the request as a current-state query.',
         };
       },
     });

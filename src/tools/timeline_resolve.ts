@@ -831,7 +831,7 @@ export async function timelineResolve(
 export const timelineResolveToolSpec = {
   name: 'timeline_resolve',
   description:
-    '处理“你在干嘛”“你现在在哪”“最近有什么有趣的事吗”“昨晚八点你在做什么”这类时间现实与回忆问题的统一入口；直接接收自然语言 query，内部会先理解时间语义，再检索或生成并 append-only 写入 canon。',
+    'Unified entry point for time-grounded reality and recall questions such as “你在干嘛”, “你现在在哪”, “最近有什么有趣的事吗”, or “昨晚八点你在做什么”. It accepts a natural-language query, interprets the time semantics internally, then retrieves or generates and append-only writes canon facts.',
   inputSchema: {
     type: 'object',
     properties: {

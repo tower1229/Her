@@ -39,9 +39,9 @@ function resolveOpenClawBin() {
 
   throw new Error(
     [
-      '无法定位 openclaw 可执行文件。',
-      '请先确认 openclaw 已安装，或在执行前显式设置 OPENCLAW_BIN。',
-      '例如：OPENCLAW_BIN=/Users/zangtao/.nvm/versions/node/v24.9.0/bin/openclaw npm run test:live-experience',
+      'Could not locate the openclaw executable.',
+      'Make sure openclaw is installed, or set OPENCLAW_BIN explicitly before running.',
+      'Example: OPENCLAW_BIN=/Users/zangtao/.nvm/versions/node/v24.9.0/bin/openclaw npm run test:live-experience',
     ].join('\n'),
   );
 }
