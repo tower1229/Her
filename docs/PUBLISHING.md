@@ -16,18 +16,18 @@ The npm package name and the OpenClaw plugin id should both stay aligned with `s
 2. Run:
 
 ```bash
-npm run release -- --push
+npm run release -- --dry-run
 ```
 
 That command:
 
 1. synchronizes the version across package metadata;
-2. runs `npm run verify`;
-3. runs `npm pack --dry-run`;
-4. creates a git commit and tag.
+2. refreshes generated holiday data with `npm run generate:holidays` (`releaseYear-1` through `releaseYear+10`, CN/US);
+3. runs `npm run verify`;
+4. runs `npm publish` with the args you pass to `npm run release -- ...`.
 
-Add `--publish` to publish directly to npm from your machine after verification:
+Publish after dry-run validation:
 
 ```bash
-npm run release -- --publish --push
+npm run release
 ```
