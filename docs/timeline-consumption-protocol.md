@@ -42,6 +42,8 @@
 - `query` 与 `fact` 在当前成功分支里都会返回
 - `scene` 与 `selfie_ready` 只在这次结果里存在已解析 episode 时返回
 - `empty_window` 场景下，下游应预期只有 `query` 与 `fact`，而没有 `scene` / `selfie_ready`
+- `allow_generate` 下会优先尝试补全空白窄窗口；只有在睡眠窗口或强约束冲突等无法安全生成时，才保留 `empty_window`
+- 当保留 `empty_window` 时，下游应将其解释为“记不清/遗忘”语义，而不是“未知事实”
 
 ### 3.1 `query`
 
@@ -102,7 +104,12 @@
 
 来组织自然回答。
 
-如果 `consumption.fact.status = empty`，应按“当前没有命中可复用事实”的语义处理，而不是假定一定会有场景字段。
+如果 `consumption.fact.status = empty`，应按“当前没有命中可复用事实，且这段记忆记不清”的语义处理，而不是假定一定会有场景字段或直接回答“不知道”。
+
+另外需要保持边界：
+
+- `allow_generate`：优先补全非睡眠空窗，失败时用“记不清”表达
+- `read_only`：允许直接 `empty_window`，不触发补全写入
 
 ### 4.2 自拍类技能
 

@@ -213,4 +213,56 @@ describe('timelineResolve trace schema', () => {
     expect(result.trace?.decision.resolution_mode).toBe('generated_new');
     expect(result.result?.episodes).toHaveLength(1);
   });
+
+  it('keeps empty_window trace with forgetfulness wording when allow_generate retry still returns empty', async () => {
+    const reasonTimeline = jest.fn(async (collector) => ({
+      schema_version: '1.0' as const,
+      request_id: collector.request_id,
+      request_type: 'past_range' as const,
+      decision: {
+        action: 'return_empty' as const,
+        should_write_canon: false,
+      },
+      continuity: {
+        judged: true,
+        is_continuing: false,
+        reason: 'no reusable fact in the target range',
+      },
+      rationale: {
+        summary: '早餐时段完全空白，无法确认细节。',
+        hard_fact_basis: [],
+        canon_basis: [],
+        persona_basis: [],
+        constraint_basis: [],
+      },
+    }));
+
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-22T23:59:59+08:00', timezone: 'Asia/Shanghai' }),
+      planTimelineQuery: async () => ({
+        schema_version: '1.0',
+        target_time_range: 'past_range',
+        normalized_start: '2026-03-22T06:00:00+08:00',
+        normalized_end: '2026-03-22T09:00:00+08:00',
+        summary: 'Normalized breakfast question into 06:00-09:00 range.',
+      }),
+      sessionsHistory: async () => ['trace fallback test'],
+      memoryGet: async () => '',
+      reasonTimeline,
+      traceLogPath,
+    });
+
+    const result = await timelineResolve({
+      query: '今天吃早饭了吗',
+      mode: 'allow_generate',
+      trace: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected empty-window success envelope');
+    expect(reasonTimeline).toHaveBeenCalledTimes(2);
+    expect(result.resolution_summary.mode).toBe('empty_window');
+    expect(result.notes.join(' ')).toContain('记不清');
+    expect(result.trace?.decision.resolution_mode).toBe('empty_window');
+  });
 });

@@ -281,6 +281,104 @@ describe('timelineResolve', () => {
     expect(result.resolution_summary.mode).toBe('empty_window');
   });
 
+  it('keeps empty_window for allow_generate sleep-window gaps and uses reasoner-driven forgetfulness wording', async () => {
+    const reasonTimeline = jest.fn(async (collector) => ({
+      schema_version: '1.0' as const,
+      request_id: collector.request_id,
+      request_type: 'past_range' as const,
+      decision: {
+        action: 'return_empty' as const,
+        should_write_canon: false,
+      },
+      continuity: {
+        judged: true,
+        is_continuing: false,
+        reason: 'pre-dawn span is likely sleep and has no retrievable episode',
+      },
+      rationale: {
+        summary: '这段睡眠窗口没有可复用事实，只能诚实地说明记不清细节。',
+        hard_fact_basis: [],
+        canon_basis: [],
+        persona_basis: [],
+        constraint_basis: ['avoid fabricating a specific awake scene in sleep window'],
+      },
+    }));
+
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-23T06:30:00+08:00', timezone: 'Asia/Shanghai' }),
+      sessionsHistory: async () => ['User asked what happened pre-dawn.'],
+      planTimelineQuery: async () => ({
+        schema_version: '1.0',
+        target_time_range: 'past_range',
+        normalized_start: '2026-03-23T02:00:00+08:00',
+        normalized_end: '2026-03-23T04:00:00+08:00',
+        summary: 'Normalized query into pre-dawn sleep window.',
+      }),
+      memoryGet: async () => '',
+      reasonTimeline,
+    });
+
+    const result = await timelineResolve({
+      query: '凌晨两点到四点你在做什么',
+      mode: 'allow_generate',
+      trace: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected empty-window success envelope');
+    expect(result.resolution_summary.mode).toBe('empty_window');
+    expect(result.notes.join(' ')).toContain('记不清');
+    expect(reasonTimeline).toHaveBeenCalledTimes(2);
+  });
+
+  it('appends forgetfulness reminder when allow_generate empty notes lack forgetfulness wording', async () => {
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-22T23:00:00+08:00', timezone: 'Asia/Shanghai' }),
+      sessionsHistory: async () => ['User asked about an empty breakfast window.'],
+      planTimelineQuery: async () => ({
+        schema_version: '1.0',
+        target_time_range: 'past_range',
+        normalized_start: '2026-03-22T06:00:00+08:00',
+        normalized_end: '2026-03-22T09:00:00+08:00',
+        summary: 'Normalized breakfast question into 06:00-09:00 range.',
+      }),
+      memoryGet: async () => '',
+      reasonTimeline: async (collector) => ({
+        schema_version: '1.0',
+        request_id: collector.request_id,
+        request_type: 'past_range',
+        decision: {
+          action: 'return_empty',
+          should_write_canon: false,
+        },
+        continuity: {
+          judged: true,
+          is_continuing: false,
+          reason: 'continuity cannot be established from available evidence',
+        },
+        rationale: {
+          summary: 'details are not recoverable from available evidence in this window',
+          hard_fact_basis: [],
+          canon_basis: [],
+          persona_basis: [],
+          constraint_basis: [],
+        },
+      }),
+    });
+
+    const result = await timelineResolve({
+      query: '今天吃早饭了吗',
+      mode: 'allow_generate',
+      trace: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected empty-window success envelope');
+    expect(result.resolution_summary.mode).toBe('empty_window');
+    expect(result.notes.join(' ')).toContain('记不清');
+    expect(result.notes.join(' ')).toContain('保持诚实表达');
+  });
+
   it('selects a query-matching parsed episode instead of blindly reusing the latest one', async () => {
     setTimelineResolveDependencies({
       currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),

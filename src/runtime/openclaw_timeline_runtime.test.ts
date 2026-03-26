@@ -39,6 +39,7 @@ describe('openclaw timeline runtime factories', () => {
 
     let latestReasonerRequestId = '';
     let latestPlannerRequestId = '';
+    let sawUpdatedReasonerPrompt = false;
 
     const getSessionMessages = jest.fn();
 
@@ -49,7 +50,7 @@ describe('openclaw timeline runtime factories', () => {
       },
       runtime: {
         subagent: {
-          run: async ({ message }: { message: string }) => {
+          run: async ({ message, extraSystemPrompt }: { message: string; extraSystemPrompt?: string }) => {
             const marker = '"request_id": "';
             const start = message.indexOf(marker);
             if (start !== -1) {
@@ -59,6 +60,12 @@ describe('openclaw timeline runtime factories', () => {
                 latestPlannerRequestId = requestId;
               } else {
                 latestReasonerRequestId = requestId;
+                if (
+                  extraSystemPrompt?.includes('prefer generate_new_fact by default')
+                  && extraSystemPrompt?.includes('memory blankness/forgetfulness')
+                ) {
+                  sawUpdatedReasonerPrompt = true;
+                }
               }
             }
             return { runId: 'reasoner-run-1' };
@@ -157,6 +164,7 @@ describe('openclaw timeline runtime factories', () => {
         sessionKey: expect.stringContaining('timeline-reasoner'),
       }),
     );
+    expect(sawUpdatedReasonerPrompt).toBe(true);
   });
 
   it('recovers the matching planner and reasoner JSON from mixed assistant transcripts', async () => {

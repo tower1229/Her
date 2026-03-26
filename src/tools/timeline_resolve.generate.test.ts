@@ -494,4 +494,101 @@ describe('timelineResolve generation path', () => {
     expect(result.trace?.appearance.outfit_mode).toBe('sportswear');
   });
 
+  it('retries once with continuity policy when allow_generate initially returns empty', async () => {
+    const reasonTimeline = jest.fn(async (collector) => {
+      const query = String(collector.request.user_query || '');
+      if (!query.includes('[continuity-policy]')) {
+        return {
+          schema_version: '1.0' as const,
+          request_id: collector.request_id,
+          request_type: 'past_range' as const,
+          decision: {
+            action: 'return_empty' as const,
+            should_write_canon: false,
+          },
+          continuity: {
+            judged: true,
+            is_continuing: false,
+            reason: 'blank breakfast window in canon',
+          },
+          rationale: {
+            summary: 'No reusable breakfast fact was found in the requested window.',
+            hard_fact_basis: [],
+            canon_basis: [],
+            persona_basis: [],
+            constraint_basis: [],
+          },
+        };
+      }
+      return {
+        schema_version: '1.0' as const,
+        request_id: collector.request_id,
+        request_type: 'past_range' as const,
+        decision: {
+          action: 'generate_new_fact' as const,
+          should_write_canon: true,
+        },
+        continuity: {
+          judged: true,
+          is_continuing: false,
+          reason: 'non-sleep blank window should be gap-filled in allow_generate mode',
+        },
+        rationale: {
+          summary: 'Generated a conservative breakfast memory after continuity-policy retry.',
+          hard_fact_basis: [],
+          canon_basis: [],
+          persona_basis: ['morning home routine'],
+          constraint_basis: ['keep breakfast timing plausible and non-contradictory'],
+        },
+        generated_fact: {
+          timestamp: '2026-03-22T07:40:00+08:00',
+          location: '家里厨房',
+          action: '简单准备了早餐并慢慢吃完',
+          emotionTags: ['平静', '清醒'],
+          appearance: '宽松的家居服，刚起床的状态',
+          internalMonologue: '这段早餐很普通，但确实是那天早上的一部分。',
+          confidence: 0.61,
+          reason: 'allow_generate continuity fallback for a non-sleep blank window',
+          sceneSemantics: {
+            activityMode: 'meal' as const,
+            continuityRelation: 'fresh_moment' as const,
+            rationale: 'the generated event is a plausible breakfast scene inside the requested range',
+          },
+          appearanceLogic: {
+            transition: 'inherit' as const,
+            changeReason: 'same_day_continuation' as const,
+            outfitMode: 'casual_home' as const,
+          },
+        },
+      };
+    });
+
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-22T23:59:59+08:00', timezone: 'Asia/Shanghai' }),
+      planTimelineQuery: async () => ({
+        schema_version: '1.0',
+        target_time_range: 'past_range',
+        normalized_start: '2026-03-22T06:00:00+08:00',
+        normalized_end: '2026-03-22T09:00:00+08:00',
+        summary: 'Normalized breakfast question into 06:00-09:00 range.',
+      }),
+      sessionsHistory: async () => ['user: 今天吃早饭了吗'],
+      memoryGet: async () => '',
+      reasonTimeline,
+      memoryFilePath: () => tmpFile,
+    });
+
+    const result = await timelineResolve({
+      query: '今天吃早饭了吗',
+      mode: 'allow_generate',
+      trace: true,
+    });
+
+    expect(reasonTimeline).toHaveBeenCalledTimes(2);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected generated success envelope');
+    expect(result.resolution_summary.mode).toBe('generated_new');
+    expect(result.result?.consumption?.fact.source_type).toBe('generated');
+  });
+
 });

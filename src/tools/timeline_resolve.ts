@@ -287,6 +287,19 @@ function buildReasonerNotes(reasoned: TimelineReasonerOutput): string[] {
   return notes;
 }
 
+function buildForgetfulnessNotes(
+  reasoned: TimelineReasonerOutput,
+  window: ReturnType<typeof resolveWindow>,
+): string[] {
+  const notes = buildReasonerNotes(reasoned);
+  const reminder = (
+    `目标时间窗 ${window.start} -> ${window.end} 缺少可复用事实；当前保持诚实表达：这段经历记不清了。`
+  );
+  // Keep behavior locale-agnostic: do not infer semantics from language-specific keywords.
+  // Instead, always append a standardized forgetfulness reminder for allow_generate empty windows.
+  return [...notes, reminder];
+}
+
 function persistTraceIfConfigured(
   output: TimelineResolveOutput,
   input: TimelineResolveInput,
@@ -433,7 +446,9 @@ function buildEmptyOutput(
   window: ReturnType<typeof resolveWindow>,
   collector: TimelineCollectorOutput,
   reasoned: TimelineReasonerOutput,
+  notesOverride?: string[],
 ): TimelineResolveSuccessOutput {
+  const notes = notesOverride ?? buildReasonerNotes(reasoned);
   return {
     ok: true,
     schema_version: '1.0',
@@ -461,7 +476,7 @@ function buildEmptyOutput(
       },
       resolution: {
         mode: 'empty_window',
-        notes: buildReasonerNotes(reasoned).join(' | '),
+        notes: notes.join(' | '),
       },
       consumption: buildConsumptionView({
         preset: window.query_range,
@@ -473,7 +488,7 @@ function buildEmptyOutput(
       }),
       episodes: [],
     },
-    notes: buildReasonerNotes(reasoned),
+    notes,
   };
 }
 
@@ -501,13 +516,36 @@ export async function timelineResolve(
     if (!deps.reasonTimeline) {
       throw new Error('Timeline reasoner dependency missing');
     }
-    const reasoned = await deps.reasonTimeline(collector);
+    let reasoned = await deps.reasonTimeline(collector);
     if (!reasoned) {
       throw new Error('Timeline reasoner returned no decision');
     }
-    const guard = validateTimelineReasonerOutput(collector, reasoned);
+    let guard = validateTimelineReasonerOutput(collector, reasoned);
     if (!guard.ok) {
       throw new Error(`Invalid reasoner output: ${guard.block_reason}`);
+    }
+
+    if (
+      normalizeMode(input.mode) === 'allow_generate'
+      && guard.outcome === 'return_empty'
+      && deps.reasonTimeline
+    ) {
+      const retryCollector: TimelineCollectorOutput = {
+        ...collector,
+        request: {
+          ...collector.request,
+          user_query: `${collector.request.user_query || ''}\n[continuity-policy] allow_generate mode prefers gap-filling generation for non-sleep blank windows; use return_empty only for sleep-window or hard-constraint violations.`,
+          mode: 'allow_generate',
+        },
+      };
+      const retried = await deps.reasonTimeline(retryCollector);
+      if (retried) {
+        const retriedGuard = validateTimelineReasonerOutput(retryCollector, retried);
+        if (retriedGuard.ok && retriedGuard.outcome === 'generate_new_fact') {
+          reasoned = retried;
+          guard = retriedGuard;
+        }
+      }
     }
 
     let output: TimelineResolveSuccessOutput;
@@ -720,7 +758,15 @@ export async function timelineResolve(
           ),
         };
     } else {
-      output = buildEmptyOutput('', window, collector, reasoned);
+      output = buildEmptyOutput(
+        '',
+        window,
+        collector,
+        reasoned,
+        normalizeMode(input.mode) === 'allow_generate'
+          ? buildForgetfulnessNotes(reasoned, window)
+          : undefined,
+      );
       traceAppearance = {
         inherited: false,
         reason: 'no-canon-hit',
