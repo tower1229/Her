@@ -64,7 +64,7 @@ function isSafelyStructured(content) {
 function formatHeading(action, timestamp) {
   const timeMatch = timestamp.match(/(\d{2}:\d{2}:\d{2})/);
   const time = timeMatch ? timeMatch[1] : '00:00:00';
-  return `### [${time}] ${action.slice(0, 15)}...`;
+  return `### [${time}]`;
 }
 
 function formatEpisode(episode) {

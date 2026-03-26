@@ -46,7 +46,7 @@ describe('writeEpisode', () => {
     expect(res.success).toBe(true);
 
     const content = fs.readFileSync(tempFile, 'utf8');
-    expect(content).toContain('### [14:30:00] waking up...');
+    expect(content).toContain('### [14:30:00]');
     expect(content).toContain('- Timestamp: 2026-03-22 14:30:00');
     expect(content).toContain('- Appearance: pajamas');
     expect(content).toContain('- Internal_Monologue: Need coffee');

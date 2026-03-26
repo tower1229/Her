@@ -15,7 +15,7 @@ Each daily-log memory should include these fields whenever possible:
 
 Recommended shape:
 
-    ### [09:30:00] Reviewing today's tasks in the study...
+    ### [09:30:00]
 
     - Timestamp: 2026-03-24 09:30:00
     - Location: Home study

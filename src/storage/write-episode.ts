@@ -134,7 +134,7 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
     }
 
     const mdLines = [
-      `### [${timeStr}] ${action.substring(0, 15)}...`,
+      `### [${timeStr}]`,
       '',
       `- Timestamp: ${dateStr} ${timeStr}`,
       `- Location: ${location}`,
