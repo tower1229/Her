@@ -6,8 +6,19 @@ describe('world rhythm guidance', () => {
     const slot = buildWorldRhythmSlot('2026-03-24T12:20:00+08:00');
     expect(slot).toBeTruthy();
     expect(slot?.time_band).toBe('midday');
+    expect(slot?.season).toBe('spring');
     expect(slot?.weekday).toBe(true);
     expect(slot?.encouraged_modes).toEqual(expect.arrayContaining(['lunch', 'work_or_study']));
+  });
+
+  it('adds season notes that can constrain clothing plausibility', () => {
+    const summerSlot = buildWorldRhythmSlot('2026-07-24T12:20:00+08:00');
+    const winterSlot = buildWorldRhythmSlot('2026-01-24T12:20:00+08:00');
+
+    expect(summerSlot?.season).toBe('summer');
+    expect(summerSlot?.notes.join(' ')).toContain('summer');
+    expect(winterSlot?.season).toBe('winter');
+    expect(winterSlot?.notes.join(' ')).toContain('winter');
   });
 
   it('marks holidays as holiday day kinds with special notes', () => {

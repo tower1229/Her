@@ -34,6 +34,7 @@ export type WorldRhythmMode =
 export interface WorldRhythmSlot {
   timestamp_hint: string;
   calendar_date: string;
+  season: 'spring' | 'summer' | 'autumn' | 'winter';
   weekday: boolean;
   holiday_key: string | null;
   day_kind: 'workday' | 'weekend' | 'holiday';
@@ -63,6 +64,36 @@ function inferTimeBand(hour: number): WorldTimeBand {
   if (hour <= 19) return 'dinner_window';
   if (hour <= 22) return 'evening';
   return 'late_evening';
+}
+
+function inferSeason(month: number): 'spring' | 'summer' | 'autumn' | 'winter' {
+  if (month === 12 || month <= 2) return 'winter';
+  if (month <= 5) return 'spring';
+  if (month <= 8) return 'summer';
+  return 'autumn';
+}
+
+function buildSeasonNotes(season: 'spring' | 'summer' | 'autumn' | 'winter'): string[] {
+  switch (season) {
+    case 'spring':
+      return [
+        'Season context: spring. Layered but lighter outfits are usually more plausible than heavy winter clothing.',
+      ];
+    case 'summer':
+      return [
+        'Season context: summer. Breathable, lighter clothing is usually more plausible than thick layered outfits.',
+      ];
+    case 'autumn':
+      return [
+        'Season context: autumn. Light outer layers and moderate warmth are usually plausible.',
+      ];
+    case 'winter':
+      return [
+        'Season context: winter. Warmer layers and cold-weather clothing are usually more plausible than summerwear.',
+      ];
+    default:
+      return [];
+  }
 }
 
 function describeBand(timeBand: WorldTimeBand, weekday: boolean, holidayKey: string | null): {
@@ -153,20 +184,23 @@ export function buildWorldRhythmSlot(timestamp: string): WorldRhythmSlot | null 
   const parts = parseTimestampParts(timestamp);
   if (!parts) return null;
   const calendarDate = formatDate(parts);
+  const season = inferSeason(parts.month);
   const dateKind = classifyDateKind(parts);
   const timeBand = inferTimeBand(parts.hour);
   const bandDescription = describeBand(timeBand, dateKind.weekday, dateKind.holiday_key);
+  const seasonNotes = buildSeasonNotes(season);
 
   return {
     timestamp_hint: timestamp,
     calendar_date: calendarDate,
+    season,
     weekday: dateKind.weekday,
     holiday_key: dateKind.holiday_key,
     day_kind: dateKind.day_kind,
     time_band: timeBand,
     encouraged_modes: bandDescription.encouraged_modes,
     discouraged_modes: bandDescription.discouraged_modes,
-    notes: bandDescription.notes,
+    notes: [...bandDescription.notes, ...seasonNotes],
   };
 }
 

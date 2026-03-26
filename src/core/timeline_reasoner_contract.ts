@@ -16,6 +16,7 @@ export interface TimelineGeneratedDraft {
 export interface TimelineWorldRhythmSlot {
   timestamp_hint: string;
   calendar_date: string;
+  season: 'spring' | 'summer' | 'autumn' | 'winter';
   weekday: boolean;
   holiday_key: string | null;
   day_kind: 'workday' | 'weekend' | 'holiday';

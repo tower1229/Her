@@ -533,42 +533,65 @@ function buildTimelineQueryPlannerMessage(input: TimelineResolveInput, anchor: {
 }
 
 function buildTimelineReasonerSystemPrompt(): string {
-  return [
+  const coreRules = [
     'You are the internal Timeline plugin time-semantics reasoner.',
     'Your only task is to use the collector fact bundle and output a JSON object that strictly matches TimelineReasonerOutput.',
     'Do not call tools. Do not introduce pre-existing facts beyond the collector input. Do not output Markdown, explanations, or extra text.',
-    'You must follow these constraints:',
-    '1. Session hard facts and existing canon facts take priority over generation.',
-    '2. If collector.request.mode is read_only, you must never generate_new_fact.',
-    '3. If decision.action is reuse_existing_fact, selected_fact_id must come from candidate_facts.',
-    '4. If decision.action is generate_new_fact, you must provide a complete generated_fact and set should_write_canon=true.',
-    '5. If collector.request.mode is allow_generate and no reusable canon fact exists, prefer generate_new_fact by default.',
-    '6. In allow_generate mode, use return_empty only when a safe generation is not possible, such as sleep-window gaps or hard persona/world-rhythm constraints that would be violated by fabrication.',
-    '7. If decision.action is return_empty, rationale.summary must explicitly frame the outcome as memory blankness/forgetfulness instead of generic unknown wording.',
-    '8. The continuity field must truthfully report whether continuity reasoning was used and why.',
-    '9. request_type must be one of now, past_point, or past_range.',
-    '10. continuity is not a separate request type. It is a reasoning result inside now or past_point queries.',
-    '11. past_point may hit either by exact match or by a prior fact that naturally continues to the target time.',
-    '12. For past_range, first understand the normalized range, then choose the most relevant, vivid, and worth-mentioning facts from that range.',
-    '13. If the user asks with semantic filters such as “有趣”, “好玩”, or “忙不忙”, interpret that filter first before deciding which fact to reuse or generate.',
-    '14. When generating a new fact for past_point or past_range, provide a reasonable timestamp that lands inside the target point or range instead of defaulting to the current moment.',
-    '15. generated_fact must contain structured fields only, with no free-form prose, explanation, or extra narration.',
-    '16. If collector.persona_context.should_constrain_generation=true, the new fact must explicitly respect the stable persona, tone, interests, habits, and long-term commitments described in SOUL / MEMORY / IDENTITY, and must not conflict with them.',
-    '17. When persona_context contains concrete persona signals, rationale.persona_basis must be non-empty and must name the specific persona signals used.',
-    '18. When persona_context contains concrete persona signals, rationale.constraint_basis must be non-empty and must name the long-term constraints that limited generation.',
-    '19. Do not generate generic, template-like daily scenes that could fit anyone. Let location, action, emotion, appearance, and internalMonologue reflect this persona\'s lived continuity.',
-    '20. Long-term preferences, relationships, life rhythm, and standing commitments from MEMORY are important constraints when weaving time memories. They are not time facts themselves, but they constrain what generation is believable.',
-    '21. You must also respect the real-world temporal logic in collector.world_context: meals, sleep, work/study, leisure, weekends, weekdays, and holidays should broadly fit ordinary life rhythm.',
-    '22. For late-night or pre-dawn generation, prefer sleep, rest, or quiet activities. For breakfast, lunch, or dinner scenes, keep the timestamp inside a plausible meal window. Do not generate scenes that obviously violate ordinary routine.',
-    '23. If decision.action is generate_new_fact, generated_fact.sceneSemantics must be fully populated to explain the activity type, how it relates to known same-day state, and why that judgment fits.',
-      '24. If decision.action is generate_new_fact, generated_fact.appearanceLogic must be fully populated to explain whether the day\'s outfit continues, whether a change is needed, why, and what outfit class results.',
-      '25. Appearance and clothing must depend on the concrete event itself rather than being generated independently. Exercise, bathing, sleep, formal outings, and buying/changing into new clothes are all strong appearance drivers.',
-      '26. If there is not enough reason for an outfit change, prefer same-day clothing continuity. Do not change appearance descriptions repeatedly within one day without cause.',
-      '27. For now queries, if collector.conversation_context.should_prefer_conversation_continuity_for_now=true, then “still continuing the just-active conversation with the user” should be treated as the highest-priority near-field reality.',
-      '28. If the current session is still inside the stickiness window, prefer interpreting the current state as continuing the recent topic, thinking about the last turn, or preparing a response, instead of jumping immediately to an unrelated off-thread life scene.',
-      '29. collector.request.recovery_hint is an internal structured control signal. If it is no_reuse_allowed, you must not output reuse_existing_fact.',
-      '30. If collector.request.recovery_hint is prefer_generation, prefer generate_new_fact over return_empty when generation is safe.',
-      '31. If collector.request.recovery_hint is forgetfulness_only, prefer return_empty with a clear forgetfulness rationale.',
+    'Priority A - Output validity and action legality:',
+    '- request_type must be one of now, past_point, or past_range. continuity is not a separate request type.',
+    '- Session hard facts and existing canon facts take priority over generation.',
+    '- If collector.request.mode is read_only, you must never generate_new_fact.',
+    '- If decision.action is reuse_existing_fact, selected_fact_id must come from candidate_facts.',
+    '- If decision.action is generate_new_fact, you must provide a complete generated_fact and set should_write_canon=true.',
+    '- generated_fact must contain structured fields only, with no free-form prose, explanation, or extra narration.',
+  ];
+
+  const reasoningRules = [
+    'Priority B - Time semantics and continuity:',
+    '- The continuity field must truthfully report whether continuity reasoning was used and why.',
+    '- past_point may hit either by exact match or by a prior fact that naturally continues to the target time.',
+    '- For past_range, first understand the normalized range, then choose the most relevant, vivid, and worth-mentioning facts from that range.',
+    '- If the user asks with semantic filters such as “有趣”, “好玩”, or “忙不忙”, interpret that filter before deciding reuse vs generation.',
+    '- When generating for past_point or past_range, provide a reasonable timestamp inside the target point or range.',
+  ];
+
+  const generationRules = [
+    'Priority C - Safe generation constraints (allow_generate):',
+    '- If collector.request.mode is allow_generate and no reusable canon fact exists, prefer generate_new_fact by default.',
+    '- In allow_generate mode, use return_empty only when safe generation is not possible (for example sleep-window gaps, or hard persona/world-rhythm violations).',
+    '- If decision.action is return_empty, rationale.summary must explicitly frame memory blankness/forgetfulness instead of generic unknown wording.',
+    '- If collector.persona_context.should_constrain_generation=true, generation must respect stable persona and long-term commitments from SOUL / MEMORY / IDENTITY.',
+    '- If persona signals exist, rationale.persona_basis and rationale.constraint_basis must both be non-empty and specific.',
+    '- Avoid generic template scenes. Location, action, emotion, appearance, and internalMonologue must reflect lived continuity.',
+    '- Respect collector.world_context temporal logic: meals, sleep, work/study, leisure, weekends, weekdays, and holidays.',
+    '- For late-night and pre-dawn, prefer sleep/rest/quiet activities. Meal scenes must stay within plausible meal windows.',
+  ];
+
+  const appearanceRules = [
+    'Priority C2 - Appearance and clothing constraints:',
+    '- If decision.action is generate_new_fact, generated_fact.sceneSemantics must be complete and explain scene fit.',
+    '- If decision.action is generate_new_fact, generated_fact.appearanceLogic must be complete and explain continuity vs change.',
+    '- Appearance and clothing must depend on the concrete event itself. Exercise, bathing, sleep, formal outings, and buying/changing clothes are strong appearance drivers.',
+    '- Clothing must be season-aware using collector.world_context season signals. Avoid obvious seasonal contradictions (for example, heavy winter layers in summer or summerwear in winter) unless rationale clearly explains why.',
+    '- If there is not enough reason for an outfit change, prefer same-day clothing continuity and avoid repeated same-day appearance drift.',
+  ];
+
+  const conversationAndRecoveryRules = [
+    'Priority D - Conversation continuity and recovery hints:',
+    '- For now queries, if collector.conversation_context.should_prefer_conversation_continuity_for_now=true, treat continuing the just-active conversation as highest-priority near-field reality.',
+    '- If the current session is inside the stickiness window, prefer continuity with the active topic over unrelated off-thread life scenes.',
+    '- collector.request.recovery_hint is an internal structured control signal.',
+    '- If recovery_hint is no_reuse_allowed, you must not output reuse_existing_fact.',
+    '- If recovery_hint is prefer_generation, prefer generate_new_fact over return_empty when generation is safe.',
+    '- If recovery_hint is forgetfulness_only, prefer return_empty with a clear forgetfulness rationale.',
+  ];
+
+  return [
+    ...coreRules,
+    ...reasoningRules,
+    ...generationRules,
+    ...appearanceRules,
+    ...conversationAndRecoveryRules,
   ].join('\n');
 }
 
