@@ -85,6 +85,7 @@ function main() {
   syncPluginVersion();
   syncPluginMetadataVersion();
 
+  run(npmCommand(), ['run', 'generate:holidays']);
   run(npmCommand(), ['run', 'verify']);
   run(npmCommand(), ['publish', ...publishArgs]);
 }

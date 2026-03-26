@@ -57,6 +57,20 @@ describe('writeEpisode', () => {
         expect(res.world_hooks.weekday).toBe(false); // Sunday
         expect(res.world_hooks.holiday_key).toBe(null); // 2026-03-22 is not a holiday
     }
+    expect(getHoliday).toHaveBeenCalledWith('2026-03-22', 'CN');
+  });
+
+  it('infers US holiday country when timestamp offset is not +08:00', async () => {
+    await writeEpisode({
+      timestamp: '2026-03-22T14:30:00-05:00',
+      location: 'home office',
+      action: 'reviewing notes',
+      emotionTags: ['focused'],
+      appearance: 'hoodie',
+      filePath: tempFile,
+    });
+
+    expect(getHoliday).toHaveBeenCalledWith('2026-03-22', 'US');
   });
 
   it('returns noop_existing when the exact episode fingerprint is already present', async () => {

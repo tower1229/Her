@@ -4,6 +4,7 @@ import { mapToEpisode, parseMemoryFile } from '../lib/parse-memory';
 import { ParsedEpisode } from '../lib/types';
 import { dayOfWeek, formatDate, parseTimestampParts } from '../lib/time-utils';
 import { getHoliday } from '../lib/holidays';
+import { inferCountryFromOffset } from '../lib/country';
 import { CollectedSources } from './collect_sources';
 import { ResolvedWindow } from './resolve_window';
 import { TimelineGeneratedDraft } from './timeline_reasoner_contract';
@@ -55,10 +56,6 @@ function normalizeGeneratedDraft(draft: TimelineGeneratedDraft): TimelineGenerat
     sceneSemantics: draft.sceneSemantics,
     appearanceLogic: draft.appearanceLogic,
   };
-}
-
-function inferCountryFromOffset(offset?: string): 'CN' | 'US' {
-  return offset === '+08:00' ? 'CN' : 'US';
 }
 
 export function materializeGeneratedCandidate(

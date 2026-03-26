@@ -13,6 +13,7 @@ import { mapToEpisode } from '../lib/parse-memory';
 import { computeFingerprint } from '../lib/fingerprint';
 import { dayOfWeek, formatDate, parseTimestampParts } from '../lib/time-utils';
 import { getHoliday } from '../lib/holidays';
+import { inferCountryFromOffset } from '../lib/country';
 import { assertCanonicalDailyLogPath } from '../storage/daily_log';
 import { FileLockError, withFileLock } from '../storage/lock';
 import { appendTraceLog } from '../storage/trace_log';
@@ -355,7 +356,7 @@ function buildWorldHooks(timestamp: string): { weekday: boolean; holiday_key: st
   const date = formatDate(parts);
   return {
     weekday: ![0, 6].includes(dayOfWeek(parts)),
-    holiday_key: getHoliday(date),
+    holiday_key: getHoliday(date, inferCountryFromOffset(parts.offset)),
   };
 }
 

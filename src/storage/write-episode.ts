@@ -4,6 +4,7 @@ import { computeFingerprint } from '../lib/fingerprint';
 import { parseMemoryFile } from '../lib/parse-memory';
 import { WorldHooks } from '../lib/types';
 import { getHoliday } from '../lib/holidays';
+import { inferCountryFromOffset } from '../lib/country';
 import { dayOfWeek, formatDate, formatTime, parseTimestampParts } from '../lib/time-utils';
 
 export interface WriteEpisodeInput {
@@ -102,7 +103,7 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
 
     const isWeekend = timestampParts ? [0, 6].includes(dayOfWeek(timestampParts)) : dateObj!.getDay() === 0 || dateObj!.getDay() === 6;
     const weekday = !isWeekend;
-    const holidayKey = getHoliday(`${yyyy}-${mm}-${dd}`);
+    const holidayKey = getHoliday(`${yyyy}-${mm}-${dd}`, timestampParts ? inferCountryFromOffset(timestampParts.offset) : 'US');
 
     const worldHooks: WorldHooks = {
       weekday,

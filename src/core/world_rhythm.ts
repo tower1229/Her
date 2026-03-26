@@ -1,4 +1,5 @@
 import { getHoliday } from '../lib/holidays';
+import { inferCountryFromOffset } from '../lib/country';
 import { formatDate, parseTimestampParts, TimestampParts, dayOfWeek } from '../lib/time-utils';
 import { ActivityMode } from '../lib/timeline_semantics';
 import { ResolvedWindow } from './resolve_window';
@@ -51,10 +52,6 @@ export interface WorldRhythmValidationResult {
   ok: boolean;
   matched_modes: WorldRhythmMode[];
   issues: string[];
-}
-
-function inferCountryFromOffset(offset?: string): 'CN' | 'US' {
-  return offset === '+08:00' ? 'CN' : 'US';
 }
 
 function inferTimeBand(hour: number): WorldTimeBand {
