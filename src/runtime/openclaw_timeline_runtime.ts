@@ -566,6 +566,9 @@ function buildTimelineReasonerSystemPrompt(): string {
       '26. If there is not enough reason for an outfit change, prefer same-day clothing continuity. Do not change appearance descriptions repeatedly within one day without cause.',
       '27. For now queries, if collector.conversation_context.should_prefer_conversation_continuity_for_now=true, then “still continuing the just-active conversation with the user” should be treated as the highest-priority near-field reality.',
       '28. If the current session is still inside the stickiness window, prefer interpreting the current state as continuing the recent topic, thinking about the last turn, or preparing a response, instead of jumping immediately to an unrelated off-thread life scene.',
+      '29. collector.request.recovery_hint is an internal structured control signal. If it is no_reuse_allowed, you must not output reuse_existing_fact.',
+      '30. If collector.request.recovery_hint is prefer_generation, prefer generate_new_fact over return_empty when generation is safe.',
+      '31. If collector.request.recovery_hint is forgetfulness_only, prefer return_empty with a clear forgetfulness rationale.',
   ].join('\n');
 }
 

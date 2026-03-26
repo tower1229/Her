@@ -328,7 +328,11 @@ describe('timelineResolve', () => {
     if (!result.ok) throw new Error('expected empty-window success envelope');
     expect(result.resolution_summary.mode).toBe('empty_window');
     expect(result.notes.join(' ')).toContain('记不清');
-    expect(reasonTimeline).toHaveBeenCalledTimes(2);
+    expect(reasonTimeline).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining({ recovery_hint: 'prefer_generation' }),
+      }),
+    );
   });
 
   it('appends forgetfulness reminder when allow_generate empty notes lack forgetfulness wording', async () => {
@@ -432,5 +436,90 @@ describe('timelineResolve', () => {
     expect(result.resolution_summary.mode).toBe('read_only_hit');
     const episode: any = result.result?.episodes[0];
     expect(String(episode?.state_snapshot?.scene?.activity || '')).toContain('健身房');
+  });
+
+  it('recovers from invalid selected_fact_id when candidate_facts are empty in allow_generate mode', async () => {
+    const reasonTimeline = jest.fn(async (collector) => {
+      if (collector.request.recovery_hint !== 'no_reuse_allowed') {
+        return {
+          schema_version: '1.0' as const,
+          request_id: collector.request_id,
+          request_type: 'past_range' as const,
+          decision: {
+            action: 'reuse_existing_fact' as const,
+            selected_fact_id: 'canon:2099-01-01:0',
+            should_write_canon: false,
+          },
+          continuity: {
+            judged: true,
+            is_continuing: false,
+            reason: 'attempted reuse before checking candidate list',
+          },
+          rationale: {
+            summary: 'Tried to reuse a canon fact.',
+            hard_fact_basis: [],
+            canon_basis: [],
+            persona_basis: [],
+            constraint_basis: [],
+          },
+        };
+      }
+      return {
+        schema_version: '1.0' as const,
+        request_id: collector.request_id,
+        request_type: 'past_range' as const,
+        decision: {
+          action: 'return_empty' as const,
+          should_write_canon: false,
+        },
+        continuity: {
+          judged: true,
+          is_continuing: false,
+          reason: 'no candidate facts available for reuse and generation skipped',
+        },
+        rationale: {
+          summary: 'No reusable canon facts were available for this window.',
+          hard_fact_basis: [],
+          canon_basis: [],
+          persona_basis: [],
+          constraint_basis: [],
+        },
+      };
+    });
+
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-26T23:59:59+08:00', timezone: 'Asia/Shanghai' }),
+      planTimelineQuery: async () => ({
+        schema_version: '1.0',
+        target_time_range: 'past_range',
+        normalized_start: '2026-03-26T12:00:00+08:00',
+        normalized_end: '2026-03-26T18:00:00+08:00',
+        summary: 'Normalized the query into an afternoon range.',
+      }),
+      sessionsHistory: async () => [],
+      memoryGet: async () => '',
+      memorySearch: async () => [],
+      reasonTimeline,
+    });
+
+    const result = await timelineResolve({
+      query: '今天下午除了跟你聊天之外的时间我在做什么',
+      mode: 'allow_generate',
+      trace: true,
+    });
+
+    expect(reasonTimeline).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining({ recovery_hint: 'no_reuse_allowed' }),
+      }),
+    );
+    expect(reasonTimeline).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining({ recovery_hint: 'prefer_generation' }),
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected recovered empty-window success envelope');
+    expect(result.resolution_summary.mode).toBe('empty_window');
   });
 });

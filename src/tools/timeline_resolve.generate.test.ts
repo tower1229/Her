@@ -496,8 +496,7 @@ describe('timelineResolve generation path', () => {
 
   it('retries once with continuity policy when allow_generate initially returns empty', async () => {
     const reasonTimeline = jest.fn(async (collector) => {
-      const query = String(collector.request.user_query || '');
-      if (!query.includes('[continuity-policy]')) {
+      if (collector.request.recovery_hint !== 'prefer_generation') {
         return {
           schema_version: '1.0' as const,
           request_id: collector.request_id,
@@ -584,7 +583,11 @@ describe('timelineResolve generation path', () => {
       trace: true,
     });
 
-    expect(reasonTimeline).toHaveBeenCalledTimes(2);
+    expect(reasonTimeline).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining({ recovery_hint: 'prefer_generation' }),
+      }),
+    );
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('expected generated success envelope');
     expect(result.resolution_summary.mode).toBe('generated_new');

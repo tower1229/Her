@@ -63,6 +63,7 @@ describe('openclaw timeline runtime factories', () => {
                 if (
                   extraSystemPrompt?.includes('prefer generate_new_fact by default')
                   && extraSystemPrompt?.includes('memory blankness/forgetfulness')
+                  && extraSystemPrompt?.includes('collector.request.recovery_hint')
                 ) {
                   sawUpdatedReasonerPrompt = true;
                 }

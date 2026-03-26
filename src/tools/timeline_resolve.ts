@@ -3,19 +3,21 @@ import * as os from 'os';
 import * as path from 'path';
 import { collectSources, TimelineSourceDependencies } from '../core/collect_sources';
 import { buildTimelineCollectorOutput } from '../core/collect_timeline_request';
-import { materializeGeneratedCandidate } from '../core/materialize_generated_candidate';
 import { TimelineCollectorOutput, TimelineReasonerOutput } from '../core/timeline_reasoner_contract';
-import { validateTimelineReasonerOutput } from '../core/runtime_guard';
 import { buildTrace, TimelineTrace } from '../core/trace';
-import { buildConsumptionView } from '../core/build_consumption_view';
-import { TimelineConsumptionView } from '../lib/types';
-import { mapToEpisode } from '../lib/parse-memory';
-import { computeFingerprint } from '../lib/fingerprint';
-import { dayOfWeek, formatDate, parseTimestampParts } from '../lib/time-utils';
-import { getHoliday } from '../lib/holidays';
-import { inferCountryFromOffset } from '../lib/country';
-import { assertCanonicalDailyLogPath } from '../storage/daily_log';
-import { FileLockError, withFileLock } from '../storage/lock';
+import {
+  TimelineResolutionMode as TimelineResolutionModeContract,
+  TimelineResolveSuccessContract,
+} from '../core/timeline_output_contract';
+import {
+  buildEmptyOutput,
+  buildForgetfulnessNotes,
+  buildGeneratedOutput,
+  buildReadOnlyHitOutput,
+} from '../core/build_timeline_output';
+import { executeGeneratedWrite, classifyWriteFailure } from '../core/execute_write';
+import { reasonWithPolicy } from '../core/reason_with_policy';
+import { formatDate, parseTimestampParts } from '../lib/time-utils';
 import { appendTraceLog } from '../storage/trace_log';
 import { writeEpisode, WriteEpisodeInput, WriteResult } from '../storage/write-episode';
 import { resolveWindow, TimelineQueryPlan } from '../core/resolve_window';
@@ -35,15 +37,7 @@ export type TimelineResolveErrorCode =
   | 'PARSE_ERROR'
   | 'INTERNAL';
 
-export type TimelineResolutionMode =
-  | 'read_only_hit'
-  | 'empty_window'
-  | 'generated_new'
-  | 'already_present'
-  | 'write_blocked'
-  | 'write_conflict'
-  | 'write_failed'
-  | 'error';
+export type TimelineResolutionMode = TimelineResolutionModeContract;
 
 export interface TimelineResolveInput {
   query?: string;
@@ -51,43 +45,7 @@ export interface TimelineResolveInput {
   trace?: boolean;
 }
 
-export interface TimelineResolutionSummary {
-  mode: TimelineResolutionMode;
-  writes_attempted: number;
-  writes_succeeded: number;
-  sources: string[];
-  confidence_min: number;
-  confidence_max: number;
-}
-
-export interface TimelineWindowResult {
-  schema_version: '1.0';
-  document_type: 'timeline.window';
-  anchor: { now: string; timezone: string };
-  window: {
-    calendar_date: string;
-    preset: string;
-    semantic_target?: string;
-    collection_scope?: string;
-    start: string;
-    end: string;
-    idempotency_key: string;
-  };
-  resolution: {
-    mode: TimelineResolutionMode;
-    notes?: string;
-  };
-  consumption?: TimelineConsumptionView;
-  episodes: unknown[];
-}
-
-export interface TimelineResolveSuccessOutput {
-  ok: true;
-  schema_version: '1.0';
-  trace_id: string;
-  resolution_summary: TimelineResolutionSummary;
-  result?: TimelineWindowResult;
-  notes: string[];
+export interface TimelineResolveSuccessOutput extends TimelineResolveSuccessContract {
   trace?: TimelineTrace;
 }
 
@@ -95,8 +53,8 @@ export interface TimelineResolveFailureOutput {
   ok: false;
   schema_version: '1.0';
   trace_id: string;
-  resolution_summary: TimelineResolutionSummary;
-  result?: TimelineWindowResult;
+  resolution_summary: TimelineResolveSuccessContract['resolution_summary'];
+  result?: TimelineResolveSuccessContract['result'];
   notes: string[];
   error: {
     code: TimelineResolveErrorCode;
@@ -226,78 +184,10 @@ function normalizeMode(mode?: TimelineResolveMode): TimelineResolveMode {
   return mode || 'allow_generate';
 }
 
-function classifyWriteFailure(writeResult: WriteResult): {
-  mode: TimelineResolutionMode;
-  errorCode: TimelineResolveErrorCode;
-  guard: TimelineTrace['write']['guard'];
-  recoveryHint?: string;
-} {
-  if (writeResult.error_code === 'CONFLICT_EXISTS') {
-    return {
-      mode: 'write_conflict',
-      errorCode: 'WRITE_CONFLICT',
-      guard: 'conflict',
-      recoveryHint: writeResult.recovery_hint,
-    };
-  }
-  if (writeResult.error_code === 'LOCK_EXISTS') {
-    return {
-      mode: 'write_conflict',
-      errorCode: 'WRITE_CONFLICT',
-      guard: 'lock',
-      recoveryHint: writeResult.recovery_hint ?? 'Retry once the current timeline writer releases the file lock.',
-    };
-  }
-  if (writeResult.error === 'write dependency missing') {
-    return {
-      mode: 'write_blocked',
-      errorCode: 'WRITE_BLOCKED',
-      guard: 'write_dependency',
-      recoveryHint: 'Configure the timeline writer dependencies before allowing generated writes.',
-    };
-  }
-  if ((writeResult.error || '').includes('Canonical daily logs')) {
-    return {
-      mode: 'write_blocked',
-      errorCode: 'WRITE_BLOCKED',
-      guard: 'canonical_path',
-      recoveryHint: writeResult.recovery_hint ?? 'Use the canonical memory/YYYY-MM-DD.md path before allowing generated writes.',
-    };
-  }
-  return {
-    mode: 'write_failed',
-    errorCode: 'WRITE_FAILED',
-    guard: 'canonical_path',
-    recoveryHint: writeResult.recovery_hint,
-  };
-}
-
 function calendarDateFromTimestamp(timestamp: string): string {
   const parts = parseTimestampParts(timestamp);
   if (!parts) throw new Error(`Generated timestamp is not parseable: ${timestamp}`);
   return formatDate(parts);
-}
-
-function buildReasonerNotes(reasoned: TimelineReasonerOutput): string[] {
-  const notes = [reasoned.rationale.summary];
-  const interpretation = reasoned.time_interpretation?.summary?.trim();
-  if (interpretation) {
-    notes.push(`Time interpretation: ${interpretation}`);
-  }
-  return notes;
-}
-
-function buildForgetfulnessNotes(
-  reasoned: TimelineReasonerOutput,
-  window: ReturnType<typeof resolveWindow>,
-): string[] {
-  const notes = buildReasonerNotes(reasoned);
-  const reminder = (
-    `目标时间窗 ${window.start} -> ${window.end} 缺少可复用事实；当前保持诚实表达：这段经历记不清了。`
-  );
-  // Keep behavior locale-agnostic: do not infer semantics from language-specific keywords.
-  // Instead, always append a standardized forgetfulness reminder for allow_generate empty windows.
-  return [...notes, reminder];
 }
 
 function persistTraceIfConfigured(
@@ -361,136 +251,6 @@ async function maybePlanTimelineQuery(
   return plan;
 }
 
-function buildWorldHooks(timestamp: string): { weekday: boolean; holiday_key: string | null } {
-  const parts = parseTimestampParts(timestamp);
-  if (!parts) {
-    return { weekday: true, holiday_key: null };
-  }
-  const date = formatDate(parts);
-  return {
-    weekday: ![0, 6].includes(dayOfWeek(parts)),
-    holiday_key: getHoliday(date, inferCountryFromOffset(parts.offset)),
-  };
-}
-
-function buildReadOnlyHitOutput(
-  selectedFact: NonNullable<ReturnType<typeof validateTimelineReasonerOutput>['selected_fact']>,
-  traceId: string,
-  window: ReturnType<typeof resolveWindow>,
-  collector: TimelineCollectorOutput,
-  reasoned: TimelineReasonerOutput,
-): TimelineResolveSuccessOutput {
-  const date = selectedFact.calendar_date;
-  const fp = computeFingerprint(date, selectedFact.location, selectedFact.action, selectedFact.timestamp);
-  const episode = mapToEpisode(
-    {
-      timestamp: selectedFact.timestamp,
-      location: selectedFact.location,
-      action: selectedFact.action,
-      emotionTags: selectedFact.emotion_tags,
-      appearance: selectedFact.appearance,
-      internalMonologue: selectedFact.internal_monologue,
-      parseLevel: selectedFact.parse_level,
-      confidence: selectedFact.confidence,
-    },
-    buildWorldHooks(selectedFact.timestamp),
-    fp,
-  );
-
-  return {
-    ok: true,
-    schema_version: '1.0',
-    trace_id: traceId,
-    resolution_summary: {
-      mode: 'read_only_hit',
-      writes_attempted: 0,
-      writes_succeeded: 0,
-      sources: collector.source_order,
-      confidence_min: selectedFact.confidence,
-      confidence_max: selectedFact.confidence,
-    },
-    result: {
-      schema_version: '1.0',
-      document_type: 'timeline.window',
-      anchor: { now: window.end, timezone: window.timezone },
-      window: {
-        calendar_date: window.calendar_date,
-        preset: window.query_range,
-        semantic_target: window.semantic_target,
-        collection_scope: window.collection_scope,
-        start: window.start,
-        end: window.end,
-        idempotency_key: fp,
-      },
-      resolution: {
-        mode: 'read_only_hit',
-        notes: buildReasonerNotes(reasoned).join(' | '),
-      },
-      consumption: buildConsumptionView({
-        preset: window.query_range,
-        semanticTarget: window.semantic_target,
-        collectionScope: window.collection_scope,
-        resolutionMode: 'read_only_hit',
-        reasoned,
-        episode,
-        sourceType: 'canon',
-      }),
-      episodes: [episode],
-    },
-    notes: buildReasonerNotes(reasoned),
-  };
-}
-
-function buildEmptyOutput(
-  traceId: string,
-  window: ReturnType<typeof resolveWindow>,
-  collector: TimelineCollectorOutput,
-  reasoned: TimelineReasonerOutput,
-  notesOverride?: string[],
-): TimelineResolveSuccessOutput {
-  const notes = notesOverride ?? buildReasonerNotes(reasoned);
-  return {
-    ok: true,
-    schema_version: '1.0',
-    trace_id: traceId,
-    resolution_summary: {
-      mode: 'empty_window',
-      writes_attempted: 0,
-      writes_succeeded: 0,
-      sources: collector.source_order,
-      confidence_min: 0,
-      confidence_max: 0,
-    },
-    result: {
-      schema_version: '1.0',
-      document_type: 'timeline.window',
-      anchor: { now: window.end, timezone: window.timezone },
-      window: {
-        calendar_date: window.calendar_date,
-        preset: window.query_range,
-        semantic_target: window.semantic_target,
-        collection_scope: window.collection_scope,
-        start: window.start,
-        end: window.end,
-        idempotency_key: 'none',
-      },
-      resolution: {
-        mode: 'empty_window',
-        notes: notes.join(' | '),
-      },
-      consumption: buildConsumptionView({
-        preset: window.query_range,
-        semanticTarget: window.semantic_target,
-        collectionScope: window.collection_scope,
-        resolutionMode: 'empty_window',
-        reasoned,
-        sourceType: 'none',
-      }),
-      episodes: [],
-    },
-    notes,
-  };
-}
 
 export async function timelineResolve(
   input: TimelineResolveInput,
@@ -516,37 +276,13 @@ export async function timelineResolve(
     if (!deps.reasonTimeline) {
       throw new Error('Timeline reasoner dependency missing');
     }
-    let reasoned = await deps.reasonTimeline(collector);
-    if (!reasoned) {
-      throw new Error('Timeline reasoner returned no decision');
-    }
-    let guard = validateTimelineReasonerOutput(collector, reasoned);
-    if (!guard.ok) {
-      throw new Error(`Invalid reasoner output: ${guard.block_reason}`);
-    }
-
-    if (
-      normalizeMode(input.mode) === 'allow_generate'
-      && guard.outcome === 'return_empty'
-      && deps.reasonTimeline
-    ) {
-      const retryCollector: TimelineCollectorOutput = {
-        ...collector,
-        request: {
-          ...collector.request,
-          user_query: `${collector.request.user_query || ''}\n[continuity-policy] allow_generate mode prefers gap-filling generation for non-sleep blank windows; use return_empty only for sleep-window or hard-constraint violations.`,
-          mode: 'allow_generate',
-        },
-      };
-      const retried = await deps.reasonTimeline(retryCollector);
-      if (retried) {
-        const retriedGuard = validateTimelineReasonerOutput(retryCollector, retried);
-        if (retriedGuard.ok && retriedGuard.outcome === 'generate_new_fact') {
-          reasoned = retried;
-          guard = retriedGuard;
-        }
-      }
-    }
+    const reasonResult = await reasonWithPolicy({
+      collector,
+      mode: normalizeMode(input.mode),
+      reasonTimeline: deps.reasonTimeline,
+    });
+    let reasoned = reasonResult.reasoned;
+    let guard = reasonResult.guard;
 
     let output: TimelineResolveSuccessOutput;
     let traceAppearance: TimelineTrace['appearance'] = { inherited: false, reason: 'not-applicable' };
@@ -574,7 +310,12 @@ export async function timelineResolve(
     };
 
     if (guard.outcome === 'reuse_existing_fact' && guard.selected_fact) {
-      output = buildReadOnlyHitOutput(guard.selected_fact, '', window, collector, reasoned);
+      output = buildReadOnlyHitOutput({
+        selectedFact: guard.selected_fact,
+        window,
+        collector,
+        reasoned,
+      });
       traceAppearance = {
         inherited: false,
         reason: 'existing canon reused after LLM reasoner selected a matching fact',
@@ -594,92 +335,34 @@ export async function timelineResolve(
         category: reasoned.request_type,
       };
     } else if (guard.outcome === 'generate_new_fact' && guard.generated_fact) {
-        const generated = materializeGeneratedCandidate(
+        const writeExecution = await executeGeneratedWrite({
           window,
           sources,
-          guard.generated_fact,
-          guard.generated_fact.reason || reasoned.rationale.summary || 'llm-guided semantic timeline synthesis',
-        );
+          collector,
+          generatedFact: guard.generated_fact,
+          generationReason: guard.generated_fact.reason || reasoned.rationale.summary || 'llm-guided semantic timeline synthesis',
+          deps: {
+            memoryFilePath: deps.memoryFilePath,
+            canonicalRootName: deps.canonicalRootName,
+            writeEpisode: deps.writeEpisode,
+          },
+          calendarDateFromTimestamp,
+        });
+        const {
+          generated,
+          generatedCalendarDate,
+          filePath,
+          normalizedWriteResult,
+          writeGuard,
+        } = writeExecution;
         traceAppearance = generated.appearance;
-        const generatedCalendarDate = calendarDateFromTimestamp(generated.parsed.timestamp);
-        const requestedPath = deps.memoryFilePath
-          ? deps.memoryFilePath(generatedCalendarDate)
-          : `memory/${generatedCalendarDate}.md`;
-
-        let filePath = requestedPath;
-        let writeResult: WriteResult = {
-          success: false,
-          written_at: '',
-          outcome: 'failed',
-          error: 'write dependency missing',
-          recovery_hint: 'Configure the timeline writer dependencies before allowing generated writes.',
-        };
-        let writeGuard: TimelineTrace['write']['guard'] = 'canonical_path';
-
-        try {
-          filePath = assertCanonicalDailyLogPath(
-            requestedPath,
-            generatedCalendarDate,
-            deps.canonicalRootName || 'memory',
-          );
-          writeResult = deps.writeEpisode
-            ? await withFileLock(filePath, async () =>
-                deps.writeEpisode!({
-                  timestamp: generated.parsed.timestamp,
-                  location: generated.parsed.location,
-                  action: generated.parsed.action,
-                  emotionTags: generated.parsed.emotionTags,
-                  appearance: generated.parsed.appearance,
-                  internalMonologue: generated.parsed.internalMonologue,
-                  filePath,
-                  confidence: generated.parsed.confidence,
-                }),
-              )
-            : writeResult;
-        } catch (error: any) {
-          if (error instanceof FileLockError) {
-            writeGuard = 'lock';
-            writeResult = {
-              success: false,
-              written_at: '',
-              outcome: 'conflict',
-              error_code: 'LOCK_EXISTS',
-              error: error.message,
-              recovery_hint: 'Retry once the current timeline writer releases the file lock.',
-            };
-          } else {
-            writeResult = {
-              success: false,
-              written_at: '',
-              outcome: 'failed',
-              error_code: String(error.message || '').includes('Canonical daily logs') ? 'IO_ERROR' : undefined,
-              error: error.message,
-              recovery_hint: String(error.message || '').includes('Canonical daily logs')
-                ? 'Use the canonical memory/YYYY-MM-DD.md path before allowing generated writes.'
-                : undefined,
-            };
-          }
-        }
-
-        const normalizedWriteResult: WriteResult = writeResult.success && !writeResult.outcome
-          ? { ...writeResult, outcome: 'appended' }
-          : writeResult;
         const failedWrite = !normalizedWriteResult.success ? classifyWriteFailure(normalizedWriteResult) : null;
-        if (failedWrite) {
-          writeGuard = failedWrite.guard;
-        }
 
         const resolutionMode: TimelineResolutionMode = normalizedWriteResult.success
           ? normalizedWriteResult.outcome === 'noop_existing'
             ? 'already_present'
             : 'generated_new'
           : failedWrite?.mode ?? 'write_failed';
-        const resolutionNotes = normalizedWriteResult.success
-          ? normalizedWriteResult.outcome === 'noop_existing'
-            ? 'a matching canon entry already existed, so the append-only writer skipped the write'
-            : 'generated candidate persisted via append-only writer'
-          : normalizedWriteResult.error;
-
         traceWrite = {
           attempted: true,
           succeeded: normalizedWriteResult.success && normalizedWriteResult.outcome === 'appended',
@@ -705,68 +388,25 @@ export async function timelineResolve(
           error_code: failedWrite?.errorCode,
         };
 
-        output = {
-          ok: true,
-          schema_version: '1.0',
-          trace_id: '',
-          resolution_summary: {
-            mode: resolutionMode,
-            writes_attempted: 1,
-            writes_succeeded: normalizedWriteResult.success && normalizedWriteResult.outcome === 'appended' ? 1 : 0,
-            sources: sources.sourceOrder,
-            confidence_min: generated.parsed.confidence,
-            confidence_max: generated.parsed.confidence,
-          },
-          result: {
-            schema_version: '1.0',
-            document_type: 'timeline.window',
-            anchor: { now: window.end, timezone: window.timezone },
-            window: {
-              calendar_date: generatedCalendarDate,
-              preset: window.query_range,
-              semantic_target: window.semantic_target,
-              collection_scope: window.collection_scope,
-              start: window.start,
-              end: window.end,
-              idempotency_key: normalizedWriteResult.idempotency_key || generated.idempotencyKey,
-            },
-            resolution: {
-              mode: resolutionMode,
-              notes: [...buildReasonerNotes(reasoned), resolutionNotes].join(' | '),
-            },
-            consumption: buildConsumptionView({
-              preset: window.query_range,
-              semanticTarget: window.semantic_target,
-              collectionScope: window.collection_scope,
-              resolutionMode,
-              reasoned,
-              episode: generated.episode,
-              sourceType: normalizedWriteResult.success ? 'generated' : 'generated',
-            }),
-            episodes: [generated.episode],
-          },
-          notes: buildReasonerNotes(reasoned).concat(
-            generated.notes,
-            normalizedWriteResult.success
-              ? normalizedWriteResult.outcome === 'noop_existing'
-                ? [`A matching canon entry was already present at ${filePath}; append skipped.`]
-                : [`Generated episode persisted to ${filePath}.`]
-              : [
-                  `Generation attempted but write failed: ${normalizedWriteResult.error ?? 'unknown error'}.`,
-                  ...(normalizedWriteResult.recovery_hint ? [`Recovery hint: ${normalizedWriteResult.recovery_hint}`] : []),
-                ],
-          ),
-        };
+        output = buildGeneratedOutput({
+          window,
+          reasoned,
+          resolutionMode,
+          generated,
+          generatedCalendarDate,
+          filePath,
+          normalizedWriteResult,
+          sources: sources.sourceOrder,
+        });
     } else {
-      output = buildEmptyOutput(
-        '',
+      output = buildEmptyOutput({
         window,
         collector,
         reasoned,
-        normalizeMode(input.mode) === 'allow_generate'
+        notesOverride: normalizeMode(input.mode) === 'allow_generate'
           ? buildForgetfulnessNotes(reasoned, window)
           : undefined,
-      );
+      });
       traceAppearance = {
         inherited: false,
         reason: 'no-canon-hit',

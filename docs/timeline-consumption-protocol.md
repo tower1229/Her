@@ -44,6 +44,7 @@
 - `empty_window` 场景下，下游应预期只有 `query` 与 `fact`，而没有 `scene` / `selfie_ready`
 - `allow_generate` 下会优先尝试补全空白窄窗口；只有在睡眠窗口或强约束冲突等无法安全生成时，才保留 `empty_window`
 - 当保留 `empty_window` 时，下游应将其解释为“记不清/遗忘”语义，而不是“未知事实”
+- 内部恢复策略已改为结构化 `recovery_hint`（仅 collector 内部使用），不再依赖 query 文本中的隐式 tag
 
 ### 3.1 `query`
 

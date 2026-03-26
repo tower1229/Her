@@ -45,6 +45,7 @@ export interface TimelineCollectorOutput {
   request: {
     user_query?: string;
     mode: 'read_only' | 'allow_generate';
+    recovery_hint?: 'no_reuse_allowed' | 'prefer_generation' | 'forgetfulness_only';
   };
   anchor: {
     now: string;
