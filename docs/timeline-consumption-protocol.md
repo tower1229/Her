@@ -45,6 +45,7 @@
 - `allow_generate` 下会优先尝试补全空白窄窗口；只有在睡眠窗口或强约束冲突等无法安全生成时，才保留 `empty_window`
 - 当保留 `empty_window` 时，下游应将其解释为“记不清/遗忘”语义，而不是“未知事实”
 - 内部恢复策略已改为结构化 `recovery_hint`（仅 collector 内部使用），不再依赖 query 文本中的隐式 tag
+- 若内部在 guard 恢复重试后仍无法得到合法 reasoner 输出（例如重试返回 `null` 或仍选中非法 `fact_id`），`timeline_resolve` 会降级为 `ok: true` 的 `empty_window` 遗忘输出，而不是暴露 `ok: false` 的技术错误包；真实错误原因记录在 `trace.decision.error_code` 与 `notes[1]`，供维护者通过 trace log 调试
 
 ### 3.1 `query`
 
@@ -111,6 +112,7 @@
 
 - `allow_generate`：优先补全非睡眠空窗，失败时用“记不清”表达
 - `read_only`：允许直接 `empty_window`，不触发补全写入
+- 任何内部非输入类错误（reasoner 不可用、guard 拦截等）均以遗忘语义降级，`timeline_resolve` 对外始终返回 `ok: true`；仅 `INVALID_INPUT`（query 为空）仍返回 `ok: false`
 
 ### 4.2 自拍类技能
 

@@ -64,6 +64,7 @@ describe('build_timeline_output', () => {
 
   it('builds empty output with stable contract fields', () => {
     const output = buildEmptyOutput({
+      traceId: 'trace-test-empty',
       window: {
         calendar_date: '2026-03-26',
         query_range: 'past_range',
@@ -77,12 +78,14 @@ describe('build_timeline_output', () => {
       reasoned,
     });
     expect(output.ok).toBe(true);
+    expect(output.trace_id).toBe('trace-test-empty');
     expect(output.resolution_summary.mode).toBe('empty_window');
     expect(output.result?.consumption?.fact.status).toBe('empty');
   });
 
   it('builds read-only output with resolved fact payload', () => {
     const output = buildReadOnlyHitOutput({
+      traceId: 'trace-test-readonly',
       selectedFact: {
         fact_id: 'canon:2026-03-26:0',
         source_type: 'canon_daily_log',
@@ -115,6 +118,7 @@ describe('build_timeline_output', () => {
         },
       },
     });
+    expect(output.trace_id).toBe('trace-test-readonly');
     expect(output.resolution_summary.mode).toBe('read_only_hit');
     expect(output.result?.consumption?.fact.status).toBe('resolved');
     expect(output.result?.episodes).toHaveLength(1);
@@ -122,6 +126,7 @@ describe('build_timeline_output', () => {
 
   it('builds generated output with consistent resolution and notes', () => {
     const output = buildGeneratedOutput({
+      traceId: 'trace-test-generated',
       window: {
         calendar_date: '2026-03-26',
         query_range: 'past_range',
@@ -193,6 +198,7 @@ describe('build_timeline_output', () => {
       sources: makeCollector().source_order,
     });
     expect(output.ok).toBe(true);
+    expect(output.trace_id).toBe('trace-test-generated');
     expect(output.resolution_summary.mode).toBe('generated_new');
     expect(output.result?.consumption?.fact.source_type).toBe('generated');
     expect(output.notes.join(' ')).toContain('Generated episode persisted');

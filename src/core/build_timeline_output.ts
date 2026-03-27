@@ -56,12 +56,13 @@ export function buildForgetfulnessNotes(
 }
 
 export function buildReadOnlyHitOutput(input: {
+  traceId: string;
   selectedFact: CollectedTimelineFact;
   window: TimelineOutputWindowView;
   collector: TimelineCollectorOutput;
   reasoned: TimelineReasonerOutput;
 }): TimelineResolveSuccessContract {
-  const { selectedFact, window, collector, reasoned } = input;
+  const { traceId, selectedFact, window, collector, reasoned } = input;
   const date = selectedFact.calendar_date;
   const fp = computeFingerprint(date, selectedFact.location, selectedFact.action, selectedFact.timestamp);
   const episode = mapToEpisode(
@@ -82,7 +83,7 @@ export function buildReadOnlyHitOutput(input: {
   return {
     ok: true,
     schema_version: '1.0',
-    trace_id: '',
+    trace_id: traceId,
     resolution_summary: {
       mode: 'read_only_hit',
       writes_attempted: 0,
@@ -124,6 +125,7 @@ export function buildReadOnlyHitOutput(input: {
 }
 
 export function buildEmptyOutput(input: {
+  traceId: string;
   window: TimelineOutputWindowView;
   collector: TimelineCollectorOutput;
   reasoned: TimelineReasonerOutput;
@@ -133,7 +135,7 @@ export function buildEmptyOutput(input: {
   return {
     ok: true,
     schema_version: '1.0',
-    trace_id: '',
+    trace_id: input.traceId,
     resolution_summary: {
       mode: 'empty_window',
       writes_attempted: 0,
@@ -174,6 +176,7 @@ export function buildEmptyOutput(input: {
 }
 
 export function buildGeneratedOutput(input: {
+  traceId: string;
   window: TimelineOutputWindowView;
   reasoned: TimelineReasonerOutput;
   resolutionMode: TimelineResolutionMode;
@@ -192,7 +195,7 @@ export function buildGeneratedOutput(input: {
   return {
     ok: true,
     schema_version: '1.0',
-    trace_id: '',
+    trace_id: input.traceId,
     resolution_summary: {
       mode: input.resolutionMode,
       writes_attempted: 1,

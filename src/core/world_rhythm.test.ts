@@ -21,6 +21,12 @@ describe('world rhythm guidance', () => {
     expect(winterSlot?.notes.join(' ')).toContain('winter');
   });
 
+  it('flips season for southern-hemisphere offsets (July reads as winter)', () => {
+    const slot = buildWorldRhythmSlot('2026-07-24T12:20:00+10:00');
+    expect(slot?.season).toBe('winter');
+    expect(slot?.notes.join(' ')).toContain('winter');
+  });
+
   it('marks holidays as holiday day kinds with special notes', () => {
     const slot = buildWorldRhythmSlot('2026-10-01T18:30:00+08:00');
     expect(slot?.day_kind).toBe('holiday');

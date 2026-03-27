@@ -66,9 +66,9 @@ export function makeTraceId(): string {
   return `timeline-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 }
 
-export function buildTrace(input: TimelineTraceInput): TimelineTrace {
+export function buildTrace(input: TimelineTraceInput, traceId?: string): TimelineTrace {
   return {
-    trace_id: makeTraceId(),
+    trace_id: traceId ?? makeTraceId(),
     ts: new Date().toISOString(),
     requested_range: input.requested_range,
     actual_range: input.actual_range,

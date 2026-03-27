@@ -95,7 +95,59 @@ describe('reasonWithPolicy', () => {
     expect(result.guard.outcome).toBe('return_empty');
   });
 
-  it('falls back to safe empty when guard-recovery retry returns null', async () => {
+  it('throws when guard-recovery retry still fails validation', async () => {
+    const collector = makeCollector();
+    const reasonTimeline = jest.fn(async (incoming: TimelineCollectorOutput) => {
+      if (!incoming.request.recovery_hint) {
+        return {
+          schema_version: '1.0' as const,
+          request_id: incoming.request_id,
+          request_type: 'past_range' as const,
+          decision: {
+            action: 'reuse_existing_fact' as const,
+            selected_fact_id: 'canon:2099-01-01:0',
+            should_write_canon: false,
+          },
+          continuity: { judged: true, is_continuing: false },
+          rationale: {
+            summary: 'attempted reuse',
+            hard_fact_basis: [],
+            canon_basis: [],
+            persona_basis: [],
+            constraint_basis: [],
+          },
+        };
+      }
+      return {
+        schema_version: '1.0' as const,
+        request_id: incoming.request_id,
+        request_type: 'past_range' as const,
+        decision: {
+          action: 'reuse_existing_fact' as const,
+          selected_fact_id: 'canon:2099-01-01:0',
+          should_write_canon: false,
+        },
+        continuity: { judged: true, is_continuing: false },
+        rationale: {
+          summary: 'still invalid',
+          hard_fact_basis: [],
+          canon_basis: [],
+          persona_basis: [],
+          constraint_basis: [],
+        },
+      };
+    });
+
+    await expect(
+      reasonWithPolicy({
+        collector,
+        mode: 'allow_generate',
+        reasonTimeline,
+      }),
+    ).rejects.toThrow(/^Guard recovery failed:/);
+  });
+
+  it('throws when guard-recovery retry returns null', async () => {
     const collector = makeCollector();
     const reasonTimeline = jest.fn(async (incoming: TimelineCollectorOutput) => {
       if (!incoming.request.recovery_hint) {
@@ -121,15 +173,13 @@ describe('reasonWithPolicy', () => {
       return null;
     });
 
-    const result = await reasonWithPolicy({
-      collector,
-      mode: 'allow_generate',
-      reasonTimeline,
-    });
-
-    expect(result.guard.ok).toBe(true);
-    expect(result.guard.outcome).toBe('return_empty');
-    expect(result.reasoned.rationale.summary).toContain('No reusable canon facts were available');
+    await expect(
+      reasonWithPolicy({
+        collector,
+        mode: 'allow_generate',
+        reasonTimeline,
+      }),
+    ).rejects.toThrow('Timeline reasoner returned no decision during guard recovery');
   });
 });
 

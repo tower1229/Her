@@ -38,7 +38,7 @@ afterAll(() => {
 });
 
 describe('timelineResolve generation path', () => {
-  it('refuses to generate when no LLM generation dependency is configured', async () => {
+  it('degrades to forgetfulness empty_window when no LLM generation dependency is configured', async () => {
     setTimelineResolveDependencies({
       currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
       sessionsHistory: async () => ['User just asked what are you doing right now?'],
@@ -59,9 +59,13 @@ describe('timelineResolve generation path', () => {
       trace: true,
     });
 
-    expect(result.ok).toBe(false);
-    if (result.ok) throw new Error('expected generation-unavailable error');
-    expect(result.error.code).toBe('REASONER_UNAVAILABLE');
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected degraded forgetfulness envelope');
+    expect(result.resolution_summary.mode).toBe('empty_window');
+    expect(result.notes).toHaveLength(1);
+    expect(result.notes[0]).toContain('记不');
+    expect(result.trace?.decision.error_code).toBe('REASONER_UNAVAILABLE');
+    expect(result.trace?.notes).toHaveLength(2);
     expect(fs.existsSync(tmpFile)).toBe(false);
   });
 

@@ -4,7 +4,7 @@ import * as path from 'path';
 import { collectSources, TimelineSourceDependencies } from '../core/collect_sources';
 import { buildTimelineCollectorOutput } from '../core/collect_timeline_request';
 import { TimelineCollectorOutput, TimelineReasonerOutput } from '../core/timeline_reasoner_contract';
-import { buildTrace, TimelineTrace } from '../core/trace';
+import { buildTrace, makeTraceId, TimelineTrace } from '../core/trace';
 import {
   TimelineResolutionMode as TimelineResolutionModeContract,
   TimelineResolveSuccessContract,
@@ -252,6 +252,86 @@ async function maybePlanTimelineQuery(
 }
 
 
+function buildDegradedForgetfulnessOutput(opts: {
+  requestedRange: string;
+  sourceOrder: string[];
+  timezone: string;
+  errorCode: TimelineResolveErrorCode;
+  errorMessage: string;
+}): TimelineResolveSuccessOutput {
+  const { requestedRange, sourceOrder, timezone, errorCode, errorMessage } = opts;
+  const traceId = makeTraceId();
+  const nowIso = new Date().toISOString();
+  const forgetfulnessNote = '这段时间的事有些模糊，记不太清了。';
+  // output.notes only contains the user-facing forgetfulness note.
+  // The raw error message is kept in trace.notes only, to avoid polluting downstream prompts.
+  const traceNotes = [forgetfulnessNote, errorMessage];
+  const trace = buildTrace({
+    requested_range: requestedRange,
+    actual_range: 'error_degraded',
+    source_order: sourceOrder,
+    source_summary: {
+      sessions_history_count: 0,
+      sessions_history_preview: null,
+      memory_chars: 0,
+      memory_search_count: 0,
+      memory_search_preview: [],
+      parsed_episode_count: 0,
+    },
+    fingerprint: { checked: false, matched: false, compared_episodes: 0, reason: errorMessage },
+    appearance: { inherited: false, reason: 'error-degraded' },
+    write: { attempted: false, succeeded: false, guard: 'not_attempted', outcome: 'not_attempted', writer: 'stella-timeline-plugin' },
+    decision: { resolution_mode: 'empty_window', write_outcome: 'not_attempted', category: 'error_degraded', error_code: errorCode },
+    notes: traceNotes,
+  }, traceId);
+  const effectiveTimezone = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  return {
+    ok: true,
+    schema_version: '1.0',
+    trace_id: traceId,
+    resolution_summary: {
+      mode: 'empty_window',
+      writes_attempted: 0,
+      writes_succeeded: 0,
+      sources: sourceOrder,
+      confidence_min: 0,
+      confidence_max: 0,
+    },
+    result: {
+      schema_version: '1.0',
+      document_type: 'timeline.window',
+      anchor: { now: nowIso, timezone: effectiveTimezone },
+      window: {
+        calendar_date: nowIso.slice(0, 10),
+        preset: requestedRange,
+        semantic_target: requestedRange,
+        collection_scope: 'today_so_far',
+        start: nowIso,
+        end: nowIso,
+        idempotency_key: 'none',
+      },
+      resolution: { mode: 'empty_window', notes: forgetfulnessNote },
+      consumption: {
+        schema_version: '1.0',
+        document_type: 'timeline.consumption',
+        query: {
+          preset: requestedRange,
+          semantic_target: requestedRange,
+          collection_scope: 'today_so_far',
+          resolution_mode: 'empty_window',
+        },
+        fact: {
+          status: 'empty',
+          source_type: 'none',
+        },
+      },
+      episodes: [],
+    },
+    notes: [forgetfulnessNote],
+    trace,
+  };
+}
+
 export async function timelineResolve(
   input: TimelineResolveInput,
   dependencyOverrides?: Partial<TimelineRuntimeDependencies>,
@@ -259,11 +339,14 @@ export async function timelineResolve(
   const deps = getEffectiveTimelineDependencies(dependencyOverrides);
   let sourceOrder: string[] = [];
   let requestedRange = 'unknown';
+  let timezone = '';
 
   try {
     validateTimelineResolveInput(input);
+    const traceId = makeTraceId();
 
     const currentTime = await deps.currentTime();
+    timezone = currentTime.timezone;
     const queryPlan = await maybePlanTimelineQuery(input, deps, {
       now: currentTime.now,
       timezone: currentTime.timezone,
@@ -311,6 +394,7 @@ export async function timelineResolve(
 
     if (guard.outcome === 'reuse_existing_fact' && guard.selected_fact) {
       output = buildReadOnlyHitOutput({
+        traceId,
         selectedFact: guard.selected_fact,
         window,
         collector,
@@ -389,6 +473,7 @@ export async function timelineResolve(
         };
 
         output = buildGeneratedOutput({
+          traceId,
           window,
           reasoned,
           resolutionMode,
@@ -400,6 +485,7 @@ export async function timelineResolve(
         });
     } else {
       output = buildEmptyOutput({
+        traceId,
         window,
         collector,
         reasoned,
@@ -449,69 +535,50 @@ export async function timelineResolve(
       write: traceWrite,
       decision,
       notes: output.notes,
-    });
-    output.trace_id = trace.trace_id;
+    }, traceId);
     output.trace = trace;
     return finalizeTimelineOutput(output, input, deps, requestedRange);
   } catch (error: any) {
     const timelineError = error instanceof Error ? error : new Error(String(error));
     const errorCode = classifyTimelineResolveError(timelineError);
-    const trace = buildTrace({
-      requested_range: requestedRange,
-      actual_range: 'error',
-      source_order: sourceOrder,
-      source_summary: {
-        sessions_history_count: 0,
-        sessions_history_preview: null,
-        memory_chars: 0,
-        memory_search_count: 0,
-        memory_search_preview: [],
-        parsed_episode_count: 0,
-      },
-      fingerprint: {
-        checked: false,
-        matched: false,
-        compared_episodes: 0,
-        reason: timelineError.message,
-      },
-      appearance: { inherited: false, reason: 'error' },
-      write: {
-        attempted: false,
-        succeeded: false,
-        guard: 'not_attempted',
-        outcome: 'not_attempted',
-        writer: 'stella-timeline-plugin',
-      },
-      decision: {
-        resolution_mode: 'error',
-        write_outcome: 'not_attempted',
-        category: 'error',
-        error_code: errorCode,
-      },
-      notes: [timelineError.message],
-    });
 
-    const output: TimelineResolveFailureOutput = {
-      ok: false,
-      schema_version: '1.0',
-      trace_id: trace.trace_id,
-      resolution_summary: {
-        mode: 'error',
-        writes_attempted: 0,
-        writes_succeeded: 0,
-        sources: sourceOrder,
-        confidence_min: 0,
-        confidence_max: 0,
-      },
-      notes: [timelineError.message],
-      error: {
-        code: errorCode,
-        message: timelineError.message,
-      },
-      trace,
-    };
+    if (errorCode === 'INVALID_INPUT') {
+      const trace = buildTrace({
+        requested_range: requestedRange,
+        actual_range: 'error',
+        source_order: sourceOrder,
+        source_summary: {
+          sessions_history_count: 0,
+          sessions_history_preview: null,
+          memory_chars: 0,
+          memory_search_count: 0,
+          memory_search_preview: [],
+          parsed_episode_count: 0,
+        },
+        fingerprint: { checked: false, matched: false, compared_episodes: 0, reason: timelineError.message },
+        appearance: { inherited: false, reason: 'error' },
+        write: { attempted: false, succeeded: false, guard: 'not_attempted', outcome: 'not_attempted', writer: 'stella-timeline-plugin' },
+        decision: { resolution_mode: 'error', write_outcome: 'not_attempted', category: 'error', error_code: errorCode },
+        notes: [timelineError.message],
+      });
+      const output: TimelineResolveFailureOutput = {
+        ok: false,
+        schema_version: '1.0',
+        trace_id: trace.trace_id,
+        resolution_summary: { mode: 'error', writes_attempted: 0, writes_succeeded: 0, sources: sourceOrder, confidence_min: 0, confidence_max: 0 },
+        notes: [timelineError.message],
+        error: { code: errorCode, message: timelineError.message },
+        trace,
+      };
+      return finalizeTimelineOutput(output, input, deps, requestedRange);
+    }
 
-    return finalizeTimelineOutput(output, input, deps, requestedRange);
+    return finalizeTimelineOutput(
+      buildDegradedForgetfulnessOutput({ requestedRange, sourceOrder, timezone, errorCode, errorMessage: timelineError.message }),
+      input,
+      deps,
+      requestedRange,
+    );
   }
 }
 

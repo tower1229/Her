@@ -178,7 +178,7 @@ describe('timelineResolve', () => {
     expect(result.trace_id).toContain('timeline-');
   });
 
-  it('returns an explicit generation_unavailable error when generation is allowed but no LLM is configured', async () => {
+  it('degrades to forgetfulness empty_window when no LLM is configured', async () => {
     setTimelineResolveDependencies({
       currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
       sessionsHistory: async () => ['User asked what are you doing right now?'],
@@ -191,9 +191,13 @@ describe('timelineResolve', () => {
       trace: true,
     });
 
-    expect(result.ok).toBe(false);
-    if (result.ok) throw new Error('expected generation-unavailable contract error');
-    expect(result.error.code).toBe('REASONER_UNAVAILABLE');
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected degraded forgetfulness envelope');
+    expect(result.resolution_summary.mode).toBe('empty_window');
+    expect(result.notes).toHaveLength(1);
+    expect(result.notes[0]).toContain('记不');
+    expect(result.trace?.decision.error_code).toBe('REASONER_UNAVAILABLE');
+    expect(result.trace?.notes).toHaveLength(2);
   });
 
   it('returns an explicit empty_window contract when read-only canon is blank', async () => {

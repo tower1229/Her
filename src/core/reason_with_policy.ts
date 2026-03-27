@@ -25,34 +25,6 @@ function withRecoveryHint(
   };
 }
 
-function buildFallbackEmptyReasoner(
-  collector: TimelineCollectorOutput,
-  uncertainty?: string,
-): TimelineReasonerOutput {
-  return {
-    schema_version: '1.0',
-    request_id: collector.request_id,
-    request_type: collector.window.query_range,
-    decision: {
-      action: 'return_empty',
-      should_write_canon: false,
-    },
-    continuity: {
-      judged: true,
-      is_continuing: false,
-      reason: 'candidate facts were empty, and recovery generation was not validated',
-    },
-    rationale: {
-      summary: 'No reusable canon facts were available; this memory remains unrecoverable for now.',
-      hard_fact_basis: collector.hard_facts.sessions_history.slice(0, 2),
-      canon_basis: [],
-      persona_basis: [],
-      constraint_basis: [],
-      uncertainty,
-    },
-  };
-}
-
 export async function reasonWithPolicy(input: ReasonWithPolicyInput): Promise<ReasonWithPolicyResult> {
   const { collector, mode, reasonTimeline } = input;
   let reasoned = await reasonTimeline(collector);
@@ -70,17 +42,14 @@ export async function reasonWithPolicy(input: ReasonWithPolicyInput): Promise<Re
     const retryCollector = withRecoveryHint(collector, 'no_reuse_allowed');
     const retried = await reasonTimeline(retryCollector);
     if (!retried) {
-      reasoned = buildFallbackEmptyReasoner(collector, 'reasoner returned no decision during guard recovery');
-      guard = validateTimelineReasonerOutput(collector, reasoned);
+      throw new Error('Timeline reasoner returned no decision during guard recovery');
+    }
+    const retriedGuard = validateTimelineReasonerOutput(retryCollector, retried);
+    if (retriedGuard.ok) {
+      reasoned = retried;
+      guard = retriedGuard;
     } else {
-      const retriedGuard = validateTimelineReasonerOutput(retryCollector, retried);
-      if (retriedGuard.ok) {
-        reasoned = retried;
-        guard = retriedGuard;
-      } else {
-        reasoned = buildFallbackEmptyReasoner(collector, retriedGuard.block_reason);
-        guard = validateTimelineReasonerOutput(collector, reasoned);
-      }
+      throw new Error(`Guard recovery failed: ${retriedGuard.block_reason}`);
     }
   }
 
@@ -102,4 +71,3 @@ export async function reasonWithPolicy(input: ReasonWithPolicyInput): Promise<Re
 
   return { reasoned, guard };
 }
-

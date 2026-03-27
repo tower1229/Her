@@ -74,7 +74,7 @@ export function classifyWriteFailure(writeResult: WriteResult): {
   return {
     mode: 'write_failed',
     errorCode: 'WRITE_FAILED',
-    guard: 'canonical_path',
+    guard: 'write_dependency',
     recoveryHint: writeResult.recovery_hint,
   };
 }

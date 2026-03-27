@@ -78,6 +78,7 @@ describe('timelineResolve trace schema', () => {
     });
 
     expect(result.ok).toBe(true);
+    expect(result.trace_id).toBe(result.trace?.trace_id);
     expect(result.trace?.source_order).toEqual(['sessions_history', 'memory_get', 'memory_search']);
     expect(result.trace?.source_summary.parsed_episode_count).toBe(1);
     expect(result.trace?.fingerprint.checked).toBe(true);
@@ -264,5 +265,36 @@ describe('timelineResolve trace schema', () => {
     expect(result.resolution_summary.mode).toBe('empty_window');
     expect(result.notes.join(' ')).toContain('记不清');
     expect(result.trace?.decision.resolution_mode).toBe('empty_window');
+  });
+
+  it('degrades to forgetfulness empty_window when reasoner throws, exposing error_code in trace', async () => {
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
+      sessionsHistory: async () => [],
+      memoryGet: async () => '',
+      reasonTimeline: async () => null,
+      traceLogPath,
+    });
+
+    const result = await timelineResolve({
+      query: '你在干嘛',
+      mode: 'allow_generate',
+      trace: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected degraded forgetfulness envelope');
+    expect(result.resolution_summary.mode).toBe('empty_window');
+    // output.notes must only contain the user-facing forgetfulness note, not raw error messages
+    expect(result.notes).toHaveLength(1);
+    expect(result.notes[0]).toContain('记不');
+    // raw error message is in trace.notes only
+    expect(result.trace?.notes).toHaveLength(2);
+    expect(result.trace?.notes[1]).toBeTruthy();
+    expect(result.trace?.decision.error_code).toBeTruthy();
+    expect(result.trace?.decision.resolution_mode).toBe('empty_window');
+    expect(result.result?.consumption?.fact.status).toBe('empty');
+    expect(result.result?.consumption?.query.semantic_target).toBeTruthy();
+    expect(result.result?.consumption?.query.collection_scope).toBeTruthy();
   });
 });

@@ -1,5 +1,5 @@
 import { getHoliday } from '../lib/holidays';
-import { inferCountryFromOffset } from '../lib/country';
+import { inferCountryFromOffset, inferHemisphere } from '../lib/country';
 import { formatDate, parseTimestampParts, TimestampParts, dayOfWeek } from '../lib/time-utils';
 import { ActivityMode } from '../lib/timeline_semantics';
 import { ResolvedWindow } from './resolve_window';
@@ -66,11 +66,24 @@ function inferTimeBand(hour: number): WorldTimeBand {
   return 'late_evening';
 }
 
-function inferSeason(month: number): 'spring' | 'summer' | 'autumn' | 'winter' {
-  if (month === 12 || month <= 2) return 'winter';
-  if (month <= 5) return 'spring';
-  if (month <= 8) return 'summer';
-  return 'autumn';
+function inferSeason(month: number, hemisphere: 'northern' | 'southern'): 'spring' | 'summer' | 'autumn' | 'winter' {
+  const northern: 'spring' | 'summer' | 'autumn' | 'winter' = month === 12 || month <= 2
+    ? 'winter'
+    : month <= 5
+      ? 'spring'
+      : month <= 8
+        ? 'summer'
+        : 'autumn';
+  if (hemisphere === 'southern') {
+    const flip: Record<typeof northern, typeof northern> = {
+      winter: 'summer',
+      summer: 'winter',
+      spring: 'autumn',
+      autumn: 'spring',
+    };
+    return flip[northern];
+  }
+  return northern;
 }
 
 function buildSeasonNotes(season: 'spring' | 'summer' | 'autumn' | 'winter'): string[] {
@@ -184,7 +197,8 @@ export function buildWorldRhythmSlot(timestamp: string): WorldRhythmSlot | null 
   const parts = parseTimestampParts(timestamp);
   if (!parts) return null;
   const calendarDate = formatDate(parts);
-  const season = inferSeason(parts.month);
+  const hemisphere = inferHemisphere(parts.offset);
+  const season = inferSeason(parts.month, hemisphere);
   const dateKind = classifyDateKind(parts);
   const timeBand = inferTimeBand(parts.hour);
   const bandDescription = describeBand(timeBand, dateKind.weekday, dateKind.holiday_key);
