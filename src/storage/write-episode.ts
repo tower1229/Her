@@ -134,29 +134,45 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       };
     }
 
-    const mdLines = [
-      `### [${timeStr}]`,
-      '',
-      `- Timestamp: ${dateStr} ${timeStr}`,
-      `- Location: ${location}`,
-      `- Action: ${action}`,
-      `- Emotion_Tags: [${emotionTags.join(', ')}]`,
-      `- Appearance: ${appearance}`,
-    ];
-
-    if (internalMonologue) {
-      mdLines.push(`- Internal_Monologue: ${internalMonologue}`);
-    }
-
-    mdLines.push('');
-    const mdContent = mdLines.join('\n') + '\n';
-
     const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
 
-    fs.appendFileSync(filePath, mdContent, 'utf8');
+    // Read existing episodes, merge with the new one, sort by timestamp, and rewrite
+    // the entire file so the daily log stays in chronological order.
+    const existingContent = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '';
+    const existingEpisodes = parseMemoryFile(existingContent);
+
+    const newEpisode = {
+      timestamp: `${dateStr} ${timeStr}`,
+      location,
+      action,
+      emotionTags,
+      appearance,
+      internalMonologue,
+    };
+
+    const allEpisodes = [...existingEpisodes, newEpisode];
+    allEpisodes.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+    const fileLines: string[] = [];
+    for (const ep of allEpisodes) {
+      const epTimeParts = parseTimestampParts(ep.timestamp) ?? parseTimestampParts(`${ep.timestamp.replace(' ', 'T')}+00:00`);
+      const epTimeStr = epTimeParts ? formatTime(epTimeParts) : ep.timestamp.slice(11, 19);
+      fileLines.push(`### [${epTimeStr}]`, '');
+      fileLines.push(`- Timestamp: ${ep.timestamp}`);
+      fileLines.push(`- Location: ${ep.location}`);
+      fileLines.push(`- Action: ${ep.action}`);
+      fileLines.push(`- Emotion_Tags: [${ep.emotionTags.join(', ')}]`);
+      fileLines.push(`- Appearance: ${ep.appearance}`);
+      if (ep.internalMonologue) {
+        fileLines.push(`- Internal_Monologue: ${ep.internalMonologue}`);
+      }
+      fileLines.push('');
+    }
+
+    fs.writeFileSync(filePath, fileLines.join('\n') + '\n', 'utf8');
 
     return {
       success: true,

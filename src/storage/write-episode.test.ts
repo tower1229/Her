@@ -115,4 +115,36 @@ describe('writeEpisode', () => {
     expect(res.error_code).toBe('CONFLICT_EXISTS');
     expect(res.recovery_hint).toContain('Inspect the existing daily log entry');
   });
+
+  it('keeps chronological order when a past-time episode is written after a later one', async () => {
+    // Write the later episode first
+    await writeEpisode({
+      timestamp: '2026-03-27T10:47:00+08:00',
+      location: '书房',
+      action: '处理邮件',
+      emotionTags: ['专注', '沉静'],
+      appearance: '深灰高领毛衣',
+      filePath: tempFile,
+    });
+
+    // Write an earlier episode afterwards (simulating a past-time memory insertion)
+    const res = await writeEpisode({
+      timestamp: '2026-03-27T07:30:00+08:00',
+      location: '家里餐桌',
+      action: '吃早餐',
+      emotionTags: ['平静'],
+      appearance: '深灰高领毛衣',
+      filePath: tempFile,
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.outcome).toBe('appended');
+
+    const content = fs.readFileSync(tempFile, 'utf8');
+    const idx0730 = content.indexOf('### [07:30:00]');
+    const idx1047 = content.indexOf('### [10:47:00]');
+    expect(idx0730).toBeGreaterThanOrEqual(0);
+    expect(idx1047).toBeGreaterThanOrEqual(0);
+    expect(idx0730).toBeLessThan(idx1047);
+  });
 });
