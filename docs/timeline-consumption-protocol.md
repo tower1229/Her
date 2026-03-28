@@ -82,6 +82,38 @@
 - `time_of_day`
 - `summary`
 
+并允许新增以下可选稳定字段：
+
+- `city`
+- `calendar_date`
+- `local_timestamp`
+- `timezone`
+- `activity_mode`
+- `continuity_relation`
+- `environment_mood`
+- `social_context`
+- `appearance_change_expected`
+- `appearance_change_reason`
+- `location_props`
+- `lighting_hint`
+- `framing_hint`
+
+其中：
+
+- `city`：当前场景所属城市；若无法安全恢复则省略
+- `calendar_date`：本地日期，格式 `YYYY-MM-DD`
+- `local_timestamp`：本地时间戳
+- `timezone`：IANA 时区名
+- `activity_mode`：活动语义类别；优先来自生成场景语义
+- `continuity_relation`：当前场景与前序状态的连续性关系
+- `environment_mood`：当前环境氛围的简洁描述
+- `social_context`：如 `alone` / `with_friends` / `in_conversation`
+- `appearance_change_expected`：当前场景是否自然要求换装
+- `appearance_change_reason`：换装原因；仅在需要时返回
+- `location_props`：可供视觉下游复用的显著场景物件
+- `lighting_hint`：稳定的光线提示
+- `framing_hint`：稳定的构图提示
+
 ### 3.4 `selfie_ready`
 
 这是给自拍等视觉下游技能的直接输入视图：
@@ -94,6 +126,15 @@
 - `appearance`
 - `time_of_day`
 - `summary`
+
+字段集合保持不变，但内容质量应更高：
+
+- `location`：尽量包含城市或更具体的空间锚点
+- `activity`：尽量包含动作与少量现实上下文
+- `emotion`：可以由主情绪与次情绪组合成更适合视觉 prompt 的短语
+- `appearance`：可在不编造新事实的前提下吸收稳定外观细节
+- `time_of_day`：可增强为更贴近日常现实的时段表达
+- `summary`：应作为视觉下游可直接复用的一句高密度现实摘要
 
 ## 4. 使用原则
 
@@ -121,6 +162,16 @@
 - `consumption.selfie_ready`（若存在）
 
 作为 prompt 的核心现实锚点。
+
+若需要额外利用现实世界感知能力，也可以选择性读取：
+
+- `scene.city`
+- `scene.calendar_date`
+- `scene.local_timestamp`
+- `scene.timezone`
+- `scene.location_props`
+- `scene.lighting_hint`
+- `scene.framing_hint`
 
 如果该字段不存在，应视为当前结果没有可直接复用的视觉现实锚点，而不是回退去依赖 `episodes[0].state_snapshot` 的内部路径。
 

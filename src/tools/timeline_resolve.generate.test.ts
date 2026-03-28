@@ -130,6 +130,17 @@ describe('timelineResolve generation path', () => {
 
     expect(result.ok).toBe(true);
     expect(result.notes.join(' ')).toContain('persona profile synthesis');
+    expect(result.result?.consumption?.scene?.city).toBe('Shanghai');
+    expect(result.result?.consumption?.scene?.timezone).toBe('Asia/Shanghai');
+    expect(result.result?.consumption?.selfie_ready).toEqual({
+      location: expect.any(String),
+      activity: expect.any(String),
+      emotion: expect.any(String),
+      appearance: expect.any(String),
+      time_of_day: expect.any(String),
+      summary: expect.any(String),
+    });
+    expect(result.result?.consumption?.selfie_ready?.location).toContain('Shanghai');
   });
 
   it('degrades to forgetfulness empty_window when no LLM generation dependency is configured', async () => {

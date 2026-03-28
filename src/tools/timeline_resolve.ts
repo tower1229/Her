@@ -453,6 +453,7 @@ export async function timelineResolve(
         output = buildGeneratedOutput({
           traceId,
           window,
+          collector,
           reasoned,
           resolutionMode,
           generated,

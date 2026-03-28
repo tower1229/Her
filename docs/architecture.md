@@ -276,8 +276,8 @@ TimelineResolveSuccessOutput
 │   └── consumption             ← 下游稳定消费面
 │       ├── query               { preset, semantic_target, ... }
 │       ├── fact                { status, source_type, timestamp, summary, confidence }
-│       ├── scene?              { location, activity, emotion_primary, appearance, ... }
-│       └── selfie_ready?       { location, activity, emotion, appearance, time_of_day }
+│       ├── scene?              { location, activity, emotion_primary, appearance, city?, local_timestamp?, ... }
+│       └── selfie_ready?       { location, activity, emotion, appearance, time_of_day, summary }
 ├── notes[]
 └── trace?                      仅 input.trace=true 时返回
 ```

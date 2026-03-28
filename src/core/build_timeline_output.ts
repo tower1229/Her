@@ -114,6 +114,8 @@ export function buildReadOnlyHitOutput(input: {
         semanticTarget: window.semantic_target,
         collectionScope: window.collection_scope,
         resolutionMode: 'read_only_hit',
+        anchorTimezone: window.timezone,
+        collector,
         reasoned,
         episode,
         sourceType: 'canon',
@@ -166,6 +168,8 @@ export function buildEmptyOutput(input: {
         semanticTarget: input.window.semantic_target,
         collectionScope: input.window.collection_scope,
         resolutionMode: 'empty_window',
+        anchorTimezone: input.window.timezone,
+        collector: input.collector,
         reasoned: input.reasoned,
         sourceType: 'none',
       }),
@@ -178,6 +182,7 @@ export function buildEmptyOutput(input: {
 export function buildGeneratedOutput(input: {
   traceId: string;
   window: TimelineOutputWindowView;
+  collector: TimelineCollectorOutput;
   reasoned: TimelineReasonerOutput;
   resolutionMode: TimelineResolutionMode;
   generated: GeneratedOutputPayload;
@@ -226,6 +231,8 @@ export function buildGeneratedOutput(input: {
         semanticTarget: input.window.semantic_target,
         collectionScope: input.window.collection_scope,
         resolutionMode: input.resolutionMode,
+        anchorTimezone: input.window.timezone,
+        collector: input.collector,
         reasoned: input.reasoned,
         episode: input.generated.episode,
         sourceType: 'generated',
