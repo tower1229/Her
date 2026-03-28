@@ -14,6 +14,7 @@ import {
   TimelineRuntimeDependencies,
   TimelineResolveInput,
 } from '../tools/timeline_resolve';
+import { loadTimelinePersonaContextFromWorkspace } from '../persona/load_persona_context';
 
 interface PluginLoggerLike {
   debug?: (message: string, meta?: Record<string, unknown>) => void;
@@ -1156,37 +1157,7 @@ function createTimelineResolveDependencies(
         return [];
       }
     },
-    coreFiles: async () => ({
-      soul: readWorkspaceTextFile(path.join(workspaceDir, 'SOUL.md')),
-      memory:
-        readWorkspaceTextFile(path.join(workspaceDir, 'MEMORY.md'))
-        || readWorkspaceTextFile(path.join(workspaceDir, 'memory.md')),
-      identity:
-        readWorkspaceTextFile(path.join(workspaceDir, 'IDENTITY.md'))
-        || readWorkspaceTextFile(path.join(workspaceDir, 'IDENTITY')),
-      available_sources: [
-        readWorkspaceTextFile(path.join(workspaceDir, 'SOUL.md')).trim() ? 'soul' : '',
-        (
-          readWorkspaceTextFile(path.join(workspaceDir, 'MEMORY.md'))
-          || readWorkspaceTextFile(path.join(workspaceDir, 'memory.md'))
-        ).trim() ? 'memory' : '',
-        (
-          readWorkspaceTextFile(path.join(workspaceDir, 'IDENTITY.md'))
-          || readWorkspaceTextFile(path.join(workspaceDir, 'IDENTITY'))
-        ).trim() ? 'identity' : '',
-      ].filter(Boolean),
-      should_constrain_generation: Boolean(
-        readWorkspaceTextFile(path.join(workspaceDir, 'SOUL.md')).trim()
-        || (
-          readWorkspaceTextFile(path.join(workspaceDir, 'MEMORY.md'))
-          || readWorkspaceTextFile(path.join(workspaceDir, 'memory.md'))
-        ).trim()
-        || (
-          readWorkspaceTextFile(path.join(workspaceDir, 'IDENTITY.md'))
-          || readWorkspaceTextFile(path.join(workspaceDir, 'IDENTITY'))
-        ).trim(),
-      ),
-    }),
+    coreFiles: async () => loadTimelinePersonaContextFromWorkspace(workspaceDir).projected,
     memoryFilePath: (calendarDate) => path.join(canonicalRootPath, `${calendarDate}.md`),
     canonicalRootName,
     traceLogPath,

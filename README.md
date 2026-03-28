@@ -58,6 +58,26 @@ Timeline adds a dedicated time-awareness layer for OpenClaw so it can:
 
 It is built for immersive social chat first.
 
+## Timeline x Persona Skill
+
+If your persona skill outputs `persona/PERSONA_PROFILE.md`, Timeline can use it as the preferred persona source when it needs to synthesize a new memory.
+
+That pairing is powerful because `PERSONA_PROFILE.md` gives Timeline a stable, structured description of who this character is, while Timeline handles the dynamic part: what probably happened, when it happened, and how it should feel in ordinary life.
+
+The workflow is simple:
+
+1. persona skill writes `persona/PERSONA_PROFILE.md`
+2. Timeline reads it before legacy persona files when building generation context
+3. generated timeline memories stay closer to the intended character instead of drifting into generic agent improvisation
+
+Why this is attractive:
+
+- more in-character memories: generated "last night", "recently", and "right now" scenes stay anchored to the persona's identity, habits, tone, and lifestyle
+- less drift and fewer contradictions: stable inputs make it easier for Timeline to keep location, routine, appearance, and scene logic coherent across turns
+- better small-scene realism: everyday details feel like this persona's actual life, not filler that could belong to anyone
+- cleaner architecture: `PERSONA_PROFILE.md` defines the character, while Timeline decides the temporal scene, which helps avoid mixing persona truth with fake historical facts
+- easier iteration for creators: updating one structured persona file is a much more reliable way to steer memory generation than hoping scattered prose gets interpreted the same way every time
+
 ## Install
 
 ### 1. Install the plugin
@@ -76,6 +96,8 @@ Recommended:
 ```bash
 npm exec --package=stella-timeline-plugin openclaw-timeline-setup -- --workspace ~/.openclaw/workspace
 ```
+
+If you are using a persona skill, place its generated `PERSONA_PROFILE.md` at `persona/PERSONA_PROFILE.md` inside the workspace root. Timeline will prefer that file over legacy persona inputs when building memory-generation context.
 
 If you prefer to edit the files yourself, copy:
 
@@ -98,6 +120,15 @@ Ask things like:
 npm exec --package=stella-timeline-plugin openclaw-timeline-doctor -- --workspace ~/.openclaw/workspace
 ```
 
+## Documentation
+
+Core docs:
+
+- [Architecture](./docs/architecture.md)
+- [Timeline Consumption Protocol](./docs/timeline-consumption-protocol.md)
+- [LLM vs Runtime Boundary](./docs/timeline-llm-runtime-boundary.md)
+- [PERSONA_PROFILE.md Specification](./docs/PERSONA_PROFILE.md)
+
 ## For maintainers
 
-Release flow and publishing notes live in [docs/PUBLISHING.md](./docs/PUBLISHING.md).
+- [Publishing](./docs/PUBLISHING.md)

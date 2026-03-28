@@ -1,6 +1,6 @@
 {
   "name": "stella-timeline-plugin",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "description": "Native OpenClaw timeline plugin with a canonical timeline_resolve tool, bundled skill routing, and guarded append-only writes.",
   "keywords": [
     "openclaw",
@@ -15,7 +15,7 @@
   "license": "MIT-0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tower1229/Her"
+    "url": "git+https://github.com/tower1229/Her.git"
   },
   "homepage": "https://github.com/tower1229/Her#readme",
   "bugs": {
@@ -41,8 +41,8 @@
     "release": "node ./scripts/release.mjs"
   },
   "bin": {
-    "openclaw-timeline-setup": "./bin/openclaw-timeline-setup.mjs",
-    "openclaw-timeline-doctor": "./bin/openclaw-timeline-doctor.mjs"
+    "openclaw-timeline-setup": "bin/openclaw-timeline-setup.mjs",
+    "openclaw-timeline-doctor": "bin/openclaw-timeline-doctor.mjs"
   },
   "publishConfig": {
     "access": "public"

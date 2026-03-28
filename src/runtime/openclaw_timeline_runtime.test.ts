@@ -168,6 +168,153 @@ describe('openclaw timeline runtime factories', () => {
     expect(sawUpdatedReasonerPrompt).toBe(true);
   });
 
+  it('prefers persona/PERSONA_PROFILE.md over legacy core files in the runtime factory path', async () => {
+    const today = formatLocalCalendarDate(new Date());
+    let latestReasonerRequestId = '';
+    let latestPlannerRequestId = '';
+    let latestReasonerMessage = '';
+    const getSessionMessages = jest.fn();
+
+    fs.mkdirSync(path.join(tmpDir, 'persona'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, 'persona', 'PERSONA_PROFILE.md'),
+      [
+        '# PERSONA_PROFILE',
+        '',
+        '## Meta',
+        '- schema_version: 1.0',
+        '- home_city: Shanghai',
+        '- home_timezone: Asia/Shanghai',
+        '',
+        '## Identity',
+        '- common_zones: [home study, bookstore]',
+        '',
+        '## Soul',
+        '- temperament: reflective',
+      ].join('\n'),
+      'utf8',
+    );
+    fs.writeFileSync(path.join(tmpDir, 'IDENTITY.md'), 'She lives in Beijing.', 'utf8');
+    fs.writeFileSync(
+      path.join(canonicalRoot, `${today}.md`),
+      `### [Episode]\n- Timestamp: ${today}T18:00:00+08:00\n- Location: 家里书房\n- Action: 继续整理今天的工作记录\n- Emotion_Tags: [专注, 平静]\n- Appearance: 宽松的家居服\n- Internal_Monologue: 再收一下尾就差不多了。\n她傍晚还在家里书房继续整理今天的工作记录。`,
+      'utf8',
+    );
+
+    const pluginApi = {
+      workspaceDir: tmpDir,
+      pluginConfig: {
+        canonicalMemoryRoot: 'timeline-memory',
+      },
+      runtime: {
+        subagent: {
+          run: async ({ message }: { message: string }) => {
+            const marker = '"request_id": "';
+            const start = message.indexOf(marker);
+            if (start !== -1) {
+              const rest = message.slice(start + marker.length);
+              const requestId = rest.slice(0, rest.indexOf('"'));
+              if (message.includes('"target_time_range": "now | past_point | past_range"')) {
+                latestPlannerRequestId = requestId;
+              } else {
+                latestReasonerRequestId = requestId;
+                latestReasonerMessage = message;
+              }
+            }
+            return { runId: 'reasoner-run-profile' };
+          },
+          waitForRun: async () => ({ status: 'ok' }),
+          getSessionMessages,
+          deleteSession: async () => undefined,
+        },
+        tools: {
+          createMemorySearchTool: () => ({
+            name: 'memory_search',
+            description: 'memory search',
+            parameters: {},
+            execute: async () => ({
+              content: [{ type: 'text' as const, text: '{}' }],
+              details: { results: [] },
+            }),
+          }),
+        },
+      },
+      logger: {},
+    };
+
+    const factory = makeOpenClawTimelineResolveToolFactory(pluginApi);
+    const tool = factory({
+      workspaceDir: tmpDir,
+      sessionKey: 'session-profile',
+    });
+
+    getSessionMessages.mockImplementation(async ({ sessionKey }: { sessionKey: string }) => {
+      if (sessionKey === 'session-profile') {
+        return {
+          messages: [
+            { role: 'user', bodyText: '你现在在干嘛' },
+            { role: 'assistant', bodyText: '让我先确认一下当前状态。' },
+          ],
+        };
+      }
+      if (sessionKey.includes(':planner:')) {
+        return {
+          messages: [
+            {
+              role: 'assistant',
+              bodyText: JSON.stringify({
+                schema_version: '1.0',
+                request_id: latestPlannerRequestId,
+                target_time_range: 'now',
+                summary: 'Normalized the request into a current-state query.',
+              }),
+            },
+          ],
+        };
+      }
+      return {
+        messages: [
+          {
+            role: 'assistant',
+            bodyText: JSON.stringify({
+              schema_version: '1.0',
+              request_id: latestReasonerRequestId,
+              request_type: 'now',
+              decision: {
+                action: 'reuse_existing_fact',
+                selected_fact_id: `canon:${today}:0`,
+                should_write_canon: false,
+              },
+              continuity: {
+                judged: true,
+                is_continuing: true,
+                reason: 'The current activity is still continuing.',
+              },
+              rationale: {
+                summary: 'Reused the existing canon fact that still covers the current moment.',
+                hard_fact_basis: ['user: 你现在在干嘛'],
+                canon_basis: ['canon:2026-03-22:0'],
+                persona_basis: [],
+                constraint_basis: [],
+              },
+            }),
+          },
+        ],
+      };
+    });
+
+    const result = await tool.execute('call-profile', {
+      query: '你在干嘛',
+    });
+
+    const payload = result.details as { ok: boolean; resolution_summary: { mode: string } };
+    expect(payload.ok).toBe(true);
+    expect(payload.resolution_summary.mode).toBe('read_only_hit');
+    expect(latestReasonerMessage).toContain('Home city: Shanghai');
+    expect(latestReasonerMessage).toContain('Temperament: reflective');
+    expect(latestReasonerMessage).not.toContain('Home city: Beijing');
+  });
+
   it('recovers the matching planner and reasoner JSON from mixed assistant transcripts', async () => {
     const today = formatLocalCalendarDate(new Date());
 

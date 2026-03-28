@@ -118,6 +118,19 @@ export interface TimelineConsumptionView {
     appearance: string;
     time_of_day: string;
     summary: string;
+    city?: string;
+    calendar_date?: string;
+    local_timestamp?: string;
+    timezone?: string;
+    activity_mode?: string;
+    continuity_relation?: string;
+    environment_mood?: string;
+    social_context?: string;
+    appearance_change_expected?: boolean;
+    appearance_change_reason?: string;
+    location_props?: string[];
+    lighting_hint?: string;
+    framing_hint?: string;
   };
   selfie_ready?: {
     location: string;

@@ -1,4 +1,3 @@
-import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { collectSources, TimelineSourceDependencies } from '../core/collect_sources';
@@ -21,6 +20,7 @@ import { formatDate, parseTimestampParts } from '../lib/time-utils';
 import { appendTraceLog } from '../storage/trace_log';
 import { writeEpisode, WriteEpisodeInput, WriteResult } from '../storage/write-episode';
 import { resolveWindow, TimelineQueryPlan } from '../core/resolve_window';
+import { loadTimelinePersonaContextFromWorkspace } from '../persona/load_persona_context';
 
 export type TimelineResolveMode = 'read_only' | 'allow_generate';
 
@@ -74,14 +74,6 @@ export interface TimelineRuntimeDependencies extends TimelineSourceDependencies 
   reasonTimeline?: (collector: TimelineCollectorOutput) => Promise<TimelineReasonerOutput | null>;
 }
 
-function readOptionalTextFile(filePath: string): string {
-  try {
-    return fs.readFileSync(filePath, 'utf8');
-  } catch {
-    return '';
-  }
-}
-
 const defaultDependencies: TimelineRuntimeDependencies = {
   currentTime: async () => ({
     now: new Date().toISOString(),
@@ -90,21 +82,7 @@ const defaultDependencies: TimelineRuntimeDependencies = {
   sessionsHistory: async () => [],
   memoryGet: async () => '',
   memorySearch: async () => [],
-  coreFiles: async () => ({
-    soul: readOptionalTextFile(path.join(process.cwd(), 'SOUL.md')),
-    memory: readOptionalTextFile(path.join(process.cwd(), 'MEMORY.md')) || readOptionalTextFile(path.join(process.cwd(), 'memory.md')),
-    identity: readOptionalTextFile(path.join(process.cwd(), 'IDENTITY.md')) || readOptionalTextFile(path.join(process.cwd(), 'IDENTITY')),
-    available_sources: [
-      readOptionalTextFile(path.join(process.cwd(), 'SOUL.md')).trim() ? 'soul' : '',
-      (readOptionalTextFile(path.join(process.cwd(), 'MEMORY.md')) || readOptionalTextFile(path.join(process.cwd(), 'memory.md'))).trim() ? 'memory' : '',
-      (readOptionalTextFile(path.join(process.cwd(), 'IDENTITY.md')) || readOptionalTextFile(path.join(process.cwd(), 'IDENTITY'))).trim() ? 'identity' : '',
-    ].filter(Boolean),
-    should_constrain_generation: Boolean(
-      readOptionalTextFile(path.join(process.cwd(), 'SOUL.md')).trim()
-      || (readOptionalTextFile(path.join(process.cwd(), 'MEMORY.md')) || readOptionalTextFile(path.join(process.cwd(), 'memory.md'))).trim()
-      || (readOptionalTextFile(path.join(process.cwd(), 'IDENTITY.md')) || readOptionalTextFile(path.join(process.cwd(), 'IDENTITY'))).trim(),
-    ),
-  }),
+  coreFiles: async () => loadTimelinePersonaContextFromWorkspace(process.cwd()).projected,
   writeEpisode,
   memoryFilePath: (calendarDate: string) => `memory/${calendarDate}.md`,
   canonicalRootName: 'memory',
@@ -475,6 +453,7 @@ export async function timelineResolve(
         output = buildGeneratedOutput({
           traceId,
           window,
+          collector,
           reasoned,
           resolutionMode,
           generated,
