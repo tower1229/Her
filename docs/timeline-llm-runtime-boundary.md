@@ -2,7 +2,7 @@
 
 > 状态：当前有效
 > 目的：明确 Timeline 在最高设计目标下，哪些职责必须由 LLM 实现，哪些职责必须由脚本实现，避免继续在错误边界上做局部修补
-> 关联：`docs/timeline-north-star.md`、`docs/timeline-query-semantics.md`
+> 关联：`docs/architecture.md`、`docs/PERSONA_PROFILE.md`
 
 ## 1. 这份文档要解决什么问题
 

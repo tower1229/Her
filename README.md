@@ -98,6 +98,15 @@ Ask things like:
 npm exec --package=stella-timeline-plugin openclaw-timeline-doctor -- --workspace ~/.openclaw/workspace
 ```
 
+## Documentation
+
+Core docs:
+
+- [Architecture](./docs/architecture.md)
+- [Timeline Consumption Protocol](./docs/timeline-consumption-protocol.md)
+- [LLM vs Runtime Boundary](./docs/timeline-llm-runtime-boundary.md)
+- [PERSONA_PROFILE.md Specification](./docs/PERSONA_PROFILE.md)
+
 ## For maintainers
 
-Release flow and publishing notes live in [docs/PUBLISHING.md](./docs/PUBLISHING.md).
+- [Publishing](./docs/PUBLISHING.md)

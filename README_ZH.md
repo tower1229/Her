@@ -98,6 +98,15 @@ npm exec --package=stella-timeline-plugin openclaw-timeline-setup -- --workspace
 npm exec --package=stella-timeline-plugin openclaw-timeline-doctor -- --workspace ~/.openclaw/workspace
 ```
 
+## 文档入口
+
+核心文档：
+
+- [系统架构说明](./docs/architecture.md)
+- [Timeline 下游消费协议](./docs/timeline-consumption-protocol.md)
+- [LLM 与脚本职责边界](./docs/timeline-llm-runtime-boundary.md)
+- [PERSONA_PROFILE.md 规范](./docs/PERSONA_PROFILE.md)
+
 ## 给维护者
 
-发布流程和发包说明见 [docs/PUBLISHING.md](./docs/PUBLISHING.md)。
+- [发布流程与发包说明](./docs/PUBLISHING.md)
