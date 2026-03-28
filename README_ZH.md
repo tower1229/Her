@@ -58,6 +58,26 @@ Timeline 为 OpenClaw 增加了一层专门的时间感知与回忆能力，让�
 
 它首先服务的，就是“像真人一样闲聊”这件事。
 
+## Timeline × Persona Skill 联动玩法
+
+如果你的 persona skill 会产出 `persona/PERSONA_PROFILE.md`，那么 Timeline 在需要生成新记忆时，可以把它当作优先的人设输入源。
+
+这组搭配的核心价值在于：`PERSONA_PROFILE.md` 提供的是稳定、结构化、可复用的人设约束，而 Timeline 负责动态部分，也就是“在什么时间点，更可能发生什么、应该呈现出怎样的生活感”。
+
+联动方式其实很直接：
+
+1. persona skill 生成 `persona/PERSONA_PROFILE.md`
+2. Timeline 在构建生成上下文时优先读取它，而不是只依赖旧的散落 persona 文件
+3. 当需要补出“刚刚”“昨晚”“最近几天”这类记忆时，生成结果会更稳定地贴合 persona skill 设定，而不是滑向通用 agent 式即兴发挥
+
+为什么这件事很有吸引力：
+
+- 更像这个人本人：生成出来的“昨晚在做什么”“这几天在忙什么”“现在在干嘛”会更自然地继承角色的身份、习惯、气质和生活方式
+- 更稳，更不容易跑偏：有了稳定的人设输入后，Timeline 更容易把地点、日常节奏、穿着连续性、场景合理性维持在同一条人物线上
+- 小生活细节会更真：生成的片段不再只是谁都能套用的日常 filler，而更像这个角色真的会过出来的生活
+- 人设和事实边界更清楚：`PERSONA_PROFILE.md` 定义“她是谁”，Timeline 负责推断“在这个时间窗口里更可能发生什么”，不容易把设定直接误写成历史事实
+- 对创作者更友好：相比把信息散落在多份 prose 里，维护一份结构化 persona 文件，更容易稳定调教记忆生成结果
+
 ## 安装
 
 ### 1. 安装插件
@@ -76,6 +96,8 @@ npm 包名和 OpenClaw 插件 ID 现在统一为 `stella-timeline-plugin`。
 ```bash
 npm exec --package=stella-timeline-plugin openclaw-timeline-setup -- --workspace ~/.openclaw/workspace
 ```
+
+如果你同时在使用 persona skill，请把它生成的 `PERSONA_PROFILE.md` 放在 workspace 根目录下的 `persona/PERSONA_PROFILE.md`。Timeline 在构建记忆生成上下文时会优先消费这份文件，而不是优先回退到旧的 persona 输入。
 
 如果你更喜欢手动编辑文件，也可以直接复制：
 
