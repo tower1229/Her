@@ -8,6 +8,7 @@ import {
 
 const tmpDir = path.join(__dirname, '__tmp__');
 const tmpFile = path.join(tmpDir, 'memory', '2026-03-22.md');
+const originalCwd = process.cwd();
 
 beforeEach(() => {
   resetTimelineResolveDependencies();
@@ -34,10 +35,103 @@ beforeEach(() => {
 });
 
 afterAll(() => {
+  process.chdir(originalCwd);
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
 describe('timelineResolve generation path', () => {
+  it('prefers persona/PERSONA_PROFILE.md in the default workspace coreFiles path', async () => {
+    fs.mkdirSync(path.join(tmpDir, 'persona'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, 'persona', 'PERSONA_PROFILE.md'),
+      [
+        '# PERSONA_PROFILE',
+        '',
+        '## Meta',
+        '- schema_version: 1.0',
+        '- home_city: Shanghai',
+        '- home_timezone: Asia/Shanghai',
+        '',
+        '## Identity',
+        '- common_zones: [home study, neighborhood cafe]',
+        '',
+        '## Soul',
+        '- temperament: reflective',
+        '',
+        '## Stable Memory',
+        '- long_term_habits:',
+        '  - often works quietly from home',
+        '',
+        '## Appearance Tendencies',
+        '- change_triggers: [exercise]',
+      ].join('\n'),
+      'utf8',
+    );
+
+    process.chdir(tmpDir);
+
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-22T20:15:00+08:00', timezone: 'Asia/Shanghai' }),
+      sessionsHistory: async () => ['The user wants to know what you are up to tonight.'],
+      memoryGet: async () => '',
+      reasonTimeline: async (collector) => {
+        expect(collector.persona_context.identity).toContain('Home city: Shanghai');
+        expect(collector.persona_context.soul).toContain('Temperament: reflective');
+        expect(collector.persona_context.memory).toContain('Change triggers: exercise');
+        return {
+          schema_version: '1.0',
+          request_id: collector.request_id,
+          request_type: 'now',
+          decision: {
+            action: 'generate_new_fact',
+            should_write_canon: true,
+          },
+          continuity: {
+            judged: true,
+            is_continuing: false,
+            reason: 'no canon fact covered the requested current moment',
+          },
+          rationale: {
+            summary: 'Generated from persona profile context.',
+            hard_fact_basis: [],
+            canon_basis: [],
+            persona_basis: ['profile'],
+            constraint_basis: ['respect profile-derived appearance and routine constraints'],
+          },
+          generated_fact: {
+            location: 'home study',
+            action: 'quietly organizing thoughts before the night settles',
+            emotionTags: ['calm', 'reflective'],
+            appearance: 'soft casual homewear',
+            internalMonologue: 'Staying grounded in the ordinary details keeps the evening coherent.',
+            confidence: 0.83,
+            reason: 'persona profile synthesis',
+            sceneSemantics: {
+              activityMode: 'leisure',
+              continuityRelation: 'fresh_moment',
+              rationale: 'the profile supports a reflective quiet evening scene',
+            },
+            appearanceLogic: {
+              transition: 'inherit',
+              changeReason: 'same_day_continuation',
+              outfitMode: 'casual_home',
+            },
+          },
+        };
+      },
+      memoryFilePath: () => tmpFile,
+    });
+
+    const result = await timelineResolve({
+      query: '你在干嘛',
+      mode: 'allow_generate',
+      trace: true,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.notes.join(' ')).toContain('persona profile synthesis');
+  });
+
   it('degrades to forgetfulness empty_window when no LLM generation dependency is configured', async () => {
     setTimelineResolveDependencies({
       currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
