@@ -11,6 +11,7 @@ const tmpFile = path.join(tmpDir, 'memory', '2026-03-22.md');
 const originalCwd = process.cwd();
 
 beforeEach(() => {
+  process.chdir(originalCwd);
   resetTimelineResolveDependencies();
   setTimelineResolveDependencies({
     planTimelineQuery: async (input) => {
@@ -34,8 +35,11 @@ beforeEach(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
-afterAll(() => {
+afterEach(() => {
   process.chdir(originalCwd);
+});
+
+afterAll(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
