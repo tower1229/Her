@@ -8,20 +8,20 @@ Why can AI be clever enough—and still fail to feel like company?
 
 **Time.**
 
-What made *Her* land was never Samantha’s ability to answer questions. It was that she felt like someone who actually **lived inside time**. She had a *just now*, a *last night*, a *lately*. She did not sound like a model waking up fresh each turn with a clever line; she felt as if life had been happening all along. That is why the companionship worked. That is why she felt **present**.
+What made _Her_ land was never Samantha’s ability to answer questions. It was that she felt like someone who actually **lived inside time**. She had a _just now_, a _last night_, a _lately_. She did not sound like a model waking up fresh each turn with a clever line; she felt as if life had been happening all along. That is why the companionship worked. That is why she felt **present**.
 
 `stella-timeline-plugin` exists to add that missing layer.
 
-It is not a generic memory gadget, and it is not “search the chat log again.” It gives your agent a **runnable sense of temporal reality**—so questions like *what are you doing right now*, *what did you do last night*, and *what have you been up to lately* are not left to prompt improvisation alone. They can sit on a **continuous, believable, reusable thread of life**.
+It is not a generic memory gadget, and it is not “search the chat log again.” It gives your agent a **runnable sense of temporal reality**—so questions like _what are you doing right now_, _what did you do last night_, and _what have you been up to lately_ are not left to prompt improvisation alone. They can sit on a **continuous, believable, reusable thread of life**.
 
 So the shift is not only “it chats better.”
 
 It starts to feel as if it has **actually been here**, all the way to now.
 
-If language models solved **how to say things**,  
+If language models solved **how to say things**,
 Timeline adds **why this sounds like someone who has been living all along**.
 
-We are not teaching AI to read the clock.  
+We are not teaching AI to read the clock.
 We are giving it **life continuity**—for the first time.
 
 ## What it feels like
@@ -57,9 +57,9 @@ First and foremost, it is built for **chat that feels like a real person**.
 
 ## Timeline Plugin × Persona Skill
 
-If you use the [Persona Skill](https://clawhub.ai/tower1229/persona-skill), it produces a structured `persona/PERSONA_PROFILE.md` in your OpenClaw workspace. Timeline treats that file as the **preferred persona input**.
+If you use the [Persona Skill](https://github.com/tower1229/Zhuang-Yan), it produces a structured `persona/PERSONA_PROFILE.md` in your OpenClaw workspace. Timeline treats that file as the **preferred persona input**.
 
-The pairing works because `PERSONA_PROFILE.md` maps directly into Timeline's canonical `PersonaContractV1`, while Timeline owns the **dynamic** side—*what is plausible at a given moment*, and *what everyday life should feel like*.
+The pairing works because `PERSONA_PROFILE.md` maps directly into Timeline's canonical `PersonaContractV1`, while Timeline owns the **dynamic** side—_what is plausible at a given moment_, and _what everyday life should feel like_.
 
 The flow is straightforward:
 

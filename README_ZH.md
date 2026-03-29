@@ -57,7 +57,7 @@ Timeline 为 OpenClaw 增加了一层专门的时间感知与回忆能力，让�
 
 ## Timeline Plugin × Persona Skill 联动玩法
 
-如果你安装并使用了 [persona skill](https://clawhub.ai/tower1229/persona-skill) ，其会在 OpenClaw 工作空间产出一份结构化的 `persona/PERSONA_PROFILE.md`，那么 Timeline 会把它当作优先且首选的人设输入源。
+如果你安装并使用了 [persona skill](https://github.com/tower1229/Zhuang-Yan) ，其会在 OpenClaw 工作空间产出一份结构化的 `persona/PERSONA_PROFILE.md`，那么 Timeline 会把它当作优先且首选的人设输入源。
 
 这组搭配的核心价值在于：`PERSONA_PROFILE.md` 会被直接解析成 Timeline 内部统一消费的 `PersonaContractV1`，而 Timeline 负责动态部分，也就是“在什么时间点，更可能发生什么、应该呈现出怎样的生活感”。
 
