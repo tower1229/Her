@@ -1,3 +1,5 @@
+[English](README.md) · [简体中文](README_ZH.md)
+
 # OpenClaw Timeline 插件
 
 ![Her](./assets/Her.webp)
