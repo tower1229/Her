@@ -14,12 +14,16 @@ interface ConsumptionInput {
   sourceType: 'canon' | 'generated' | 'none';
 }
 
-function extractCityFromIdentity(identity: string): string | undefined {
-  const homeCityMatch = identity.match(/Home city:\s*([^\n]+)/i);
-  if (homeCityMatch?.[1]?.trim()) return homeCityMatch[1].trim();
-  if (/\bShanghai\b|上海/.test(identity)) return 'Shanghai';
-  if (/\bBeijing\b|北京/.test(identity)) return 'Beijing';
-  return undefined;
+function buildEmptyFactSummary(input: ConsumptionInput): string | undefined {
+  if (input.episode || input.resolutionMode !== 'empty_window') return undefined;
+  const summary = String(input.reasoned.rationale.summary || '').trim();
+  if (!summary) {
+    return '当前没有命中可复用事实，这段经历记不清了。';
+  }
+  if (/(记不清|模糊|想不起来|忘|forget)/i.test(summary)) {
+    return summary;
+  }
+  return `${summary} 当前没有命中可复用事实，这段经历记不清了。`;
 }
 
 function deriveCalendarDate(timestamp?: string): string | undefined {
@@ -181,7 +185,7 @@ export function buildConsumptionView(input: ConsumptionInput): TimelineConsumpti
       status: input.episode ? 'resolved' : 'empty',
       source_type: input.sourceType,
       timestamp: input.episode?.temporal.start,
-      summary: input.episode?.narrative.summary,
+      summary: input.episode?.narrative.summary ?? buildEmptyFactSummary(input),
       confidence: input.episode?.provenance.confidence,
       continuity: {
         judged: input.reasoned.continuity.judged,
@@ -195,7 +199,7 @@ export function buildConsumptionView(input: ConsumptionInput): TimelineConsumpti
     return base;
   }
 
-  const city = extractCityFromIdentity(input.collector?.persona_context.identity || '');
+  const city = input.collector?.persona_context.contract.identity.home_city;
   const appearanceChange = deriveAppearanceChange(input);
   const scene: NonNullable<TimelineConsumptionView['scene']> = {
     location: input.episode.state_snapshot.scene.location_label,

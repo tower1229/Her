@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { LegacyCoreFiles } from './types';
+import { LegacyCoreFiles } from './persona_source_types';
 
 function readTextFile(filePath: string): string {
   try {

@@ -310,9 +310,10 @@ describe('openclaw timeline runtime factories', () => {
     const payload = result.details as { ok: boolean; resolution_summary: { mode: string } };
     expect(payload.ok).toBe(true);
     expect(payload.resolution_summary.mode).toBe('read_only_hit');
-    expect(latestReasonerMessage).toContain('Home city: Shanghai');
-    expect(latestReasonerMessage).toContain('Temperament: reflective');
-    expect(latestReasonerMessage).not.toContain('Home city: Beijing');
+    expect(latestReasonerMessage).toContain('"persona_context"');
+    expect(latestReasonerMessage).toContain('"home_city": "Shanghai"');
+    expect(latestReasonerMessage).toContain('"temperament": "reflective"');
+    expect(latestReasonerMessage).not.toContain('"home_city": "Beijing"');
   });
 
   it('recovers the matching planner and reasoner JSON from mixed assistant transcripts', async () => {

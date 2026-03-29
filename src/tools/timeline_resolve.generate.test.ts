@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { emptyPersonaContract } from '../persona/persona_contract';
 import {
   resetTimelineResolveDependencies,
   setTimelineResolveDependencies,
@@ -44,7 +45,7 @@ afterAll(() => {
 });
 
 describe('timelineResolve generation path', () => {
-  it('prefers persona/PERSONA_PROFILE.md in the default workspace coreFiles path', async () => {
+  it('prefers persona/PERSONA_PROFILE.md in the default workspace personaContext path', async () => {
     fs.mkdirSync(path.join(tmpDir, 'persona'), { recursive: true });
     fs.writeFileSync(
       path.join(tmpDir, 'persona', 'PERSONA_PROFILE.md'),
@@ -79,9 +80,9 @@ describe('timelineResolve generation path', () => {
       sessionsHistory: async () => ['The user wants to know what you are up to tonight.'],
       memoryGet: async () => '',
       reasonTimeline: async (collector) => {
-        expect(collector.persona_context.identity).toContain('Home city: Shanghai');
-        expect(collector.persona_context.soul).toContain('Temperament: reflective');
-        expect(collector.persona_context.memory).toContain('Change triggers: exercise');
+        expect(collector.persona_context.contract.identity.home_city).toBe('Shanghai');
+        expect(collector.persona_context.contract.soul.temperament).toBe('reflective');
+        expect(collector.persona_context.contract.appearance.change_triggers).toContain('exercise');
         return {
           schema_version: '1.0',
           request_id: collector.request_id,
@@ -152,11 +153,23 @@ describe('timelineResolve generation path', () => {
       currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
       sessionsHistory: async () => ['User just asked what are you doing right now?'],
       memoryGet: async () => '',
-      coreFiles: async () => ({
-        soul: 'She is introspective, creative, loves photography, and enjoys coffee shop afternoons.',
-        memory: 'She often organizes notes, keeps a coherent selfie-ready appearance, and likes quiet focused work.',
-        identity: 'A 26 years old woman living in Shanghai.',
-        available_sources: ['soul', 'memory', 'identity'],
+      personaContext: async () => ({
+        contract: {
+          ...emptyPersonaContract(),
+          identity: {
+            ...emptyPersonaContract().identity,
+            home_city: 'Shanghai',
+          },
+          soul: {
+            ...emptyPersonaContract().soul,
+            temperament: 'introspective',
+          },
+          memory: {
+            ...emptyPersonaContract().memory,
+            long_term_habits: ['often organizes notes'],
+          },
+        },
+        available_sources: ['legacy_soul', 'legacy_memory', 'legacy_identity'],
         should_constrain_generation: true,
       }),
       memoryFilePath: () => tmpFile,
@@ -183,16 +196,28 @@ describe('timelineResolve generation path', () => {
       currentTime: async () => ({ now: '2026-03-22T20:15:00+08:00', timezone: 'Asia/Shanghai' }),
       sessionsHistory: async () => ['The user wants to know what you are up to tonight.'],
       memoryGet: async () => '',
-      coreFiles: async () => ({
-        soul: 'She is highly customized, expressive, and likes to keep her selfie output grounded in lived memory.',
-        memory: 'She often writes in a reflective tone and prefers cozy evening scenes.',
-        identity: 'A young woman living in Shanghai.',
-        available_sources: ['soul', 'memory', 'identity'],
+      personaContext: async () => ({
+        contract: {
+          ...emptyPersonaContract(),
+          identity: {
+            ...emptyPersonaContract().identity,
+            home_city: 'Shanghai',
+          },
+          soul: {
+            ...emptyPersonaContract().soul,
+            values: ['highly customized', 'expressive'],
+          },
+          memory: {
+            ...emptyPersonaContract().memory,
+            long_term_preferences: ['cozy evening scenes'],
+          },
+        },
+        available_sources: ['legacy_soul', 'legacy_memory', 'legacy_identity'],
         should_constrain_generation: true,
       }),
       reasonTimeline: async (collector) => {
-        expect(collector.persona_context.soul).toContain('customized');
-        expect(collector.persona_context.identity).toContain('Shanghai');
+        expect(collector.persona_context.contract.soul.values).toContain('highly customized');
+        expect(collector.persona_context.contract.identity.home_city).toBe('Shanghai');
         return {
           schema_version: '1.0',
           request_id: collector.request_id,
@@ -334,11 +359,23 @@ describe('timelineResolve generation path', () => {
       currentTime: async () => ({ now: '2026-03-22T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
       sessionsHistory: async () => ['The user wants the current state, but another writer already touched this slot.'],
       memoryGet: async () => '',
-      coreFiles: async () => ({
-        soul: 'She is introspective and likes a coherent autobiographical timeline.',
-        memory: 'She often works quietly from home in the afternoon.',
-        identity: 'A woman living in Shanghai.',
-        available_sources: ['soul', 'memory', 'identity'],
+      personaContext: async () => ({
+        contract: {
+          ...emptyPersonaContract(),
+          identity: {
+            ...emptyPersonaContract().identity,
+            home_city: 'Shanghai',
+          },
+          soul: {
+            ...emptyPersonaContract().soul,
+            temperament: 'introspective',
+          },
+          memory: {
+            ...emptyPersonaContract().memory,
+            long_term_habits: ['works quietly from home in the afternoon'],
+          },
+        },
+        available_sources: ['legacy_soul', 'legacy_memory', 'legacy_identity'],
         should_constrain_generation: true,
       }),
       reasonTimeline: async (collector) => ({

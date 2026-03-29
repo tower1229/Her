@@ -14,7 +14,7 @@ describe('parsePersonaProfileMarkdown', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('parses known sections, inline lists, nested lists, and retrieval units', () => {
+  it('parses known sections, inline lists, and nested lists', () => {
     const parsed = parsePersonaProfileMarkdown(`
 # PERSONA_PROFILE
 
@@ -31,12 +31,6 @@ describe('parsePersonaProfileMarkdown', () => {
 - long_term_habits:
   - often works quietly from home
   - likes short reflective outings
-
-## Retrieval Units
-### unit: identity.home_base
-- type: identity
-- priority: high
-- summary: She lives in Shanghai and spends much of her ordinary life around home.
 `);
 
     expect(parsed.found).toBe(true);
@@ -47,23 +41,16 @@ describe('parsePersonaProfileMarkdown', () => {
       'often works quietly from home',
       'likes short reflective outings',
     ]);
-    expect(parsed.retrieval_units).toEqual([
-      {
-        id: 'identity.home_base',
-        type: 'identity',
-        priority: 'high',
-        summary: 'She lives in Shanghai and spends much of her ordinary life around home.',
-      },
-    ]);
   });
 
-  it('tolerates fenced blocks and reports parse warnings instead of failing', () => {
+  it('parses fenced YAML blocks alongside bullet sections', () => {
     const parsed = parsePersonaProfileMarkdown([
       '# PERSONA_PROFILE',
       '',
       '## Meta',
       '```yaml',
       'home_city: Shanghai',
+      'home_timezone: Asia/Shanghai',
       '```',
       '',
       '## Identity',
@@ -71,8 +58,10 @@ describe('parsePersonaProfileMarkdown', () => {
     ].join('\n'));
 
     expect(parsed.found).toBe(true);
+    expect(parsed.sections.meta?.home_city).toBe('Shanghai');
+    expect(parsed.sections.meta?.home_timezone).toBe('Asia/Shanghai');
     expect(parsed.sections.identity?.life_stage).toBe('young adult');
-    expect(parsed.parse_warnings).toContain('Ignored fenced block while parsing section "meta".');
+    expect(parsed.parse_warnings).toEqual([]);
   });
 
   it('reports malformed non-empty lines as parse warnings', () => {

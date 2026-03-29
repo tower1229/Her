@@ -14,7 +14,8 @@ import {
   TimelineRuntimeDependencies,
   TimelineResolveInput,
 } from '../tools/timeline_resolve';
-import { loadTimelinePersonaContextFromWorkspace } from '../persona/load_persona_context';
+import { createLegacyPersonaExtractorRuntime } from './legacy_persona_extractor_runtime';
+import { loadTimelinePersonaContractFromWorkspace } from '../persona/load_persona_contract';
 
 interface PluginLoggerLike {
   debug?: (message: string, meta?: Record<string, unknown>) => void;
@@ -79,6 +80,8 @@ interface TimelinePluginRuntimeConfig {
   reasonerTimeoutMs: number;
   reasonerSessionPrefix: string;
   reasonerMessageLimit: number;
+  personaExtractorTimeoutMs: number;
+  personaExtractorSessionPrefix: string;
   sessionHistoryLimit: number;
   memorySearchMaxResults: number;
   conversationStickinessWindowMinutes: number;
@@ -122,6 +125,8 @@ function resolvePluginRuntimeConfig(pluginConfig?: Record<string, unknown>): Tim
     reasonerTimeoutMs: readInteger(pluginConfig?.reasonerTimeoutMs, 90000),
     reasonerSessionPrefix: readString(pluginConfig?.reasonerSessionPrefix) || 'timeline-reasoner',
     reasonerMessageLimit: readInteger(pluginConfig?.reasonerMessageLimit, 24),
+    personaExtractorTimeoutMs: readInteger(pluginConfig?.personaExtractorTimeoutMs, 60000),
+    personaExtractorSessionPrefix: readString(pluginConfig?.personaExtractorSessionPrefix) || 'timeline-persona-extractor',
     sessionHistoryLimit: readInteger(pluginConfig?.sessionHistoryLimit, 12),
     memorySearchMaxResults: readInteger(pluginConfig?.memorySearchMaxResults, 6),
     conversationStickinessWindowMinutes: readInteger(pluginConfig?.conversationStickinessWindowMinutes, 10),
@@ -508,6 +513,8 @@ function buildTimelineQueryPlannerSystemPrompt(): string {
     '9. Classify as past_point only when the user clearly points to a specific moment, for example “昨晚八点”, “昨天上午十点”, or “上周六晚上九点”.',
     '10. If the user is asking about a duration or a whole period, it must be past_range, for example “昨晚在做什么”, “今天都忙了什么”, “最近有什么有趣的事吗”, or “这几天怎么样”.',
     '11. “昨晚” by itself is not a point in time. It is an evening range. Only expressions with an explicit anchor such as “昨晚八点” are past_point.',
+    '12. Questions about the most recent or previous occurrence of something, such as “最近一次…”, “上一次…”, “上回…”, or “最后一次…”, should usually be normalized as past_range unless the user also gives an exact timestamp.',
+    '13. This also applies to reflective autobiographical recall such as “最近一次知道自己错了是什么场景”, “上一次后悔是什么时候”, or “最后一次改变主意是在什么时候”.',
   ].join('\n');
 }
 
@@ -561,7 +568,7 @@ function buildTimelineReasonerSystemPrompt(): string {
     '- If collector.request.mode is allow_generate and no reusable canon fact exists, prefer generate_new_fact by default.',
     '- In allow_generate mode, use return_empty only when safe generation is not possible (for example sleep-window gaps, or hard persona/world-rhythm violations).',
     '- If decision.action is return_empty, rationale.summary must explicitly frame memory blankness/forgetfulness instead of generic unknown wording.',
-    '- If collector.persona_context.should_constrain_generation=true, generation must respect stable persona and long-term commitments from SOUL / MEMORY / IDENTITY.',
+    '- If collector.persona_context.should_constrain_generation=true, generation must respect the loaded persona contract and its stable commitments.',
     '- If persona signals exist, rationale.persona_basis and rationale.constraint_basis must both be non-empty and specific.',
     '- Avoid generic template scenes. Location, action, emotion, appearance, and internalMonologue must reflect lived continuity.',
     '- Respect collector.world_context temporal logic: meals, sleep, work/study, leisure, weekends, weekdays, and holidays.',
@@ -1053,6 +1060,62 @@ function createSubagentReasoner(
   };
 }
 
+function createRuntimeJsonPromptRunner(
+  pluginApi: PluginApiLike,
+): (input: {
+  sessionKey: string;
+  requestId: string;
+  message: string;
+  extraSystemPrompt: string;
+  timeoutMs: number;
+  sourceLabel: string;
+}) => Promise<Record<string, unknown>> {
+  return async (input) => {
+    return withPreferredSubagentRuntime(pluginApi, input.sourceLabel, async (subagentRuntime) => {
+      try {
+        const runResult = await subagentRuntime.run({
+          sessionKey: input.sessionKey,
+          message: input.message,
+          extraSystemPrompt: input.extraSystemPrompt,
+          deliver: false,
+          idempotencyKey: input.requestId,
+        });
+        const waitResult = await subagentRuntime.waitForRun({
+          runId: runResult.runId,
+          timeoutMs: input.timeoutMs,
+        });
+        if (waitResult.status === 'timeout') {
+          throw new Error(`${input.sourceLabel} returned no decision`);
+        }
+        if (waitResult.status === 'error') {
+          throw new Error(waitResult.error || `${input.sourceLabel} returned no decision`);
+        }
+        const session = await subagentRuntime.getSessionMessages({
+          sessionKey: input.sessionKey,
+          limit: 24,
+        });
+        const jsonText = extractJsonObjectFromMessages(
+          session.messages || [],
+          input.sourceLabel,
+          input.requestId,
+        );
+        return JSON.parse(jsonText) as Record<string, unknown>;
+      } finally {
+        try {
+          await subagentRuntime.deleteSession?.({
+            sessionKey: input.sessionKey,
+            deleteTranscript: true,
+          });
+        } catch (error) {
+          pluginApi.logger?.debug?.('timeline structured prompt session cleanup skipped', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    });
+  };
+}
+
 function createTimelineResolveDependencies(
   pluginApi: PluginApiLike,
   toolContext: PluginToolContextLike,
@@ -1064,6 +1127,15 @@ function createTimelineResolveDependencies(
   const traceLogPath = runtimeConfig.enableTrace
     ? resolveConfiguredPath(workspaceDir, runtimeConfig.traceLogPath, path.join(canonicalRootName, '.timeline-trace.log'))
     : undefined;
+  const baseSessionKey = toolContext.sessionKey || `plugin:${runtimeConfig.reasonerSessionPrefix}`;
+  const legacyPersonaExtractor = createLegacyPersonaExtractorRuntime({
+    baseSessionKey,
+    sessionPrefix: runtimeConfig.personaExtractorSessionPrefix,
+    timeoutMs: runtimeConfig.personaExtractorTimeoutMs,
+    modelId: 'openclaw-subagent',
+    extractorVersion: 'persona-contract-v1',
+    runJsonPrompt: createRuntimeJsonPromptRunner(pluginApi),
+  });
 
   return {
     currentTime: async () => ({
@@ -1157,7 +1229,21 @@ function createTimelineResolveDependencies(
         return [];
       }
     },
-    coreFiles: async () => loadTimelinePersonaContextFromWorkspace(workspaceDir).projected,
+    personaContext: async () => {
+      const loaded = await loadTimelinePersonaContractFromWorkspace(workspaceDir, {
+        extractLegacyPersonaContract: legacyPersonaExtractor,
+        cacheDirName: '.timeline-cache/persona-contract',
+        maxAttempts: 3,
+      });
+      return {
+        contract: loaded.contract,
+        available_sources: loaded.available_sources,
+        should_constrain_generation: loaded.should_constrain_generation,
+      };
+    },
+    extractLegacyPersonaContract: legacyPersonaExtractor,
+    personaCacheDirName: '.timeline-cache/persona-contract',
+    personaExtractionMaxAttempts: 3,
     memoryFilePath: (calendarDate) => path.join(canonicalRootPath, `${calendarDate}.md`),
     canonicalRootName,
     traceLogPath,

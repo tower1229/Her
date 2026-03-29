@@ -1,4 +1,3 @@
-import * as os from 'os';
 import * as path from 'path';
 import { collectSources, TimelineSourceDependencies } from '../core/collect_sources';
 import { buildTimelineCollectorOutput } from '../core/collect_timeline_request';
@@ -20,7 +19,8 @@ import { formatDate, parseTimestampParts } from '../lib/time-utils';
 import { appendTraceLog } from '../storage/trace_log';
 import { writeEpisode, WriteEpisodeInput, WriteResult } from '../storage/write-episode';
 import { resolveWindow, TimelineQueryPlan } from '../core/resolve_window';
-import { loadTimelinePersonaContextFromWorkspace } from '../persona/load_persona_context';
+import { loadTimelinePersonaContractFromWorkspace } from '../persona/load_persona_contract';
+import { LegacyPersonaContractExtractor } from '../persona/extract_legacy_persona_contract';
 
 export type TimelineResolveMode = 'read_only' | 'allow_generate';
 
@@ -70,42 +70,67 @@ export interface TimelineRuntimeDependencies extends TimelineSourceDependencies 
   memoryFilePath?: (calendarDate: string) => string;
   canonicalRootName?: string;
   traceLogPath?: string;
+  extractLegacyPersonaContract?: LegacyPersonaContractExtractor;
+  personaCacheDirName?: string;
+  personaExtractionMaxAttempts?: number;
   planTimelineQuery?: (input: TimelineResolveInput, anchor: { now: string; timezone: string }) => Promise<TimelineQueryPlan>;
   reasonTimeline?: (collector: TimelineCollectorOutput) => Promise<TimelineReasonerOutput | null>;
 }
 
-const defaultDependencies: TimelineRuntimeDependencies = {
-  currentTime: async () => ({
-    now: new Date().toISOString(),
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-  }),
-  sessionsHistory: async () => [],
-  memoryGet: async () => '',
-  memorySearch: async () => [],
-  coreFiles: async () => loadTimelinePersonaContextFromWorkspace(process.cwd()).projected,
-  writeEpisode,
-  memoryFilePath: (calendarDate: string) => `memory/${calendarDate}.md`,
-  canonicalRootName: 'memory',
-  traceLogPath: path.join(os.tmpdir(), 'stella-timeline-plugin-trace.log'),
-};
+function createDefaultDependencies(
+  overrides: Partial<TimelineRuntimeDependencies> = {},
+): TimelineRuntimeDependencies {
+  const deps: TimelineRuntimeDependencies = {
+    currentTime: async () => ({
+      now: new Date().toISOString(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+    }),
+    sessionsHistory: async () => [],
+    memoryGet: async () => '',
+    memorySearch: async () => [],
+    writeEpisode,
+    memoryFilePath: (calendarDate: string) => `memory/${calendarDate}.md`,
+    canonicalRootName: 'memory',
+    traceLogPath: path.join(process.cwd(), '.timeline-cache', 'stella-timeline-plugin-trace.log'),
+    personaCacheDirName: '.timeline-cache/persona-contract',
+    personaExtractionMaxAttempts: 3,
+  };
 
-let runtimeDependencies: TimelineRuntimeDependencies = defaultDependencies;
+  const merged = { ...deps, ...overrides };
+  if (!merged.personaContext) {
+    merged.personaContext = async () => {
+      const loaded = await loadTimelinePersonaContractFromWorkspace(process.cwd(), {
+        extractLegacyPersonaContract: merged.extractLegacyPersonaContract,
+        cacheDirName: merged.personaCacheDirName,
+        maxAttempts: merged.personaExtractionMaxAttempts,
+      });
+      return {
+        contract: loaded.contract,
+        available_sources: loaded.available_sources,
+        should_constrain_generation: loaded.should_constrain_generation,
+      };
+    };
+  }
+  return merged;
+}
+
+let runtimeDependencies: TimelineRuntimeDependencies = createDefaultDependencies();
 
 export function setTimelineResolveDependencies(deps: Partial<TimelineRuntimeDependencies>): void {
-  runtimeDependencies = { ...runtimeDependencies, ...deps };
+  runtimeDependencies = createDefaultDependencies({ ...runtimeDependencies, ...deps });
 }
 
 export function resetTimelineResolveDependencies(): void {
-  runtimeDependencies = defaultDependencies;
+  runtimeDependencies = createDefaultDependencies();
 }
 
 function getEffectiveTimelineDependencies(
   overrides?: Partial<TimelineRuntimeDependencies>,
 ): TimelineRuntimeDependencies {
-  return {
+  return createDefaultDependencies({
     ...runtimeDependencies,
     ...overrides,
-  };
+  });
 }
 
 function validateTimelineResolveInput(input: TimelineResolveInput): void {
@@ -176,22 +201,26 @@ function persistTraceIfConfigured(
 ): boolean {
   if (!deps.traceLogPath) return false;
 
-  appendTraceLog(
-    {
-      trace_id: output.trace_id,
-      event: 'timeline_resolve',
-      ts: new Date().toISOString(),
-      payload: {
-        ok: output.ok,
-        requested_range: requestedRange,
-        error: output.ok ? null : output.error,
-        resolution_mode: output.resolution_summary.mode,
-        notes: output.notes,
-        trace: output.trace ?? null,
+  try {
+    appendTraceLog(
+      {
+        trace_id: output.trace_id,
+        event: 'timeline_resolve',
+        ts: new Date().toISOString(),
+        payload: {
+          ok: output.ok,
+          requested_range: requestedRange,
+          error: output.ok ? null : output.error,
+          resolution_mode: output.resolution_summary.mode,
+          notes: output.notes,
+          trace: output.trace ?? null,
+        },
       },
-    },
-    deps.traceLogPath,
-  );
+      deps.traceLogPath,
+    );
+  } catch {
+    return false;
+  }
 
   return true;
 }
@@ -564,7 +593,7 @@ export async function timelineResolve(
 export const timelineResolveToolSpec = {
   name: 'timeline_resolve',
   description:
-    'Unified entry point for time-grounded reality and recall questions such as “你在干嘛”, “你现在在哪”, “最近有什么有趣的事吗”, or “昨晚八点你在做什么”. It accepts a natural-language query, interprets the time semantics internally, then retrieves or generates and append-only writes canon facts.',
+    'Unified entry point for time-grounded reality and recall questions such as “你在干嘛”, “你现在在哪”, “最近有什么有趣的事吗”, “昨晚八点你在做什么”, or reflective autobiographical recall like “最近一次知道自己错了是什么场景”. Use it whenever answering requires locating the agent on a timeline, recalling what was happening at some time, selecting the most recent/previous occurrence of an event, or judging whether a prior state was still continuing. It accepts a natural-language query, interprets the time semantics internally, then retrieves or generates and append-only writes canon facts.',
   inputSchema: {
     type: 'object',
     properties: {

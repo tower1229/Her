@@ -12,6 +12,7 @@ import {
   isOutfitMode,
 } from '../lib/timeline_semantics';
 import { validateGeneratedWorldRhythm } from './world_rhythm';
+import { hasPersonaConstraints as contractHasPersonaConstraints } from '../persona/persona_contract';
 
 export interface TimelineGuardResult {
   ok: boolean;
@@ -69,12 +70,8 @@ function hasStructuredAppearanceLogic(draft: TimelineGeneratedDraft): boolean {
 }
 
 function hasPersonaConstraints(collector: TimelineCollectorOutput): boolean {
-  return Boolean(
-    collector.persona_context.should_constrain_generation
-    || collector.persona_context.soul.trim()
-    || collector.persona_context.memory.trim()
-    || collector.persona_context.identity.trim(),
-  );
+  return collector.persona_context.should_constrain_generation
+    || contractHasPersonaConstraints(collector.persona_context.contract);
 }
 
 export function validateTimelineReasonerOutput(

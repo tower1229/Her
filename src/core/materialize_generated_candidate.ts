@@ -100,7 +100,7 @@ export function materializeGeneratedCandidate(
     notes: [
       'No reusable canon entry found; generated a timeline memory from the LLM draft.',
       `Generation basis: ${normalized.reason || reason}`,
-      `Persona context loaded: ${sources.coreContext.soul || sources.coreContext.memory || sources.coreContext.identity ? 'SOUL / MEMORY / IDENTITY signals available' : 'no explicit profile files found in runtime context'}`,
+      `Persona context loaded: ${sources.personaContext.available_sources.length > 0 ? 'persona contract signals available' : 'no explicit persona contract found in runtime context'}`,
       `Appearance resolution: ${appearanceResolution.reason}`,
     ],
     appearance: {

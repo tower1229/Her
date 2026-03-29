@@ -1,4 +1,5 @@
 import { AppearanceLogic, SceneSemantics } from '../lib/timeline_semantics';
+import { PersonaContractV1 } from '../persona/persona_contract';
 
 export interface TimelineGeneratedDraft {
   timestamp?: string;
@@ -84,9 +85,7 @@ export interface TimelineCollectorOutput {
     memory_search: string[];
   };
   persona_context: {
-    soul: string;
-    memory: string;
-    identity: string;
+    contract: PersonaContractV1;
     available_sources: string[];
     should_constrain_generation: boolean;
   };

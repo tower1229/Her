@@ -57,11 +57,9 @@ export function buildTimelineCollectorOutput(
       memory_search: sources.memorySearch,
     },
     persona_context: {
-      soul: sources.coreContext.soul,
-      memory: sources.coreContext.memory,
-      identity: sources.coreContext.identity,
-      available_sources: sources.coreContext.available_sources,
-      should_constrain_generation: sources.coreContext.should_constrain_generation,
+      contract: sources.personaContext.contract,
+      available_sources: sources.personaContext.available_sources,
+      should_constrain_generation: sources.personaContext.should_constrain_generation,
     },
     world_context: buildTimelineWorldContext({
       ...window,

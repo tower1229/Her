@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   detectAgentsContract,
+  detectCurrentSoulContract,
+  detectLegacySoulContract,
   detectSoulContract,
   normalizeRootName,
   resolveCanonicalRootPath,
@@ -52,6 +54,27 @@ function check(label, passed, successDetail, failureDetail) {
   return passed;
 }
 
+function checkSoulContract(filePath, content) {
+  if (!fs.existsSync(filePath)) {
+    console.log(`[missing] SOUL contract: ${filePath} is missing the Timeline recall contract`);
+    return false;
+  }
+  if (detectCurrentSoulContract(content)) {
+    console.log(`[ok] SOUL contract: ${filePath}`);
+    return true;
+  }
+  if (detectLegacySoulContract(content)) {
+    console.log(`[outdated] SOUL contract: ${filePath} has a legacy Timeline recall contract; rerun openclaw-timeline-setup to upgrade it`);
+    return false;
+  }
+  if (detectSoulContract(content)) {
+    console.log(`[outdated] SOUL contract: ${filePath} has an unrecognized older Timeline recall contract; rerun openclaw-timeline-setup to refresh it`);
+    return false;
+  }
+  console.log(`[missing] SOUL contract: ${filePath} is missing the Timeline recall contract`);
+  return false;
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const agentsPath = path.join(options.workspace, 'AGENTS.md');
@@ -68,12 +91,7 @@ function main() {
     agentsPath,
     `${agentsPath} is missing the Timeline daily-log contract`,
   ) && ok;
-  ok = check(
-    'SOUL contract',
-    fs.existsSync(soulPath) && detectSoulContract(soulContent),
-    soulPath,
-    `${soulPath} is missing the Timeline recall contract`,
-  ) && ok;
+  ok = checkSoulContract(soulPath, soulContent) && ok;
   ok = check(
     'Canonical memory root',
     fs.existsSync(canonicalRootPath),

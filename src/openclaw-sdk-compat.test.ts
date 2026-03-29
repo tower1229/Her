@@ -1,6 +1,14 @@
 import { timelinePlugin, timelinePluginEntry } from '../index';
 
 describe('timeline plugin entry compatibility shape', () => {
+  it('describes timeline_resolve as a routing surface for reflective recall as well as explicit time queries', () => {
+    const tool = timelinePlugin.tools.find((entry) => entry.name === 'timeline_resolve');
+    if (!tool) throw new Error('timeline_resolve tool not registered');
+
+    expect(tool.description).toContain('most recent/previous occurrence');
+    expect(tool.description).toContain('最近一次知道自己错了');
+  });
+
   it('materializes a definePluginEntry-style registration with the canonical tool only', () => {
     expect(timelinePluginEntry.id).toBe('stella-timeline-plugin');
     expect(timelinePlugin.tools.map((tool) => tool.name)).toEqual(['timeline_resolve']);

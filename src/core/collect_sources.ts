@@ -1,14 +1,7 @@
 import { TimelineResolveInput } from '../tools/timeline_resolve';
 import { enumerateCalendarDates } from './calendar_dates';
 import { ResolvedWindow } from './resolve_window';
-
-export interface TimelineCoreContext {
-  soul: string;
-  memory: string;
-  identity: string;
-  available_sources: string[];
-  should_constrain_generation: boolean;
-}
+import { TimelinePersonaContext, emptyPersonaContract } from '../persona/persona_contract';
 
 export interface TimelineConversationContext {
   is_recently_active: boolean;
@@ -25,7 +18,7 @@ export interface TimelineSourceDependencies {
   conversationContext?: (window: ResolvedWindow, input: TimelineResolveInput) => Promise<TimelineConversationContext>;
   memoryGet: (calendarDate: string, window: ResolvedWindow, input: TimelineResolveInput) => Promise<string>;
   memorySearch?: (window: ResolvedWindow, input: TimelineResolveInput) => Promise<string[]>;
-  coreFiles?: () => Promise<TimelineCoreContext>;
+  personaContext?: () => Promise<TimelinePersonaContext>;
 }
 
 export interface CollectedSources {
@@ -36,7 +29,7 @@ export interface CollectedSources {
     raw_content: string;
   }>;
   memorySearch: string[];
-  coreContext: TimelineCoreContext;
+  personaContext: TimelinePersonaContext;
   conversationContext: TimelineConversationContext;
 }
 
@@ -65,12 +58,10 @@ export async function collectSources(
     memorySearch = await deps.memorySearch(window, input);
   }
 
-  const coreContext = deps.coreFiles
-    ? await deps.coreFiles()
+  const personaContext = deps.personaContext
+    ? await deps.personaContext()
     : {
-        soul: '',
-        memory: '',
-        identity: '',
+        contract: emptyPersonaContract(),
         available_sources: [],
         should_constrain_generation: false,
       };
@@ -84,5 +75,5 @@ export async function collectSources(
         should_prefer_conversation_continuity_for_now: false,
       };
 
-  return { sourceOrder, sessionsHistory, dailyLogs, memorySearch, coreContext, conversationContext };
+  return { sourceOrder, sessionsHistory, dailyLogs, memorySearch, personaContext, conversationContext };
 }

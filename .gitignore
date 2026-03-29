@@ -1,5 +1,8 @@
 node_modules/
 dist/
+.jest-cache/
+.timeline-cache/
+coverage/
 scripts/.cache/
 test-out.txt
 memory/
