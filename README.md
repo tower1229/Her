@@ -57,16 +57,16 @@ First and foremost, it is built for **chat that feels like a real person**.
 
 ## Timeline Plugin × Persona Skill
 
-If you use the [Persona Skill](https://github.com/tower1229/Zhuang-Yan), it produces a structured `persona/PERSONA_PROFILE.md` in your OpenClaw workspace. Timeline treats that file as the **preferred persona input**.
+If you install and use the [Persona Skill](https://github.com/tower1229/Zhuang-Yan), it produces a structured `persona/PERSONA_PROFILE.md` in your OpenClaw workspace; Timeline then treats that file as its **primary and preferred** persona input source.
 
-The pairing works because `PERSONA_PROFILE.md` maps directly into Timeline's canonical `PersonaContractV1`, while Timeline owns the **dynamic** side—_what is plausible at a given moment_, and _what everyday life should feel like_.
+The core value of this pairing is that `PERSONA_PROFILE.md` is parsed directly into Timeline's unified internal `PersonaContractV1`, while Timeline owns the **dynamic** side—_what is more likely to happen at a given moment_, and _what kind of everyday-life texture should come through_.
 
-The flow is straightforward:
+How they wire together is straightforward:
 
 1. Persona Skill generates `persona/PERSONA_PROFILE.md`.
-2. Timeline parses that file directly into its runtime persona contract.
-3. If the file is missing, Timeline falls back to cached structured extraction from `SOUL.md`, `MEMORY.md`, and `IDENTITY.md`.
-4. When it fills in “just now,” “last night,” or “the last few days,” outputs **stay closer to your Persona Skill setup** instead of sliding into generic agent improv.
+2. Timeline parses it directly into its internal standard persona contract.
+3. If the file is missing, Timeline falls back to unstructured `SOUL.md`, `MEMORY.md`, and `IDENTITY.md`, using cached structured extraction to produce the **same** contract.
+4. When filling in memories like “just now,” “last night,” or “the last few days,” generated results **stay more consistently aligned** with your Persona Skill setup, instead of drifting into generic agent-style improvisation.
 
 Why that matters:
 
