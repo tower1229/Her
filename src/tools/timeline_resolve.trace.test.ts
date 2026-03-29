@@ -1,10 +1,9 @@
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { resetTimelineResolveDependencies, setTimelineResolveDependencies, timelineResolve } from './timeline_resolve';
 
 describe('timelineResolve trace schema', () => {
-  const traceLogPath = path.join(os.tmpdir(), 'timeline-resolve-trace-test.log');
+  const traceLogPath = path.join(process.cwd(), '.timeline-cache', 'timeline-resolve-trace-test.log');
 
   beforeEach(() => {
     resetTimelineResolveDependencies();

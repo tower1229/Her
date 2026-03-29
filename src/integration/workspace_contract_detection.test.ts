@@ -1,9 +1,7 @@
 import * as path from 'path';
-import { pathToFileURL } from 'url';
 
 async function loadWorkspaceContractModule() {
-  const moduleUrl = pathToFileURL(path.resolve(__dirname, '..', '..', 'scripts', 'workspace-contract.mjs')).href;
-  return import(moduleUrl);
+  return require(path.resolve(__dirname, '..', '..', 'scripts', 'workspace-contract.cjs'));
 }
 
 describe('workspace contract detection', () => {

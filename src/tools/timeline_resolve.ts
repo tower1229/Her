@@ -1,4 +1,3 @@
-import * as os from 'os';
 import * as path from 'path';
 import { collectSources, TimelineSourceDependencies } from '../core/collect_sources';
 import { buildTimelineCollectorOutput } from '../core/collect_timeline_request';
@@ -92,7 +91,7 @@ function createDefaultDependencies(
     writeEpisode,
     memoryFilePath: (calendarDate: string) => `memory/${calendarDate}.md`,
     canonicalRootName: 'memory',
-    traceLogPath: path.join(os.tmpdir(), 'stella-timeline-plugin-trace.log'),
+    traceLogPath: path.join(process.cwd(), '.timeline-cache', 'stella-timeline-plugin-trace.log'),
     personaCacheDirName: '.timeline-cache/persona-contract',
     personaExtractionMaxAttempts: 3,
   };
@@ -202,22 +201,26 @@ function persistTraceIfConfigured(
 ): boolean {
   if (!deps.traceLogPath) return false;
 
-  appendTraceLog(
-    {
-      trace_id: output.trace_id,
-      event: 'timeline_resolve',
-      ts: new Date().toISOString(),
-      payload: {
-        ok: output.ok,
-        requested_range: requestedRange,
-        error: output.ok ? null : output.error,
-        resolution_mode: output.resolution_summary.mode,
-        notes: output.notes,
-        trace: output.trace ?? null,
+  try {
+    appendTraceLog(
+      {
+        trace_id: output.trace_id,
+        event: 'timeline_resolve',
+        ts: new Date().toISOString(),
+        payload: {
+          ok: output.ok,
+          requested_range: requestedRange,
+          error: output.ok ? null : output.error,
+          resolution_mode: output.resolution_summary.mode,
+          notes: output.notes,
+          trace: output.trace ?? null,
+        },
       },
-    },
-    deps.traceLogPath,
-  );
+      deps.traceLogPath,
+    );
+  } catch {
+    return false;
+  }
 
   return true;
 }
