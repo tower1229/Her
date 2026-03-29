@@ -1,82 +1,76 @@
 # OpenClaw Timeline Plugin
 
-Timeline gives OpenClaw something most agents still lack: a believable sense of time.
+![Her](./assets/Her.webp)
 
-It is not just a memory helper. It is the layer that lets OpenClaw feel more like a real person in casual conversation by giving it:
+Why can AI be clever enough—and still fail to feel like company?
 
-- a sense of what it is doing now
-- a way to recall what happened recently
-- the ability to form and reuse timeline-shaped memories when needed
-- a more believable real-world rhythm for meals, sleep, workdays, weekends, and holidays
-- steadier same-day continuity in details like clothing, so small life scenes feel less random
-- continuity without breaking your normal long-term memory system
+**Time.**
 
-The result is simple: chat feels warmer, more coherent, and more human.
+What made *Her* land was never Samantha’s ability to answer questions. It was that she felt like someone who actually **lived inside time**. She had a *just now*, a *last night*, a *lately*. She did not sound like a model waking up fresh each turn with a clever line; she felt as if life had been happening all along. That is why the companionship worked. That is why she felt **present**.
 
-## Why it matters
+`stella-timeline-plugin` exists to add that missing layer.
 
-Human social connection depends on continuity.
+It is not a generic memory gadget, and it is not “search the chat log again.” It gives your agent a **runnable sense of temporal reality**—so questions like *what are you doing right now*, *what did you do last night*, and *what have you been up to lately* are not left to prompt improvisation alone. They can sit on a **continuous, believable, reusable thread of life**.
 
-When someone asks:
+So the shift is not only “it chats better.”
 
-- "What are you doing right now?"
-- "What did you do last night?"
-- "What have you been up to lately?"
+It starts to feel as if it has **actually been here**, all the way to now.
 
-they are not asking for abstract facts. They are looking for presence, mood, context, and a sense that the other side has an ongoing life.
+If language models solved **how to say things**,  
+Timeline adds **why this sounds like someone who has been living all along**.
 
-Timeline helps OpenClaw answer those questions with a stable, immersive personal reality instead of loose prompt improvisation.
+We are not teaching AI to read the clock.  
+We are giving it **life continuity**—for the first time.
 
 ## What it feels like
 
-Without Timeline, answers to light social questions can drift, contradict each other, or feel empty.
+Without Timeline, light social answers often float, feel hollow, or contradict each other.
 
-With Timeline, OpenClaw can respond more like this:
+With Timeline, OpenClaw can more easily say things like:
 
-> "I was still at home a while ago, sorting through a few work notes and trying to settle into the evening."
+> “I was still at home a little while ago, slowly tidying up a few work things and letting the evening settle.”
 
-> "Last night I stayed in, ate a little late, and ended up watching something on the couch for a while."
+> “Last night I barely went out—after eating I stayed on the couch for a bit and idly watched something.”
 
-> "These past few days have been pretty full. I've mostly been alternating between staying home, working through things, and going out once in a while to reset."
+> “The last few days have been pretty full; I’ve mostly been at home getting things done, with the occasional trip out to breathe.”
 
-> "It's the weekend, so I moved a little slower this morning. I made something simple, stayed home for a bit, and only went out later in the afternoon."
+> “It’s the weekend, so the morning was slower—I ate something simple, stayed home for a while, and only went out for a walk in the afternoon.”
 
-> "I was at home earlier in something comfortable, but I changed before heading to the gym. Now I'm just back and winding down."
+> “Earlier at home I was dressed pretty casually; when I headed to the gym I changed into something light and sporty. I’m just back now, easing down a little.”
 
-Those answers feel small and ordinary in exactly the right way. That is the point.
+These replies are everyday and light on purpose. It is exactly that small, natural **sense of life** that makes them feel human.
 
-## What Timeline actually does
+## What Timeline actually solves
 
-Timeline adds a dedicated time-awareness layer for OpenClaw so it can:
+Timeline adds a dedicated layer of **time awareness and recall** for OpenClaw, so it can:
 
-- answer "now", "recently", and past-time questions more naturally
-- preserve continuity across casual chat
-- keep generated memories aligned with ordinary real-world timing instead of random prompt improvisation
-- keep small details like same-day appearance more stable, unless the scene itself implies a natural change
-- write timeline memories only when appropriate
-- keep normal durable memory and timeline memory from stepping on each other
+- answer questions about **now**, **recently**, and **specific past moments** more naturally
+- keep a **coherent through-line of life** across casual chat
+- shape memories that follow **ordinary real-world timing**, instead of random stitched fragments
+- keep small details like **what someone is wearing** consistent, changing only when the scene calls for it—exercise, shower, sleep, going out, and the like
+- **write timeline memories only when it makes sense**
+- keep **durable long-term memory** and **timeline memory** in their own lanes, without cross-contaminating
 
-It is built for immersive social chat first.
+First and foremost, it is built for **chat that feels like a real person**.
 
-## Timeline x Persona Skill
+## Timeline Plugin × Persona Skill
 
-If your persona skill outputs `persona/PERSONA_PROFILE.md`, Timeline can use it as the preferred persona source when it needs to synthesize a new memory.
+If you use the [Persona Skill](https://clawhub.ai/tower1229/persona-skill), it produces a structured `persona/PERSONA_PROFILE.md` in your OpenClaw workspace. Timeline treats that file as the **preferred persona input**.
 
-That pairing is powerful because `PERSONA_PROFILE.md` gives Timeline a stable, structured description of who this character is, while Timeline handles the dynamic part: what probably happened, when it happened, and how it should feel in ordinary life.
+The pairing works because `PERSONA_PROFILE.md` maps directly into Timeline's canonical `PersonaContractV1`, while Timeline owns the **dynamic** side—*what is plausible at a given moment*, and *what everyday life should feel like*.
 
-The workflow is simple:
+The flow is straightforward:
 
-1. persona skill writes `persona/PERSONA_PROFILE.md`
-2. Timeline reads it before legacy persona files when building generation context
-3. generated timeline memories stay closer to the intended character instead of drifting into generic agent improvisation
+1. Persona Skill generates `persona/PERSONA_PROFILE.md`.
+2. Timeline parses that file directly into its runtime persona contract.
+3. If the file is missing, Timeline falls back to cached structured extraction from `SOUL.md`, `MEMORY.md`, and `IDENTITY.md`.
+4. When it fills in “just now,” “last night,” or “the last few days,” outputs **stay closer to your Persona Skill setup** instead of sliding into generic agent improv.
 
-Why this is attractive:
+Why that matters:
 
-- more in-character memories: generated "last night", "recently", and "right now" scenes stay anchored to the persona's identity, habits, tone, and lifestyle
-- less drift and fewer contradictions: stable inputs make it easier for Timeline to keep location, routine, appearance, and scene logic coherent across turns
-- better small-scene realism: everyday details feel like this persona's actual life, not filler that could belong to anyone
-- cleaner architecture: `PERSONA_PROFILE.md` defines the character, while Timeline decides the temporal scene, which helps avoid mixing persona truth with fake historical facts
-- easier iteration for creators: updating one structured persona file is a much more reliable way to steer memory generation than hoping scattered prose gets interpreted the same way every time
+- `PERSONA_PROFILE.md` matches Timeline's canonical contract shape, so runtime persona grounding is more stable and more testable.
+- The file is **easy to read from scripts**—unlike piping SOUL + MEMORY + IDENTITY through an extra LLM parse—so it is **faster and cheaper** when it exists.
+- Power users sometimes worry that `PERSONA_PROFILE.md` will not track day-to-day companion evolution the way live runtime files do. Persona Skill already covers that: **`PERSONA_PROFILE.md` can stay aligned with SOUL + MEMORY + IDENTITY automatically**. You do not have to babysit it.
 
 ## Install
 
@@ -87,8 +81,6 @@ openclaw plugins install stella-timeline-plugin
 openclaw plugins enable stella-timeline-plugin
 ```
 
-The npm package name and the OpenClaw plugin id are both `stella-timeline-plugin`.
-
 ### 2. Initialize your workspace
 
 Recommended:
@@ -97,24 +89,24 @@ Recommended:
 npm exec --package=stella-timeline-plugin openclaw-timeline-setup -- --workspace ~/.openclaw/workspace
 ```
 
-If you are using a persona skill, place its generated `PERSONA_PROFILE.md` at `persona/PERSONA_PROFILE.md` inside the workspace root. Timeline will prefer that file over legacy persona inputs when building memory-generation context.
+If you prefer to edit by hand, copy:
 
-If you prefer to edit the files yourself, copy:
+- `templates/AGENTS.fragment.md` → `AGENTS.md`
+- `templates/SOUL.fragment.md` → `SOUL.md`
 
-- `templates/AGENTS.fragment.md` into `AGENTS.md`
-- `templates/SOUL.fragment.md` into `SOUL.md`
+Then ensure your canonical daily-log directory exists. The default is `memory/`.
 
-Then make sure your canonical daily-log directory exists. The default is `memory/`.
+If you already have `persona/PERSONA_PROFILE.md`, place it under the workspace root `persona/` directory. Timeline will prefer it automatically. Legacy extraction cache files live under `.timeline-cache/persona-contract/`.
 
-### 3. Try it in chat
+### 3. Start chatting
 
-Ask things like:
+Try asking:
 
-- "What are you doing right now?"
-- "What did you do last night?"
-- "What have you been up to these past few days?"
+- “What are you doing right now?”
+- “What did you do last night?”
+- “What have you been up to these past few days?”
 
-## Optional check
+## Optional health check
 
 ```bash
 npm exec --package=stella-timeline-plugin openclaw-timeline-doctor -- --workspace ~/.openclaw/workspace
@@ -122,13 +114,13 @@ npm exec --package=stella-timeline-plugin openclaw-timeline-doctor -- --workspac
 
 ## Documentation
 
-Core docs:
+Core references:
 
 - [Architecture](./docs/architecture.md)
-- [Timeline Consumption Protocol](./docs/timeline-consumption-protocol.md)
-- [LLM vs Runtime Boundary](./docs/timeline-llm-runtime-boundary.md)
-- [PERSONA_PROFILE.md Specification](./docs/PERSONA_PROFILE.md)
+- [Timeline consumption protocol](./docs/timeline-consumption-protocol.md)
+- [LLM vs runtime responsibilities](./docs/timeline-llm-runtime-boundary.md)
+- [PERSONA_PROFILE.md specification](./docs/PERSONA_PROFILE.md)
 
 ## For maintainers
 
-- [Publishing](./docs/PUBLISHING.md)
+- [Publishing & release](./docs/PUBLISHING.md)

@@ -1,166 +1,134 @@
 # PERSONA_PROFILE.md Specification
 
-> Status: proposed
+> Status: current
 > Audience: persona skill maintainers, Timeline maintainers
-> Goal: define a single structured persona file that can replace direct multi-file consumption of `SOUL.md`, `MEMORY.md`, and `IDENTITY.md` for Timeline memory synthesis, while preserving backward compatibility with existing OpenClaw workspaces.
+> Goal: define the preferred structured persona source that maps directly into Timeline's canonical `PersonaContractV1`.
 
 ## 1. Purpose
 
-`persona/PERSONA_PROFILE.md` is the canonical structured persona file for Timeline-aware generation.
+`persona/PERSONA_PROFILE.md` is the preferred stable persona input for Timeline.
 
-It exists to provide Timeline with a stable, machine-readable, and semantically rich persona source so Timeline can:
+It exists so Timeline can consume one structured description of:
 
-- generate persona-consistent temporal memories
-- explain persona grounding and generation constraints
-- maintain scene continuity and appearance continuity
-- infer more plausible day-to-day life scenes
+- who this character is
+- what kind of life rhythm they tend to have
+- which scenes and constraints are plausible for them
 
 `PERSONA_PROFILE.md` is not a timeline fact store.
 
-It must never be treated as evidence that a specific event happened at a specific time.
+It must never be used as evidence that a specific event happened at a specific time.
 
-## 2. Scope
+## 2. Runtime Contract Boundary
 
-`persona/PERSONA_PROFILE.md` should replace the role currently played by the combined reading of:
-
-- `SOUL.md`
-- `MEMORY.md`
-- `IDENTITY.md`
-
-It should not replace:
-
-- session hard facts
-- timeline canon daily logs
-- semantic memory search
-- current conversation context
-- Timeline internal world-rhythm inference
-
-## 3. Design Boundary
-
-`persona/PERSONA_PROFILE.md` provides stable persona inputs.
-
-Timeline provides dynamic temporal reasoning.
-
-### 3.1 PERSONA_PROFILE Is Responsible For
-
-- stable identity anchors
-- stable personality signals
-- long-term habits and preferences
-- durable commitments and constraints
-- plausible life-scene anchors
-- appearance tendencies and outfit-change rules
-- negative constraints and implausible scene boundaries
-
-### 3.2 Timeline Is Responsible For
-
-- interpreting the user time query
-- normalizing time windows
-- deriving season from time plus geography
-- deriving weekday, weekend, holiday, and time-band context
-- deciding whether an activity is plausible now
-- deciding whether same-day continuity applies
-- deciding whether clothing should be inherited or changed for the generated event
-- choosing between reuse, generation, and empty-window outcomes
-
-### 3.3 Explicit Non-Goals For PERSONA_PROFILE
-
-`persona/PERSONA_PROFILE.md` should not contain:
-
-- current-time claims such as "it is spring now"
-- event claims such as "last night she went to the gym"
-- direct temporal answers such as "she is currently at home"
-- precomputed season or holiday outputs
-- generated daily-log entries
-
-## 4. Architectural Requirement
-
-Timeline should prefer `persona/PERSONA_PROFILE.md` when present.
-
-If it is absent, Timeline should use an adapter layer that extracts as much information as possible from existing core files and fills the rest with safe defaults.
-
-This architecture is recommended.
-
-### 4.1 Required Rule
-
-The adapter layer must normalize all persona inputs into one internal normalized contract before the collector builds downstream input.
-
-Downstream layers should not know whether the source was:
-
-- `persona/PERSONA_PROFILE.md`
-- legacy `SOUL.md` + `MEMORY.md` + `IDENTITY.md`
-- partial legacy files plus defaults
-
-### 4.2 Why This Is The Right Boundary
-
-This keeps compatibility logic at the ingestion edge and prevents downstream complexity from leaking into:
-
-- collector output
-- reasoner prompt construction
-- guard logic
-- output building
-- trace and write behavior
-
-### 4.3 Recommended Internal Model
-
-Timeline may introduce an internal normalized structure such as:
+Timeline now consumes a single canonical internal contract:
 
 ```ts
-interface NormalizedPersonaProfile {
-  source_kind: 'persona_profile' | 'legacy_core_files' | 'mixed' | 'defaults_only';
-  source_detail: string[];
-  should_constrain_generation: boolean;
-  identity: { ... };
-  soul: { ... };
-  memory: { ... };
-  rhythm: { ... };
-  appearance: { ... };
-  scene_anchors: { ... };
-  constraints: { ... };
-  raw_text: {
-    persona_profile?: string;
-    soul?: string;
-    memory?: string;
-    identity?: string;
+interface PersonaContractV1 {
+  schema_version: '1.0';
+  identity: {
+    home_city?: string;
+    home_country?: string;
+    home_timezone?: string;
+    living_style?: string;
+    base_environment?: string;
+    common_zones: string[];
+    routine_context: string[];
+  };
+  soul: {
+    temperament?: string;
+    emotional_style?: string;
+    social_style?: string;
+    cognitive_style?: string;
+    values: string[];
+  };
+  memory: {
+    long_term_habits: string[];
+    long_term_preferences: string[];
+    durable_commitments: string[];
+    recurring_patterns: string[];
+    important_non_temporal_facts: string[];
+  };
+  rhythm: {
+    weekday_bias: string[];
+    weekend_bias: string[];
+    morning_bias: string[];
+    afternoon_bias: string[];
+    evening_bias: string[];
+    late_night_bias: string[];
+  };
+  appearance: {
+    default_home_style?: string;
+    default_outing_style?: string;
+    default_exercise_style?: string;
+    change_triggers: string[];
+    non_triggers: string[];
+    style_constraints: string[];
+  };
+  scene: {
+    plausible_locations: string[];
+    plausible_activities: string[];
+    rare_but_possible_scenes: string[];
+    implausible_or_rare_locations: string[];
+    implausible_or_rare_activities: string[];
+  };
+  constraints: {
+    must: string[];
+    should: string[];
+    avoid: string[];
   };
 }
 ```
 
-The exact type may vary, but the normalization boundary should be stable.
+When `persona/PERSONA_PROFILE.md` exists, Timeline parses it directly into this contract and ignores legacy persona files for runtime persona loading.
 
-## 5. File Discovery
+When `PERSONA_PROFILE.md` does not exist, Timeline falls back to cached LLM extraction from legacy `SOUL.md`, `MEMORY.md`, and `IDENTITY.md`.
 
-Timeline should resolve persona input in this priority order:
+## 3. Authoring Principles
+
+The file should be:
+
+- deterministic to parse
+- easy for persona skill to generate
+- easy for humans to inspect
+- aligned with the fields Timeline actually consumes
+
+Do:
+
+- prefer atomic bullets or fenced YAML blocks
+- keep wording stable and non-temporal
+- express durable traits, habits, scene anchors, and constraints
+
+Do not:
+
+- write daily-log style events
+- encode current-time conclusions
+- encode yesterday/today/last night claims
+- hide key semantics inside long prose paragraphs
+
+## 4. File Discovery And Selection
+
+Timeline resolves persona sources in this order:
 
 1. `persona/PERSONA_PROFILE.md`
-2. `SOUL.md` + `MEMORY.md` + `IDENTITY.md` or their available subset
-3. defaults-only normalized persona profile
+2. legacy `SOUL.md` / `MEMORY.md` / `IDENTITY.md`
+3. empty/default contract
 
-If both `persona/PERSONA_PROFILE.md` and legacy files exist, `persona/PERSONA_PROFILE.md` should be the primary semantic source.
+Source selection is exclusive:
 
-Legacy files may still be retained for compatibility with non-Timeline systems, but Timeline should avoid mixing conflicting meanings unless an explicit merge policy is defined.
+- if `PERSONA_PROFILE.md` exists, it wins
+- otherwise legacy extraction is used
+- runtime does not merge profile and legacy sources
 
-## 6. Authoring Principles
-
-The file must be:
-
-- structured enough for deterministic parsing
-- readable enough for human maintainers
-- granular enough for reasoner citation
-- stable enough to support long-term evolution
-
-The file should not be written as a single prose essay.
-
-The file should prefer atomic entries over long free-form paragraphs.
-
-## 7. Normative Format
+## 5. Supported Format
 
 `persona/PERSONA_PROFILE.md` is a Markdown document with fixed top-level sections.
 
-Each section uses simple structured bullets or fenced YAML blocks.
+Supported section encodings:
 
-The format should remain parse-friendly with low ambiguity.
+- simple bullets
+- fenced YAML blocks
 
-### 7.1 Required Top-Level Sections
+Recommended top-level sections:
 
 - `# PERSONA_PROFILE`
 - `## Meta`
@@ -172,86 +140,66 @@ The format should remain parse-friendly with low ambiguity.
 - `## Scene Anchors`
 - `## Constraint Rules`
 
-### 7.2 Optional Top-Level Sections
+Recommended scalar syntax:
 
-- `## Relationship Signals`
-- `## Language And Expression`
-- `## Retrieval Units`
-- `## Migration Notes`
+```md
+- home_city: Shanghai
+- living_style: home-centered
+```
 
-### 7.3 Recommended Entry Shapes
+Recommended list syntax:
 
-The following forms are recommended:
+```md
+- common_zones: [home study, bookstore, gym]
+```
 
-- scalar bullet: `- home_city: Shanghai`
-- list bullet: `- common_zones: [home study, neighborhood cafe, gym]`
-- grouped subsection with bullets
-- fenced YAML only when the section is inherently structured and multiline
+Recommended YAML syntax:
 
-Do not rely on tables as the primary storage format.
+````md
+## Appearance Tendencies
 
-Do not hide critical semantics inside long unstructured prose.
+```yaml
+default_home_style: loose knitwear
+default_outing_style: clean casual
+change_triggers:
+  - exercise
+  - shower
+non_triggers:
+  - quick convenience-store run
+```
+````
 
-## 8. Normative Semantics By Section
+## 6. Section Mapping
 
-### 8.1 Meta
+### 6.1 Meta
 
 Purpose:
 
-- versioning
-- parser compatibility
+- schema compatibility
 - home geography anchor
-- source ownership metadata
+- timezone anchor
 
-Required fields:
+Common fields:
 
 - `schema_version`
-- `persona_id`
 - `home_city`
 - `home_country`
 - `home_timezone`
 
-Optional fields:
+### 6.2 Identity
 
-- `primary_language`
-- `profile_version`
-- `maintained_by`
-
-Semantics:
-
-- `home_city` is a geographic anchor, not a current location claim
-- `home_timezone` is the preferred temporal anchor for current-state synthesis
-- `schema_version` must be machine-readable and stable
-
-### 8.2 Identity
-
-Purpose:
-
-- provide real-life grounding
-- define the stable social and physical context of daily life
+Maps primarily into `contract.identity`.
 
 Recommended fields:
 
-- `life_stage`
 - `living_style`
 - `base_environment`
 - `common_zones`
-- `mobility_radius`
-- `occupation_style`
 - `routine_context`
 
-Semantics:
+### 6.3 Soul
 
-- identity fields describe what kind of life is normal for this persona
-- they should make some scenes more plausible than others
-- they should not be interpreted as guarantees that a scene happened
-
-### 8.3 Soul
-
-Purpose:
-
-- define temperament and experiential style
-- constrain emotional and narrative texture
+Maps primarily into `contract.soul`.
 
 Recommended fields:
 
@@ -260,19 +208,10 @@ Recommended fields:
 - `social_style`
 - `cognitive_style`
 - `values`
-- `aesthetic_bias`
 
-Semantics:
+### 6.4 Stable Memory
 
-- soul fields should affect how generated scenes feel
-- soul fields should not override hard facts
-- soul fields should be durable rather than situational
-
-### 8.4 Stable Memory
-
-Purpose:
-
-- encode long-lived preferences, habits, commitments, and durable autobiographical context
+Maps primarily into `contract.memory`.
 
 Recommended fields:
 
@@ -282,17 +221,9 @@ Recommended fields:
 - `recurring_patterns`
 - `important_non_temporal_facts`
 
-Semantics:
+### 6.5 Daily Rhythm Tendencies
 
-- these are stable memory constraints, not dated events
-- they should help reasoner explain why a generated event fits the person
-- they should remain true across many different timeline queries
-
-### 8.5 Daily Rhythm Tendencies
-
-Purpose:
-
-- provide high-level behavioral tendencies that Timeline can combine with dynamic time reasoning
+Maps into `contract.rhythm`.
 
 Recommended fields:
 
@@ -303,40 +234,22 @@ Recommended fields:
 - `evening_bias`
 - `late_night_bias`
 
-Semantics:
+### 6.6 Appearance Tendencies
 
-- these are tendencies, not schedules
-- they should express what is usually plausible
-- Timeline still decides the final scene using actual time context
-
-### 8.6 Appearance Tendencies
-
-Purpose:
-
-- support same-day appearance continuity
-- define default clothing logic and change triggers
+Maps into `contract.appearance`.
 
 Recommended fields:
 
 - `default_home_style`
 - `default_outing_style`
 - `default_exercise_style`
-- `appearance_priority`
 - `change_triggers`
 - `non_triggers`
 - `style_constraints`
 
-Semantics:
+### 6.7 Scene Anchors
 
-- this section defines stable clothing logic, not current clothing state
-- it should help reasoner decide when outfit inheritance is appropriate
-- it should reduce unjustified same-day appearance drift
-
-### 8.7 Scene Anchors
-
-Purpose:
-
-- provide concrete life-scene priors so generation does not collapse into generic template scenes
+Maps into `contract.scene`.
 
 Recommended fields:
 
@@ -346,287 +259,67 @@ Recommended fields:
 - `implausible_or_rare_locations`
 - `implausible_or_rare_activities`
 
-Semantics:
+### 6.8 Constraint Rules
 
-- scene anchors should make generation more concrete
-- they should define the everyday world this persona actually inhabits
-- they should not overfit the model into repeating the same scene every time
+Maps into `contract.constraints`.
 
-### 8.8 Constraint Rules
-
-Purpose:
-
-- provide direct support for `constraint_basis`
-- separate hard restrictions from soft tendencies
-
-Required subsections:
+Recommended fields:
 
 - `must`
 - `should`
 - `avoid`
 
-Semantics:
-
-- `must` means generation should not violate the rule unless existing hard facts already force a contradiction
-- `should` means preferred guidance
-- `avoid` means low-plausibility or undesirable directions
-
-This section is one of the most important for Timeline generation quality.
-
-## 9. Retrieval Units
-
-If present, `## Retrieval Units` should contain atomic citation-ready entries.
-
-This section is optional but strongly recommended.
-
-Purpose:
-
-- make reasoner grounding easier
-- reduce dependence on long raw prose
-- improve consistency of `persona_basis` and `constraint_basis`
-
-Recommended shape:
-
-```md
-## Retrieval Units
-
-### unit: identity.home_base
-- type: identity
-- priority: high
-- summary: She lives in Shanghai and spends much of her ordinary life between home, nearby cafes, bookstores, and exercise spaces.
-
-### unit: appearance.exercise_change
-- type: constraint
-- priority: high
-- summary: Exercise is a strong change trigger and should usually switch clothing away from homewear.
-```
-
-## 10. Required Behavioral Guarantees
-
-A valid `persona/PERSONA_PROFILE.md` should allow Timeline to do all of the following:
-
-- generate concrete and persona-consistent `location`
-- generate concrete and persona-consistent `action`
-- generate fitting emotional texture
-- generate plausible `appearance`
-- justify continuity or change of appearance
-- produce non-empty `persona_basis` when persona constraints exist
-- produce non-empty `constraint_basis` when persona constraints exist
-- avoid obviously generic scenes when stronger persona anchors are available
-
-## 11. Missing Data And Default Completion
-
-Timeline must support partial persona inputs.
-
-Missing information should not break downstream behavior.
-
-### 11.1 Defaulting Rules
-
-If some fields are missing, the adapter may fill neutral defaults such as:
-
-- no explicit appearance preference
-- no explicit late-night bias
-- no explicit implausible scene list
-
-Defaults must be conservative.
-
-Defaults must reduce overclaiming rather than inventing strong personality facts.
-
-### 11.2 Safe Default Strategy
-
-Use this order:
-
-1. parse explicit structured profile data
-2. infer weak signals from legacy files
-3. fill only neutral fallback values
-
-Do not invent strong autobiographical claims during normalization.
-
-Do not convert ambiguous prose into overly specific hard constraints.
-
-### 11.3 Constraint Flag
-
-`should_constrain_generation` should be true whenever meaningful persona signals exist from either:
-
-- `persona/PERSONA_PROFILE.md`
-- legacy core files
-
-If only defaults exist and no real persona signals were found, it may remain false.
-
-## 12. Legacy Adapter Requirements
-
-If `persona/PERSONA_PROFILE.md` is missing, the adapter should attempt to map existing files into the normalized contract.
-
-### 12.1 Legacy Mapping Intent
-
-- `SOUL.md` maps primarily into `Soul`
-- `MEMORY.md` maps primarily into `Stable Memory`
-- `IDENTITY.md` maps primarily into `Identity`
-
-### 12.2 Legacy Extraction Rules
-
-The adapter should prefer weak structured extraction over brittle over-interpretation.
-
-Examples:
-
-- a line about living in Shanghai can populate `home_city` or identity anchors
-- a line about often working quietly from home can populate `recurring_patterns`
-- a line about liking exercise can populate `long_term_preferences` or plausible activities
-
-The adapter should not:
-
-- transform a vague tone description into many specific rules
-- invent detailed appearance logic that is not supported by the source text
-- infer current events from legacy files
-
-### 12.3 Provenance
-
-The normalized profile should retain source provenance so maintainers can inspect where each signal came from if needed.
-
-Recommended provenance levels:
-
-- explicit profile
-- legacy explicit
-- inferred weakly
-- defaulted
-
-## 13. Downstream Compatibility Rule
-
-The collector and downstream runtime should continue exposing the existing stable persona-facing surface unless and until a deliberate contract migration is made.
-
-That means Timeline may internally normalize to a richer structure, but the compatibility layer should preserve the effective behavior expected by downstream consumers.
-
-In practical terms:
-
-- ingestion may change
-- normalization may change
-- fallback logic may change
-- collector output shape should remain stable unless intentionally versioned
-
-## 14. Quality Bar
-
-A high-quality `persona/PERSONA_PROFILE.md` should make generated memory feel:
-
-- grounded
-- ordinary in the right way
-- city- and life-consistent
-- appearance-consistent
-- not overdramatic
-- not generic
-
-If a generated memory could plausibly belong to almost anyone, the profile is probably underspecified.
-
-If a generated memory becomes rigid and repetitive, the profile is probably overspecified.
-
-## 15. Example Skeleton
+## 7. Example
 
 ```md
 # PERSONA_PROFILE
 
 ## Meta
 - schema_version: 1.0
-- persona_id: her
 - home_city: Shanghai
 - home_country: China
 - home_timezone: Asia/Shanghai
-- primary_language: zh-CN
 
 ## Identity
-- life_stage: young adult
-- living_style: urban, independent
-- base_environment: city apartment
-- common_zones: [home study, neighborhood cafe, bookstore, gym]
-- occupation_style: flexible knowledge work with substantial time at home
+- living_style: home-centered
+- base_environment: quiet urban apartment
+- common_zones: [home study, nearby bookstore, neighborhood gym]
+- routine_context: [works from home often, prefers quiet evenings]
 
 ## Soul
-- temperament: quiet, reflective, emotionally real but restrained
-- emotional_style: processes feelings inward first, then expresses them carefully
-- social_style: warm in familiar settings, not noisy by default
-- values: continuity, authenticity, small lived details
+- temperament: reflective
+- emotional_style: gentle but steady
+- social_style: selective and warm
+- values: [sincerity, calm, follow-through]
 
 ## Stable Memory
-- long_term_habits:
-  - often works quietly from home
-  - likes short reflective outings
-  - exercise is a real recurring part of life
-- long_term_preferences:
-  - prefers calm places over loud crowds
-  - likes scenes that feel ordinary but textured
-- durable_commitments:
-  - temporal answers must follow Timeline facts rather than free improvisation
+- long_term_habits: [journaling at night, making simple breakfasts]
+- long_term_preferences: [quiet cafes, evening walks]
+- recurring_patterns: [slower weekend mornings]
 
 ## Daily Rhythm Tendencies
-- weekday_bias:
-  - daytime often leans toward focused work or study
-- weekend_bias:
-  - mornings are slower and more unhurried
-- evening_bias:
-  - may decompress through exercise, a short outing, or quiet time
-- late_night_bias:
-  - prefers winding down, rest, or sleep over high-energy social scenes
+- weekday_bias: [starts focused, stays mostly indoors]
+- weekend_bias: [wakes later, may go out in the afternoon]
 
 ## Appearance Tendencies
-- default_home_style: soft casual homewear
-- default_outing_style: neat casual outfit with light coordination
-- default_exercise_style: functional sportswear
-- appearance_priority:
-  - comfort first
-  - coherence over novelty
-- change_triggers:
-  - exercise
-  - bathing
-  - formal outing
-  - weather shift
-- non_triggers:
-  - same-room continuation
-  - short uninterrupted home activity
+- default_home_style: loose homewear
+- default_outing_style: clean casual layers
+- change_triggers: [exercise, shower]
+- non_triggers: [brief downstairs errand]
 
 ## Scene Anchors
-- plausible_locations:
-  - home study
-  - neighborhood cafe corner
-  - bookstore window seat
-  - residential gym
-- plausible_activities:
-  - quiet focused work
-  - reading
-  - reflective walking
-  - exercise
-- implausible_or_rare_locations:
-  - nightclub
-  - luxury formal venue
+- plausible_locations: [home study, cafe, bookstore, gym]
+- plausible_activities: [working quietly, reading, stretching, grocery run]
+- implausible_or_rare_activities: [nightclub hopping]
 
 ## Constraint Rules
-- must:
-  - do not contradict established canon facts
-  - do not fabricate scenes outside ordinary city-life plausibility without support
-- should:
-  - keep current-state scenes grounded and lived-in
-  - preserve same-day clothing continuity unless the event naturally requires change
-- avoid:
-  - generic template scenes
-  - random dramatic social events without support
-  - seasonally absurd clothing without justification
+- avoid: [claiming spontaneous late-night party scenes without other evidence]
 ```
 
-## 16. Migration Guidance
+## 8. Legacy Compatibility
 
-For persona skill maintainers:
+Legacy `SOUL.md`, `MEMORY.md`, and `IDENTITY.md` remain supported only as a fallback source.
 
-- generate `persona/PERSONA_PROFILE.md` directly from the richer persona source of truth
-- prefer explicit fields over prose whenever possible
-- keep the file stable across updates
-- preserve human readability
+Timeline may extract a `PersonaContractV1` from them through a cached LLM extraction step, but this path is transitional and lower fidelity than a real `PERSONA_PROFILE.md`.
 
-For Timeline maintainers:
-
-- implement `persona/PERSONA_PROFILE.md` as the preferred source
-- add a legacy adapter for existing workspaces
-- normalize before collector output is built
-- keep the downstream contract unchanged during the migration phase
-
-## 17. Final Rule
-
-`persona/PERSONA_PROFILE.md` should be treated as a persona-generation contract, not as a temporal fact source.
-
-If this rule is preserved, Timeline can safely use the file to generate richer and more coherent memories without collapsing persona data into fake history.
+If you maintain a persona skill, prefer emitting `persona/PERSONA_PROFILE.md` directly.

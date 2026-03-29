@@ -1,3 +1,4 @@
+import { emptyPersonaContract } from '../persona/persona_contract';
 import { buildTimelineCollectorOutput } from './collect_timeline_request';
 import { ResolvedWindow } from './resolve_window';
 
@@ -36,10 +37,14 @@ describe('buildTimelineCollectorOutput', () => {
           },
         ],
         memorySearch: ['memory/2026-03-21.md#L1-L7'],
-        coreContext: {
-          soul: 'She loves sports and also enjoys spending time with friends.',
-          memory: '',
-          identity: '',
+        personaContext: {
+          contract: {
+            ...emptyPersonaContract(),
+            soul: {
+              ...emptyPersonaContract().soul,
+              values: ['sports', 'friends'],
+            },
+          },
           available_sources: ['soul'],
           should_constrain_generation: true,
         },

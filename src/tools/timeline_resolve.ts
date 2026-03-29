@@ -20,7 +20,8 @@ import { formatDate, parseTimestampParts } from '../lib/time-utils';
 import { appendTraceLog } from '../storage/trace_log';
 import { writeEpisode, WriteEpisodeInput, WriteResult } from '../storage/write-episode';
 import { resolveWindow, TimelineQueryPlan } from '../core/resolve_window';
-import { loadTimelinePersonaContextFromWorkspace } from '../persona/load_persona_context';
+import { loadTimelinePersonaContractFromWorkspace } from '../persona/load_persona_contract';
+import { LegacyPersonaContractExtractor } from '../persona/extract_legacy_persona_contract';
 
 export type TimelineResolveMode = 'read_only' | 'allow_generate';
 
@@ -70,42 +71,67 @@ export interface TimelineRuntimeDependencies extends TimelineSourceDependencies 
   memoryFilePath?: (calendarDate: string) => string;
   canonicalRootName?: string;
   traceLogPath?: string;
+  extractLegacyPersonaContract?: LegacyPersonaContractExtractor;
+  personaCacheDirName?: string;
+  personaExtractionMaxAttempts?: number;
   planTimelineQuery?: (input: TimelineResolveInput, anchor: { now: string; timezone: string }) => Promise<TimelineQueryPlan>;
   reasonTimeline?: (collector: TimelineCollectorOutput) => Promise<TimelineReasonerOutput | null>;
 }
 
-const defaultDependencies: TimelineRuntimeDependencies = {
-  currentTime: async () => ({
-    now: new Date().toISOString(),
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-  }),
-  sessionsHistory: async () => [],
-  memoryGet: async () => '',
-  memorySearch: async () => [],
-  coreFiles: async () => loadTimelinePersonaContextFromWorkspace(process.cwd()).projected,
-  writeEpisode,
-  memoryFilePath: (calendarDate: string) => `memory/${calendarDate}.md`,
-  canonicalRootName: 'memory',
-  traceLogPath: path.join(os.tmpdir(), 'stella-timeline-plugin-trace.log'),
-};
+function createDefaultDependencies(
+  overrides: Partial<TimelineRuntimeDependencies> = {},
+): TimelineRuntimeDependencies {
+  const deps: TimelineRuntimeDependencies = {
+    currentTime: async () => ({
+      now: new Date().toISOString(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+    }),
+    sessionsHistory: async () => [],
+    memoryGet: async () => '',
+    memorySearch: async () => [],
+    writeEpisode,
+    memoryFilePath: (calendarDate: string) => `memory/${calendarDate}.md`,
+    canonicalRootName: 'memory',
+    traceLogPath: path.join(os.tmpdir(), 'stella-timeline-plugin-trace.log'),
+    personaCacheDirName: '.timeline-cache/persona-contract',
+    personaExtractionMaxAttempts: 3,
+  };
 
-let runtimeDependencies: TimelineRuntimeDependencies = defaultDependencies;
+  const merged = { ...deps, ...overrides };
+  if (!merged.personaContext) {
+    merged.personaContext = async () => {
+      const loaded = await loadTimelinePersonaContractFromWorkspace(process.cwd(), {
+        extractLegacyPersonaContract: merged.extractLegacyPersonaContract,
+        cacheDirName: merged.personaCacheDirName,
+        maxAttempts: merged.personaExtractionMaxAttempts,
+      });
+      return {
+        contract: loaded.contract,
+        available_sources: loaded.available_sources,
+        should_constrain_generation: loaded.should_constrain_generation,
+      };
+    };
+  }
+  return merged;
+}
+
+let runtimeDependencies: TimelineRuntimeDependencies = createDefaultDependencies();
 
 export function setTimelineResolveDependencies(deps: Partial<TimelineRuntimeDependencies>): void {
-  runtimeDependencies = { ...runtimeDependencies, ...deps };
+  runtimeDependencies = createDefaultDependencies({ ...runtimeDependencies, ...deps });
 }
 
 export function resetTimelineResolveDependencies(): void {
-  runtimeDependencies = defaultDependencies;
+  runtimeDependencies = createDefaultDependencies();
 }
 
 function getEffectiveTimelineDependencies(
   overrides?: Partial<TimelineRuntimeDependencies>,
 ): TimelineRuntimeDependencies {
-  return {
+  return createDefaultDependencies({
     ...runtimeDependencies,
     ...overrides,
-  };
+  });
 }
 
 function validateTimelineResolveInput(input: TimelineResolveInput): void {

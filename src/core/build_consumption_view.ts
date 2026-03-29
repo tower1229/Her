@@ -14,14 +14,6 @@ interface ConsumptionInput {
   sourceType: 'canon' | 'generated' | 'none';
 }
 
-function extractCityFromIdentity(identity: string): string | undefined {
-  const homeCityMatch = identity.match(/Home city:\s*([^\n]+)/i);
-  if (homeCityMatch?.[1]?.trim()) return homeCityMatch[1].trim();
-  if (/\bShanghai\b|上海/.test(identity)) return 'Shanghai';
-  if (/\bBeijing\b|北京/.test(identity)) return 'Beijing';
-  return undefined;
-}
-
 function deriveCalendarDate(timestamp?: string): string | undefined {
   const match = timestamp?.match(/^(\d{4}-\d{2}-\d{2})T/);
   return match?.[1];
@@ -195,7 +187,7 @@ export function buildConsumptionView(input: ConsumptionInput): TimelineConsumpti
     return base;
   }
 
-  const city = extractCityFromIdentity(input.collector?.persona_context.identity || '');
+  const city = input.collector?.persona_context.contract.identity.home_city;
   const appearanceChange = deriveAppearanceChange(input);
   const scene: NonNullable<TimelineConsumptionView['scene']> = {
     location: input.episode.state_snapshot.scene.location_label,

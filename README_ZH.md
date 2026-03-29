@@ -1,31 +1,26 @@
 # OpenClaw Timeline 插件
 
-Timeline 给 OpenClaw 补上了大多数 agent 仍然缺失的一层能力：真实可信的时间感。
+![Her](./assets/Her.webp)
 
-它不只是一个记忆辅助工具，而是一层让 OpenClaw 在闲聊中更像真人的能力基础。它让 OpenClaw 拥有：
+为什么 AI 足够聪明，却无法让人产生陪伴感？
 
-- 对“现在在做什么”的感知
-- 对“最近发生了什么”的回忆能力
-- 在需要时为自己编织并复用时间线记忆的能力
-- 更符合现实生活节奏的作息感，比如吃饭、睡觉、工作日、周末和节假日
-- 更稳定的日内细节连续性，比如穿着不会无缘无故跳变，除非事件本身就意味着换装
-- 在不破坏正常长期记忆的前提下，维持连续的人生感
+是时间。
 
-最后带来的变化其实很直接：聊天会更自然、更连贯，也更像在和一个真实活着的人相处。
+真正让《Her》动人的，不是 Samantha 会回答问题，而是她像一个活在时间里的人。
+她有刚刚，有昨晚，有最近。她不是每次被唤醒时才临时生成一句自然的话，而像是真的一直在经历生活，所以她的陪伴才成立，她的存在感才成立。
 
-## 为什么它重要
+`stella-timeline-plugin` 想补上的，正是这层能力。
 
-人类的社交情绪需求，本质上依赖“连续性”。
+它不是一个普通的记忆工具，也不只是把聊天记录重新检索一遍。它为 agent 建立了一层可运行的时间现实，让“你现在在做什么”“你昨晚在干嘛”“你最近都在忙什么”这些问题，不再只能依赖 prompt 临场发挥，而是能够落在一条连续、可信、可复用的生活线上。
 
-当人问：
+这意味着，AI 的变化不只是更会聊天了。
+而是它开始像是真的一路活到了现在。
 
-- “你现在在做什么？”
-- “你昨晚在干嘛？”
-- “你最近都在忙什么？”
+如果说语言模型解决了“怎么说”，
+那么 Timeline 补上的，是“为什么这句话像是一个一直在生活的人说出来的”。
 
-他们要的并不只是事实答案，而是一种存在感、情绪感、生活上下文，以及“你真的一直在过自己的生活”的感觉。
-
-Timeline 的作用，就是让 OpenClaw 回答这些问题时，不再只是依赖 prompt 临场发挥，而是建立起一层稳定、可沉浸的个人时间现实。
+不是让 AI 学会报时，
+而是让它第一次拥有生活连续性。
 
 ## 它带来的感觉
 
@@ -58,25 +53,24 @@ Timeline 为 OpenClaw 增加了一层专门的时间感知与回忆能力，让�
 
 它首先服务的，就是“像真人一样闲聊”这件事。
 
-## Timeline × Persona Skill 联动玩法
+## Timeline Plugin × Persona Skill 联动玩法
 
-如果你的 persona skill 会产出 `persona/PERSONA_PROFILE.md`，那么 Timeline 在需要生成新记忆时，可以把它当作优先的人设输入源。
+如果你安装并使用了 [persona skill](https://clawhub.ai/tower1229/persona-skill) ，其会在 OpenClaw 工作空间产出一份结构化的 `persona/PERSONA_PROFILE.md`，那么 Timeline 会把它当作优先且首选的人设输入源。
 
-这组搭配的核心价值在于：`PERSONA_PROFILE.md` 提供的是稳定、结构化、可复用的人设约束，而 Timeline 负责动态部分，也就是“在什么时间点，更可能发生什么、应该呈现出怎样的生活感”。
+这组搭配的核心价值在于：`PERSONA_PROFILE.md` 会被直接解析成 Timeline 内部统一消费的 `PersonaContractV1`，而 Timeline 负责动态部分，也就是“在什么时间点，更可能发生什么、应该呈现出怎样的生活感”。
 
 联动方式其实很直接：
 
 1. persona skill 生成 `persona/PERSONA_PROFILE.md`
-2. Timeline 在构建生成上下文时优先读取它，而不是只依赖旧的散落 persona 文件
-3. 当需要补出“刚刚”“昨晚”“最近几天”这类记忆时，生成结果会更稳定地贴合 persona skill 设定，而不是滑向通用 agent 式即兴发挥
+2. Timeline 会直接把它解析为内部标准 persona contract
+3. 如果文件不存在，则会降级读取非结构化的 `SOUL.md` + `MEMORY.md` + `IDENTITY.md`，通过带缓存的结构化提取生成同一份 contract
+4. 当需要补出“刚刚”“昨晚”“最近几天”这类记忆时，生成结果会更稳定地贴合 persona skill 设定，而不是滑向通用 agent 式即兴发挥
 
 为什么这件事很有吸引力：
 
-- 更像这个人本人：生成出来的“昨晚在做什么”“这几天在忙什么”“现在在干嘛”会更自然地继承角色的身份、习惯、气质和生活方式
-- 更稳，更不容易跑偏：有了稳定的人设输入后，Timeline 更容易把地点、日常节奏、穿着连续性、场景合理性维持在同一条人物线上
-- 小生活细节会更真：生成的片段不再只是谁都能套用的日常 filler，而更像这个角色真的会过出来的生活
-- 人设和事实边界更清楚：`PERSONA_PROFILE.md` 定义“她是谁”，Timeline 负责推断“在这个时间窗口里更可能发生什么”，不容易把设定直接误写成历史事实
-- 对创作者更友好：相比把信息散落在多份 prose 里，维护一份结构化 persona 文件，更容易稳定调教记忆生成结果
+- `PERSONA_PROFILE.md` 文件直接匹配 Timeline 的 canonical contract，确保运行时拿到的是稳定、结构化、可验证的人设输入
+- 存在 `PERSONA_PROFILE.md` 时，Timeline 不需要再对 legacy persona 文件做额外 LLM 提取，速度更快，成本更低，稳定性也更高
+- 资深养虾户可能会担心，`PERSONA_PROFILE.md` 文件不会像运行时文件一样随着养虾进度自动更新。但事实上，Persona Skill 已经为你考虑到了，`PERSONA_PROFILE.md` 文件是可以自动对齐 SOUL + MEMORY + IDENTITY 文件的，不用担心。
 
 ## 安装
 
@@ -87,8 +81,6 @@ openclaw plugins install stella-timeline-plugin
 openclaw plugins enable stella-timeline-plugin
 ```
 
-npm 包名和 OpenClaw 插件 ID 现在统一为 `stella-timeline-plugin`。
-
 ### 2. 初始化 workspace
 
 推荐直接执行：
@@ -97,14 +89,14 @@ npm 包名和 OpenClaw 插件 ID 现在统一为 `stella-timeline-plugin`。
 npm exec --package=stella-timeline-plugin openclaw-timeline-setup -- --workspace ~/.openclaw/workspace
 ```
 
-如果你同时在使用 persona skill，请把它生成的 `PERSONA_PROFILE.md` 放在 workspace 根目录下的 `persona/PERSONA_PROFILE.md`。Timeline 在构建记忆生成上下文时会优先消费这份文件，而不是优先回退到旧的 persona 输入。
-
 如果你更喜欢手动编辑文件，也可以直接复制：
 
 - `templates/AGENTS.fragment.md` 到 `AGENTS.md`
 - `templates/SOUL.fragment.md` 到 `SOUL.md`
 
 然后确认 canonical daily-log 目录已经存在，默认是 `memory/`。
+
+如果你已经有 persona skill 产出的 `persona/PERSONA_PROFILE.md`，把它放在 workspace 根目录下的 `persona/` 文件夹中即可。Timeline 会优先使用它；只有在它不存在时，才会退回 legacy persona 文件提取路径。legacy 提取缓存位于 `.timeline-cache/persona-contract/`。
 
 ### 3. 直接开始聊天
 

@@ -1,5 +1,6 @@
 import { buildEmptyOutput, buildForgetfulnessNotes, buildGeneratedOutput, buildReadOnlyHitOutput } from './build_timeline_output';
 import { TimelineCollectorOutput, TimelineReasonerOutput } from './timeline_reasoner_contract';
+import { emptyPersonaContract } from '../persona/persona_contract';
 
 function makeCollector(): TimelineCollectorOutput {
   return {
@@ -27,9 +28,7 @@ function makeCollector(): TimelineCollectorOutput {
     canon_memory: { daily_logs: [] },
     semantic_memory: { memory_search: [] },
     persona_context: {
-      soul: '',
-      memory: '',
-      identity: '',
+      contract: emptyPersonaContract(),
       available_sources: [],
       should_constrain_generation: false,
     },
@@ -182,7 +181,7 @@ describe('build_timeline_output', () => {
 
   it('builds read-only output with resolved fact payload', () => {
     const collector = makeCollector();
-    collector.persona_context.identity = 'Home city: Shanghai';
+    collector.persona_context.contract.identity.home_city = 'Shanghai';
     const output = buildReadOnlyHitOutput({
       traceId: 'trace-test-readonly',
       selectedFact: {
@@ -250,9 +249,13 @@ describe('build_timeline_output', () => {
       collector: {
         ...makeCollector(),
         persona_context: {
-          soul: '',
-          memory: '',
-          identity: 'Home city: Shanghai',
+          contract: {
+            ...emptyPersonaContract(),
+            identity: {
+              ...emptyPersonaContract().identity,
+              home_city: 'Shanghai',
+            },
+          },
           available_sources: ['identity'],
           should_constrain_generation: true,
         },
@@ -368,7 +371,7 @@ describe('build_timeline_output', () => {
   it('prefers in-conversation social context when collector requests continuity', () => {
     const collector = makeCollector();
     collector.conversation_context.should_prefer_conversation_continuity_for_now = true;
-    collector.persona_context.identity = 'Home city: Shanghai';
+    collector.persona_context.contract.identity.home_city = 'Shanghai';
 
     const output = buildGeneratedOutput({
       traceId: 'trace-test-generated-conversation',
@@ -468,7 +471,7 @@ describe('build_timeline_output', () => {
 
   it('omits social_context for socially ambiguous outing scenes', () => {
     const collector = makeCollector();
-    collector.persona_context.identity = 'Home city: Shanghai';
+    collector.persona_context.contract.identity.home_city = 'Shanghai';
 
     const output = buildGeneratedTestOutput({
       traceId: 'trace-test-ambiguous-outing',
@@ -514,7 +517,7 @@ describe('build_timeline_output', () => {
 
   it('derives with_friends and richer outing anchors from explicit social cafe scenes', () => {
     const collector = makeCollector();
-    collector.persona_context.identity = 'Home city: Shanghai';
+    collector.persona_context.contract.identity.home_city = 'Shanghai';
 
     const output = buildGeneratedTestOutput({
       traceId: 'trace-test-friends-outing',
@@ -566,7 +569,7 @@ describe('build_timeline_output', () => {
 
   it('derives explicit alone only when the scene clearly states solitude', () => {
     const collector = makeCollector();
-    collector.persona_context.identity = 'Home city: Shanghai';
+    collector.persona_context.contract.identity.home_city = 'Shanghai';
 
     const output = buildGeneratedTestOutput({
       traceId: 'trace-test-alone-exercise',

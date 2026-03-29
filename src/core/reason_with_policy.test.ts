@@ -1,5 +1,6 @@
 import { reasonWithPolicy } from './reason_with_policy';
 import { TimelineCollectorOutput } from './timeline_reasoner_contract';
+import { emptyPersonaContract } from '../persona/persona_contract';
 
 function makeCollector(): TimelineCollectorOutput {
   return {
@@ -30,9 +31,7 @@ function makeCollector(): TimelineCollectorOutput {
     canon_memory: { daily_logs: [] },
     semantic_memory: { memory_search: [] },
     persona_context: {
-      soul: '',
-      memory: '',
-      identity: '',
+      contract: emptyPersonaContract(),
       available_sources: [],
       should_constrain_generation: false,
     },

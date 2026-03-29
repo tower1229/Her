@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { ParsedPersonaProfile, ParsedRetrievalUnit, PersonaStructuredSection, PersonaStructuredValue } from './types';
+import { ParsedPersonaProfile, PersonaStructuredSection, PersonaStructuredValue } from './persona_source_types';
 
 const PROFILE_RELATIVE_PATH = path.join('persona', 'PERSONA_PROFILE.md');
 
@@ -12,8 +12,7 @@ type SupportedSectionName =
   | 'daily_rhythm_tendencies'
   | 'appearance_tendencies'
   | 'scene_anchors'
-  | 'constraint_rules'
-  | 'retrieval_units';
+  | 'constraint_rules';
 
 const SECTION_NAME_MAP: Record<string, SupportedSectionName | undefined> = {
   meta: 'meta',
@@ -24,7 +23,6 @@ const SECTION_NAME_MAP: Record<string, SupportedSectionName | undefined> = {
   'appearance tendencies': 'appearance_tendencies',
   'scene anchors': 'scene_anchors',
   'constraint rules': 'constraint_rules',
-  'retrieval units': 'retrieval_units',
 };
 
 function readTextFile(filePath: string): string {
@@ -53,6 +51,51 @@ function parseInlineValue(raw: string): PersonaStructuredValue {
     .filter(Boolean);
 }
 
+function parseYamlScalar(raw: string): PersonaStructuredValue {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  if (trimmed === '[]') return [];
+  return parseInlineValue(trimmed);
+}
+
+function parseYamlBlock(sectionName: SupportedSectionName, yamlText: string, warnings: string[]): PersonaStructuredSection {
+  const entries: PersonaStructuredSection = {};
+  const lines = yamlText.split(/\r?\n/);
+  let currentListKey: string | null = null;
+
+  for (const rawLine of lines) {
+    const line = rawLine.replace(/\t/g, '  ');
+    if (!line.trim()) continue;
+
+    const listMatch = line.match(/^\s{2,}-\s+(.+)$/);
+    if (listMatch && currentListKey) {
+      const current = Array.isArray(entries[currentListKey]) ? entries[currentListKey] as string[] : [];
+      current.push(listMatch[1].trim());
+      entries[currentListKey] = current;
+      continue;
+    }
+
+    const scalarMatch = line.match(/^([A-Za-z0-9_ -]+):\s*(.*)$/);
+    if (!scalarMatch) {
+      warnings.push(`Ignored malformed YAML line in section "${sectionName}": ${line.trim()}`);
+      currentListKey = null;
+      continue;
+    }
+
+    const key = normalizeEntryKey(scalarMatch[1]);
+    const rawValue = scalarMatch[2];
+    if (!rawValue.trim()) {
+      entries[key] = [];
+      currentListKey = key;
+      continue;
+    }
+    entries[key] = parseYamlScalar(rawValue);
+    currentListKey = null;
+  }
+
+  return entries;
+}
+
 function parseStructuredSection(
   sectionName: SupportedSectionName,
   lines: string[],
@@ -60,15 +103,22 @@ function parseStructuredSection(
 ): PersonaStructuredSection {
   const entries: PersonaStructuredSection = {};
   let pendingListKey: string | null = null;
-  let fencedBlockWarningIssued = false;
+  let activeFenceLines: string[] | null = null;
 
   for (const line of lines) {
     if (/^```/.test(line.trim())) {
-      if (!fencedBlockWarningIssued) {
-        warnings.push(`Ignored fenced block while parsing section "${sectionName}".`);
-        fencedBlockWarningIssued = true;
+      if (activeFenceLines) {
+        const parsedBlock = parseYamlBlock(sectionName, activeFenceLines.join('\n'), warnings);
+        Object.assign(entries, parsedBlock);
+        activeFenceLines = null;
+      } else {
+        activeFenceLines = [];
       }
       pendingListKey = null;
+      continue;
+    }
+    if (activeFenceLines) {
+      activeFenceLines.push(line);
       continue;
     }
 
@@ -109,51 +159,6 @@ function parseStructuredSection(
   return entries;
 }
 
-function parseRetrievalUnits(lines: string[], warnings: string[]): ParsedRetrievalUnit[] {
-  const units: ParsedRetrievalUnit[] = [];
-  let current: ParsedRetrievalUnit | null = null;
-  let fencedBlockWarningIssued = false;
-
-  for (const line of lines) {
-    if (/^```/.test(line.trim())) {
-      if (!fencedBlockWarningIssued) {
-        warnings.push('Ignored fenced block while parsing section "retrieval_units".');
-        fencedBlockWarningIssued = true;
-      }
-      continue;
-    }
-
-    const unitMatch = line.match(/^###\s+unit:\s+(.+)$/i);
-    if (unitMatch) {
-      if (current?.id) units.push(current);
-      current = { id: unitMatch[1].trim() };
-      continue;
-    }
-
-    if (!current) {
-      if (line.trim()) {
-        warnings.push(`Ignored malformed line in section "retrieval_units": ${line.trim()}`);
-      }
-      continue;
-    }
-
-    const bulletMatch = line.match(/^- ([^:]+):\s*(.*)$/);
-    if (!bulletMatch) {
-      warnings.push(`Ignored malformed line in section "retrieval_units": ${line.trim()}`);
-      continue;
-    }
-    const key = normalizeEntryKey(bulletMatch[1]);
-    const value = bulletMatch[2].trim();
-    if (!value) continue;
-    if (key === 'type') current.type = value;
-    if (key === 'priority') current.priority = value;
-    if (key === 'summary') current.summary = value;
-  }
-
-  if (current?.id) units.push(current);
-  return units;
-}
-
 export function parsePersonaProfileMarkdown(rawText: string): ParsedPersonaProfile {
   const text = rawText.trim();
   if (!text) {
@@ -161,13 +166,11 @@ export function parsePersonaProfileMarkdown(rawText: string): ParsedPersonaProfi
       found: false,
       raw_text: '',
       sections: {},
-      retrieval_units: [],
       parse_warnings: [],
     };
   }
 
   const sections: ParsedPersonaProfile['sections'] = {};
-  const retrievalUnits: ParsedRetrievalUnit[] = [];
   const warnings: string[] = [];
   const lines = rawText.split(/\r?\n/);
   let currentSection: SupportedSectionName | undefined;
@@ -175,11 +178,7 @@ export function parsePersonaProfileMarkdown(rawText: string): ParsedPersonaProfi
 
   function flushCurrentSection(): void {
     if (!currentSection) return;
-    if (currentSection === 'retrieval_units') {
-      retrievalUnits.push(...parseRetrievalUnits(buffer, warnings));
-    } else {
-      sections[currentSection] = parseStructuredSection(currentSection, buffer, warnings);
-    }
+    sections[currentSection] = parseStructuredSection(currentSection, buffer, warnings);
     buffer = [];
   }
 
@@ -201,7 +200,6 @@ export function parsePersonaProfileMarkdown(rawText: string): ParsedPersonaProfi
     found: true,
     raw_text: rawText,
     sections,
-    retrieval_units: retrievalUnits,
     parse_warnings: warnings,
   };
 }
@@ -214,7 +212,6 @@ export function readPersonaProfile(workspaceDir: string): ParsedPersonaProfile {
       found: false,
       raw_text: '',
       sections: {},
-      retrieval_units: [],
       parse_warnings: [],
     };
   }
