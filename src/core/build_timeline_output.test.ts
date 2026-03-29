@@ -175,6 +175,7 @@ describe('build_timeline_output', () => {
     expect(output.trace_id).toBe('trace-test-empty');
     expect(output.resolution_summary.mode).toBe('empty_window');
     expect(output.result?.consumption?.fact.status).toBe('empty');
+    expect(output.result?.consumption?.fact.summary).toContain('记不清');
     expect(output.result?.consumption?.scene).toBeUndefined();
     expect(output.result?.consumption?.selfie_ready).toBeUndefined();
   });

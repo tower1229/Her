@@ -14,6 +14,18 @@ interface ConsumptionInput {
   sourceType: 'canon' | 'generated' | 'none';
 }
 
+function buildEmptyFactSummary(input: ConsumptionInput): string | undefined {
+  if (input.episode || input.resolutionMode !== 'empty_window') return undefined;
+  const summary = String(input.reasoned.rationale.summary || '').trim();
+  if (!summary) {
+    return '当前没有命中可复用事实，这段经历记不清了。';
+  }
+  if (/(记不清|模糊|想不起来|忘|forget)/i.test(summary)) {
+    return summary;
+  }
+  return `${summary} 当前没有命中可复用事实，这段经历记不清了。`;
+}
+
 function deriveCalendarDate(timestamp?: string): string | undefined {
   const match = timestamp?.match(/^(\d{4}-\d{2}-\d{2})T/);
   return match?.[1];
@@ -173,7 +185,7 @@ export function buildConsumptionView(input: ConsumptionInput): TimelineConsumpti
       status: input.episode ? 'resolved' : 'empty',
       source_type: input.sourceType,
       timestamp: input.episode?.temporal.start,
-      summary: input.episode?.narrative.summary,
+      summary: input.episode?.narrative.summary ?? buildEmptyFactSummary(input),
       confidence: input.episode?.provenance.confidence,
       continuity: {
         judged: input.reasoned.continuity.judged,

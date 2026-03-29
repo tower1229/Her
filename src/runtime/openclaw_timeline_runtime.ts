@@ -513,6 +513,8 @@ function buildTimelineQueryPlannerSystemPrompt(): string {
     '9. Classify as past_point only when the user clearly points to a specific moment, for example “昨晚八点”, “昨天上午十点”, or “上周六晚上九点”.',
     '10. If the user is asking about a duration or a whole period, it must be past_range, for example “昨晚在做什么”, “今天都忙了什么”, “最近有什么有趣的事吗”, or “这几天怎么样”.',
     '11. “昨晚” by itself is not a point in time. It is an evening range. Only expressions with an explicit anchor such as “昨晚八点” are past_point.',
+    '12. Questions about the most recent or previous occurrence of something, such as “最近一次…”, “上一次…”, “上回…”, or “最后一次…”, should usually be normalized as past_range unless the user also gives an exact timestamp.',
+    '13. This also applies to reflective autobiographical recall such as “最近一次知道自己错了是什么场景”, “上一次后悔是什么时候”, or “最后一次改变主意是在什么时候”.',
   ].join('\n');
 }
 

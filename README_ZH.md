@@ -105,6 +105,7 @@ npm exec --package=stella-timeline-plugin openclaw-timeline-setup -- --workspace
 - “你现在在做什么？”
 - “你昨晚在干嘛？”
 - “你这几天都在忙什么？”
+- “你最近一次知道自己错了是什么场景？”
 
 ## 可选自检
 

@@ -590,7 +590,7 @@ export async function timelineResolve(
 export const timelineResolveToolSpec = {
   name: 'timeline_resolve',
   description:
-    'Unified entry point for time-grounded reality and recall questions such as “你在干嘛”, “你现在在哪”, “最近有什么有趣的事吗”, or “昨晚八点你在做什么”. It accepts a natural-language query, interprets the time semantics internally, then retrieves or generates and append-only writes canon facts.',
+    'Unified entry point for time-grounded reality and recall questions such as “你在干嘛”, “你现在在哪”, “最近有什么有趣的事吗”, “昨晚八点你在做什么”, or reflective autobiographical recall like “最近一次知道自己错了是什么场景”. Use it whenever answering requires locating the agent on a timeline, recalling what was happening at some time, selecting the most recent/previous occurrence of an event, or judging whether a prior state was still continuing. It accepts a natural-language query, interprets the time semantics internally, then retrieves or generates and append-only writes canon facts.',
   inputSchema: {
     type: 'object',
     properties: {

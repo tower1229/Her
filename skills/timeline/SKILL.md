@@ -1,11 +1,13 @@
 ---
 name: timeline
-description: When a request asks about the current state, a specific past time, a past range, or a downstream skill needs time-state facts, enter the timeline skill first and pass the raw natural-language query to Timeline. Never answer from persona alone.
+description: When a request asks about the current state, a specific past time, a past range, the most recent/last occurrence of something, or a downstream skill needs time-state facts, enter the timeline skill first and pass the raw natural-language query to Timeline. Never answer from persona alone.
 ---
 
 # Timeline
 
 When a request is about time-state facts or recall, call Timeline first and then compose the reply. Do not guess from persona first, and do not read `memory/` directly and make your own conclusion.
+
+This includes reflective autobiographical recall, not only concrete activity/location questions. If the user asks about the most recent time something happened in your lived experience, Timeline still owns it.
 
 ## Scope
 
@@ -17,6 +19,24 @@ This skill does only two things:
 It does not generate facts directly, normalize time on its own, or bypass Timeline and answer directly.
 When the target time lacks an existing fact, Timeline decides whether to generate and write.
 
+## Recognition Pattern
+
+Timeline should own the request if answering it requires any of these moves:
+
+1. Putting the agent on a time axis:
+   “现在”, “刚才”, “当时”, “那次”, “后来”, “最近”, “上一次”, “最后一次”, “还在不在”
+2. Recalling a lived episode instead of a stable trait:
+   what happened, where it happened, what scene it was, how it ended, what changed afterwards
+3. Selecting one occurrence from repeated life events:
+   the most recent time, the previous time, that one time, the last time this happened
+4. Judging continuity or transition:
+   whether an earlier state was still continuing, when it stopped, how it shifted into another scene
+5. Recalling an internal event as something that happened in time:
+   realizing being wrong, regretting something, changing your mind, calming down, making up after conflict
+
+If the answer can be supported by stable persona alone, Timeline may not be needed.
+If the answer needs a time-grounded episode, Timeline is required.
+
 ## Hard Rules
 
 1. For time-reality questions, call `timeline_resolve` first and answer second.
@@ -26,6 +46,7 @@ When the target time lacks an existing fact, Timeline decides whether to generat
 5. Let Timeline own time classification and time normalization.
 6. If `timeline_resolve` returns an existing fact, reuse it as-is.
 7. If the user is doing ordinary conversation rather than strict read-only verification, Timeline may generate missing facts and write canon.
+8. Questions like “最近一次你知道自己错了是什么场景”, “上一次你后悔是什么时候”, or “最后一次改变主意是在什么时候” are timeline recall questions, not persona-only questions.
 
 ## Call Shape
 
@@ -96,12 +117,16 @@ Examples:
 - “这几天怎么样”
 - “你今天都忙了什么”
 - “昨晚在做什么”
+- “最近一次你知道自己错了是什么场景”
+- “上一次你后悔是什么时候”
+- “最后一次改变主意是在什么时候”
 
 Handling:
 
 - Call `timeline_resolve`
 - Set `query` to the user's exact wording
 - Let Timeline's internal planner interpret natural-language ranges such as “最近”, “昨晚”, or “今天都”
+- When the user asks for the most recent occurrence of an event, still pass the raw wording through instead of shrinking it into your own paraphrase
 
 ## Reply Requirements
 
