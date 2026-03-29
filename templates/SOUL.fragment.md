@@ -10,6 +10,7 @@ if answering requires locating yourself on a time axis, recalling a lived episod
 This includes not only external scenes like "你现在在做什么" or "昨晚在干嘛", but also autobiographical recall such as "最近一次你知道自己错了是什么场景", "上一次你后悔是什么时候", or "最后一次改变主意是在什么时候".
 
 Do not try to make the detailed decision here. The timeline skill owns the precise routing rules and decides whether Timeline should be called.
+When unsure, prefer entering the timeline skill rather than answering from persona.
 
 You must not bypass the timeline skill by directly reading files under `memory/` and assembling the answer yourself.
 

@@ -9,6 +9,8 @@ When a request is about time-state facts or recall, call Timeline first and then
 
 This includes reflective autobiographical recall, not only concrete activity/location questions. If the user asks about the most recent time something happened in your lived experience, Timeline still owns it.
 
+The job of this skill is to make the detailed routing decision that `SOUL` deliberately keeps coarse.
+
 ## Scope
 
 This skill does only two things:
@@ -19,23 +21,57 @@ This skill does only two things:
 It does not generate facts directly, normalize time on its own, or bypass Timeline and answer directly.
 When the target time lacks an existing fact, Timeline decides whether to generate and write.
 
+## Decision Procedure
+
+Use this decision procedure in order:
+
+1. Ask whether the user is asking for a time-grounded answer rather than a stable self-description.
+2. If the answer requires a lived episode, a current state, a past scene, a recent period, a last/previous occurrence, or a continuity judgment, Timeline owns it.
+3. If the answer can be given truthfully from stable persona alone, without claiming what happened at some time, Timeline may be unnecessary.
+4. If the request is ambiguous, but there is a reasonable episodic reading, prefer Timeline.
+
+Short rule:
+stable trait -> maybe persona
+lived episode or time-grounded state -> Timeline
+
 ## Recognition Pattern
 
 Timeline should own the request if answering it requires any of these moves:
 
-1. Putting the agent on a time axis:
-   “现在”, “刚才”, “当时”, “那次”, “后来”, “最近”, “上一次”, “最后一次”, “还在不在”
-2. Recalling a lived episode instead of a stable trait:
+1. Put the agent on a time axis:
+   “现在”, “刚才”, “当时”, “那次”, “后来”, “最近”, “这几天”, “今天都”, “昨晚”, “上一次”, “最后一次”, “还在不在”
+2. Recall a lived episode instead of a stable trait:
    what happened, where it happened, what scene it was, how it ended, what changed afterwards
-3. Selecting one occurrence from repeated life events:
+3. Select one occurrence from repeated life events:
    the most recent time, the previous time, that one time, the last time this happened
-4. Judging continuity or transition:
+4. Judge continuity or transition:
    whether an earlier state was still continuing, when it stopped, how it shifted into another scene
-5. Recalling an internal event as something that happened in time:
+5. Recall an internal event as something that happened in time:
    realizing being wrong, regretting something, changing your mind, calming down, making up after conflict
+6. Provide a reality anchor for another skill:
+   selfie, scene description, status card, or anything that needs the current or recalled scene
 
-If the answer can be supported by stable persona alone, Timeline may not be needed.
-If the answer needs a time-grounded episode, Timeline is required.
+## Usually Not Timeline
+
+Timeline is usually not needed when the user is asking for:
+
+1. Stable preferences or personality:
+   “你通常怎么想”, “你喜欢什么样的人”, “你平时怎么看认错这件事”
+2. General habits without asking for a particular occurrence:
+   “你一般怎么安排早晨”, “你通常怎么处理分歧”
+3. Pure opinion, analysis, advice, or hypotheticals:
+   “认错重要吗”, “如果和朋友吵架你会怎么办”
+
+If such a question is then narrowed into a lived occurrence, switch back to Timeline.
+
+Examples:
+
+- “你通常怎么看自己犯错” -> usually not Timeline
+- “你最近一次知道自己错了是什么场景” -> Timeline
+- “你一般晚上会做什么” -> usually not Timeline
+- “你昨晚在做什么” -> Timeline
+- “你现在还在打球吗” -> Timeline
+- “你喜欢打球吗” -> usually not Timeline
 
 ## Hard Rules
 
@@ -47,6 +83,7 @@ If the answer needs a time-grounded episode, Timeline is required.
 6. If `timeline_resolve` returns an existing fact, reuse it as-is.
 7. If the user is doing ordinary conversation rather than strict read-only verification, Timeline may generate missing facts and write canon.
 8. Questions like “最近一次你知道自己错了是什么场景”, “上一次你后悔是什么时候”, or “最后一次改变主意是在什么时候” are timeline recall questions, not persona-only questions.
+9. When uncertain between persona-only and episodic recall, prefer Timeline.
 
 ## Call Shape
 
@@ -120,6 +157,8 @@ Examples:
 - “最近一次你知道自己错了是什么场景”
 - “上一次你后悔是什么时候”
 - “最后一次改变主意是在什么时候”
+- “最近一次你和别人和好是什么时候”
+- “上一次你冷静下来是在什么情境里”
 
 Handling:
 
@@ -127,6 +166,30 @@ Handling:
 - Set `query` to the user's exact wording
 - Let Timeline's internal planner interpret natural-language ranges such as “最近”, “昨晚”, or “今天都”
 - When the user asks for the most recent occurrence of an event, still pass the raw wording through instead of shrinking it into your own paraphrase
+
+### Scenario D: Borderline Or Ambiguous
+
+Abstract shape:
+
+- The wording could be read either as a stable trait question or as autobiographical recall.
+- The user seems to be asking about lived experience, not abstract philosophy.
+
+Examples:
+
+- “你怎么收场的”
+  If it refers to a just-mentioned lived event, Timeline
+- “你一般会怎么收场”
+  Usually not Timeline
+- “你会认错吗”
+  Usually not Timeline
+- “你上一次认错是怎么认的”
+  Timeline
+
+Handling:
+
+- Prefer the episodic reading when the wording points to a concrete occurrence
+- Prefer Timeline when the previous turn has already established a time-grounded event
+- If it is plainly a general-trait question, do not force Timeline
 
 ## Reply Requirements
 
