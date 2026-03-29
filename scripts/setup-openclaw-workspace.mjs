@@ -5,9 +5,13 @@ import {
   buildAgentsContract,
   buildSoulContract,
   detectAgentsContract,
+  detectCurrentSoulContract,
+  detectLegacySoulContract,
   detectSoulContract,
+  LEGACY_SOUL_SECTION_TITLE,
   normalizeRootName,
   resolveCanonicalRootPath,
+  SOUL_SECTION_TITLE,
 } from './workspace-contract.mjs';
 
 function parseArgs(argv) {
@@ -70,6 +74,43 @@ function mergeSection(existingContent, sectionContent, predicate) {
   return { changed: true, content: merged };
 }
 
+function replaceSectionByTitle(existingContent, sectionTitles, sectionContent) {
+  const normalized = ensureTrailingNewline(existingContent);
+  for (const title of sectionTitles) {
+    const start = normalized.indexOf(title);
+    if (start === -1) continue;
+    const nextSectionMatch = normalized.slice(start + title.length).match(/\n##\s+/);
+    const end = nextSectionMatch
+      ? start + title.length + nextSectionMatch.index + 1
+      : normalized.length;
+    const replaced = `${normalized.slice(0, start).trimEnd()}\n\n${sectionContent}\n${normalized.slice(end).replace(/^\s+/, '')}`;
+    return { changed: true, content: ensureTrailingNewline(replaced).replace(/^\n+/, '') };
+  }
+  return null;
+}
+
+function mergeSoulSection(existingContent, sectionContent) {
+  if (detectCurrentSoulContract(existingContent)) {
+    return { changed: false, content: ensureTrailingNewline(existingContent), status: 'kept-current' };
+  }
+  if (detectLegacySoulContract(existingContent)) {
+    const replaced = replaceSectionByTitle(
+      existingContent,
+      [SOUL_SECTION_TITLE, LEGACY_SOUL_SECTION_TITLE],
+      sectionContent,
+    );
+    if (replaced) {
+      return { changed: true, content: replaced.content, status: 'upgraded-legacy' };
+    }
+  }
+  const merged = mergeSection(existingContent, sectionContent, detectSoulContract);
+  return {
+    changed: merged.changed,
+    content: merged.content,
+    status: merged.changed ? 'added' : 'kept-unknown',
+  };
+}
+
 function writeFile(filePath, content) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, content, 'utf8');
@@ -89,10 +130,9 @@ function main() {
     buildAgentsContract(),
     detectAgentsContract,
   );
-  const soulResult = mergeSection(
+  const soulResult = mergeSoulSection(
     soulContent,
     buildSoulContract(),
-    detectSoulContract,
   );
 
   writeFile(agentsPath, agentsResult.content);
@@ -104,7 +144,7 @@ function main() {
 
   const updates = [
     `${agentsResult.changed ? 'updated' : 'kept'} ${agentsPath}`,
-    `${soulResult.changed ? 'updated' : 'kept'} ${soulPath}`,
+    `${soulResult.status === 'upgraded-legacy' ? 'upgraded' : soulResult.changed ? 'updated' : 'kept'} ${soulPath}`,
     `${options.createMemoryRoot ? 'ensured' : 'skipped'} ${canonicalRootPath}`,
   ];
 
