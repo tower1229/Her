@@ -113,6 +113,22 @@ npm exec --package=stella-timeline-plugin openclaw-timeline-setup -- --workspace
 npm exec --package=stella-timeline-plugin openclaw-timeline-doctor -- --workspace ~/.openclaw/workspace
 ```
 
+## 本机快速同步
+
+如果你正在这个仓库里本地迭代、想一键同步到当前 WSL 的 OpenClaw 环境做实测，可以直接执行：
+
+```bash
+npm run sync:local-openclaw
+```
+
+它会自动：
+
+- 构建最新 `dist/`
+- 同步到 `~/.openclaw/extensions/stella-timeline-plugin`
+- 刷新 `~/.openclaw/workspace/skills/timeline`
+- 运行 workspace setup 升级 `SOUL.md`
+- 收紧插件与 skill 目录权限，避免因为权限过宽被 OpenClaw 拒绝加载
+
 ## 文档入口
 
 核心文档：

@@ -36,6 +36,7 @@
     "migrate:memory": "node ./scripts/migrate-existing-memory.mjs --apply",
     "setup:workspace": "node ./scripts/setup-openclaw-workspace.mjs",
     "doctor:workspace": "node ./scripts/doctor-openclaw-workspace.mjs",
+    "sync:local-openclaw": "node ./scripts/sync-local-openclaw.mjs",
     "verify": "npm run typecheck && npm run build && npm run test:unit",
     "pack:plugin": "npm pack",
     "release": "node ./scripts/release.mjs"

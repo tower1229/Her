@@ -112,6 +112,22 @@ Try asking:
 npm exec --package=stella-timeline-plugin openclaw-timeline-doctor -- --workspace ~/.openclaw/workspace
 ```
 
+## Local Quick Sync
+
+If you are iterating in this repo and want to push the latest code into your local WSL OpenClaw environment for real testing, run:
+
+```bash
+npm run sync:local-openclaw
+```
+
+It will:
+
+- build the latest `dist/`
+- sync into `~/.openclaw/extensions/stella-timeline-plugin`
+- refresh `~/.openclaw/workspace/skills/timeline`
+- rerun workspace setup so `SOUL.md` stays upgraded
+- tighten permissions so OpenClaw does not reject the plugin for being too broadly writable
+
 ## Documentation
 
 Core references:
