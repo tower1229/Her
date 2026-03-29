@@ -1,4 +1,5 @@
 export type PersonaSourceKind = 'persona_profile' | 'legacy_core_files' | 'defaults_only';
+export type PersonaAvailableSource = 'persona_profile' | 'legacy_soul' | 'legacy_memory' | 'legacy_identity';
 
 export interface PersonaContractV1 {
   schema_version: '1.0';
@@ -57,13 +58,13 @@ export interface PersonaContractV1 {
 
 export interface TimelinePersonaContext {
   contract: PersonaContractV1;
-  available_sources: string[];
+  available_sources: PersonaAvailableSource[];
   should_constrain_generation: boolean;
 }
 
 export interface LoadedPersonaContract {
   contract: PersonaContractV1;
-  available_sources: string[];
+  available_sources: PersonaAvailableSource[];
   should_constrain_generation: boolean;
   trace: {
     source_kind: PersonaSourceKind;

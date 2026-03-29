@@ -256,7 +256,7 @@ describe('build_timeline_output', () => {
               home_city: 'Shanghai',
             },
           },
-          available_sources: ['identity'],
+          available_sources: ['legacy_identity'],
           should_constrain_generation: true,
         },
       },

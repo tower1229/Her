@@ -3,6 +3,7 @@ import { extractLegacyPersonaContract, LegacyPersonaContractExtractor } from './
 import { LoadedPersonaContract, emptyPersonaContract, hasPersonaConstraints } from './persona_contract';
 import { readLegacyCoreFiles } from './read_legacy_core_files';
 import { readPersonaProfile } from './read_persona_profile';
+import { validatePersonaContract } from './persona_contract_validator';
 
 interface LoadPersonaContractOptions {
   extractLegacyPersonaContract?: LegacyPersonaContractExtractor;
@@ -25,6 +26,27 @@ export async function loadTimelinePersonaContractFromWorkspace(
 
   if (parsedProfile.found) {
     const contract = buildPersonaContractFromProfile(parsedProfile);
+    const validationFailures = validatePersonaContract(contract).issues;
+    const schemaVersion = parsedProfile.sections.meta?.schema_version;
+    if (schemaVersion !== undefined && schemaVersion !== '1.0') {
+      validationFailures.push(`profile meta.schema_version must be "1.0" when present; received "${String(schemaVersion)}".`);
+    }
+    if (validationFailures.length > 0) {
+      const empty = emptyPersonaContract();
+      return {
+        contract: empty,
+        available_sources: [],
+        should_constrain_generation: false,
+        trace: {
+          source_kind: 'defaults_only',
+          files_found: filesFound,
+          parse_warnings: parsedProfile.parse_warnings,
+          cache_status: 'not_applicable',
+          extraction_attempts: 0,
+          validation_failures: validationFailures,
+        },
+      };
+    }
     return {
       contract,
       available_sources: ['persona_profile'],

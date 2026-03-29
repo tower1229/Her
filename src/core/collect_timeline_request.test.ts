@@ -45,7 +45,7 @@ describe('buildTimelineCollectorOutput', () => {
               values: ['sports', 'friends'],
             },
           },
-          available_sources: ['soul'],
+          available_sources: ['legacy_soul'],
           should_constrain_generation: true,
         },
         conversationContext: {

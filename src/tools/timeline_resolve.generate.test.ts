@@ -169,7 +169,7 @@ describe('timelineResolve generation path', () => {
             long_term_habits: ['often organizes notes'],
           },
         },
-        available_sources: ['soul', 'memory', 'identity'],
+        available_sources: ['legacy_soul', 'legacy_memory', 'legacy_identity'],
         should_constrain_generation: true,
       }),
       memoryFilePath: () => tmpFile,
@@ -212,7 +212,7 @@ describe('timelineResolve generation path', () => {
             long_term_preferences: ['cozy evening scenes'],
           },
         },
-        available_sources: ['soul', 'memory', 'identity'],
+        available_sources: ['legacy_soul', 'legacy_memory', 'legacy_identity'],
         should_constrain_generation: true,
       }),
       reasonTimeline: async (collector) => {
@@ -375,7 +375,7 @@ describe('timelineResolve generation path', () => {
             long_term_habits: ['works quietly from home in the afternoon'],
           },
         },
-        available_sources: ['soul', 'memory', 'identity'],
+        available_sources: ['legacy_soul', 'legacy_memory', 'legacy_identity'],
         should_constrain_generation: true,
       }),
       reasonTimeline: async (collector) => ({

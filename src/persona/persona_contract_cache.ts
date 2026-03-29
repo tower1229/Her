@@ -2,6 +2,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PersonaContractV1 } from './persona_contract';
+import { normalizeCandidatePersonaContract, validatePersonaContract } from './persona_contract_validator';
 
 export interface PersonaContractCacheDescriptor {
   workspaceDir: string;
@@ -67,7 +68,22 @@ export function readPersonaContractCache(descriptor: PersonaContractCacheDescrip
     const rawText = fs.readFileSync(filePath, 'utf8');
     const parsed = JSON.parse(rawText) as PersonaContractCacheEntry;
     if (!parsed || parsed.cache_key !== cacheKey || !parsed.contract) return null;
-    return parsed;
+    if (
+      parsed.metadata?.source_hash !== descriptor.sourceHash
+      || parsed.metadata?.contract_version !== descriptor.contractVersion
+      || parsed.metadata?.extractor_version !== descriptor.extractorVersion
+      || parsed.metadata?.model_id !== descriptor.modelId
+      || parsed.metadata?.validator_version !== descriptor.validatorVersion
+    ) {
+      return null;
+    }
+    const normalized = normalizeCandidatePersonaContract(parsed.contract);
+    const validation = validatePersonaContract(normalized);
+    if (!validation.ok) return null;
+    return {
+      ...parsed,
+      contract: normalized,
+    };
   } catch {
     return null;
   }

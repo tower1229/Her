@@ -7,6 +7,25 @@ export interface PersonaContractValidationResult {
 
 const TEMPORAL_PATTERN = /(?:\bnow\b|\bcurrently\b|\btoday\b|\byesterday\b|\blast night\b|\brecently\b|\bright now\b|现在|当前|今天|昨天|昨晚|最近|刚刚|上周|本周)/i;
 const STRONG_INFERENCE_PATTERN = /(?:always|never|必须|绝不|总是|永远)/i;
+const TOP_LEVEL_KEYS = new Set(['schema_version', 'identity', 'soul', 'memory', 'rhythm', 'appearance', 'scene', 'constraints']);
+const SECTION_KEYS: Record<string, Set<string>> = {
+  identity: new Set(['home_city', 'home_country', 'home_timezone', 'living_style', 'base_environment', 'common_zones', 'routine_context']),
+  soul: new Set(['temperament', 'emotional_style', 'social_style', 'cognitive_style', 'values']),
+  memory: new Set(['long_term_habits', 'long_term_preferences', 'durable_commitments', 'recurring_patterns', 'important_non_temporal_facts']),
+  rhythm: new Set(['weekday_bias', 'weekend_bias', 'morning_bias', 'afternoon_bias', 'evening_bias', 'late_night_bias']),
+  appearance: new Set(['default_home_style', 'default_outing_style', 'default_exercise_style', 'change_triggers', 'non_triggers', 'style_constraints']),
+  scene: new Set(['plausible_locations', 'plausible_activities', 'rare_but_possible_scenes', 'implausible_or_rare_locations', 'implausible_or_rare_activities']),
+  constraints: new Set(['must', 'should', 'avoid']),
+};
+const SECTION_ARRAY_FIELDS: Record<string, Set<string>> = {
+  identity: new Set(['common_zones', 'routine_context']),
+  soul: new Set(['values']),
+  memory: new Set(['long_term_habits', 'long_term_preferences', 'durable_commitments', 'recurring_patterns', 'important_non_temporal_facts']),
+  rhythm: new Set(['weekday_bias', 'weekend_bias', 'morning_bias', 'afternoon_bias', 'evening_bias', 'late_night_bias']),
+  appearance: new Set(['change_triggers', 'non_triggers', 'style_constraints']),
+  scene: new Set(['plausible_locations', 'plausible_activities', 'rare_but_possible_scenes', 'implausible_or_rare_locations', 'implausible_or_rare_activities']),
+  constraints: new Set(['must', 'should', 'avoid']),
+};
 
 function asStringList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -112,6 +131,70 @@ function validateOverStrongOutputs(contract: PersonaContractV1, issues: string[]
   if (strongFields.filter((entry) => STRONG_INFERENCE_PATTERN.test(entry)).length > 3) {
     issues.push('Contract contains too many absolute claims for an extracted fallback persona profile.');
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+export function validateCandidatePersonaContractPayload(
+  value: unknown,
+  contractVersion = '1.0',
+): PersonaContractValidationResult {
+  const issues: string[] = [];
+  if (!isRecord(value)) {
+    return {
+      ok: false,
+      issues: ['Extractor output must be a JSON object.'],
+    };
+  }
+
+  const topLevelKeys = Object.keys(value);
+  for (const key of topLevelKeys) {
+    if (!TOP_LEVEL_KEYS.has(key)) {
+      issues.push(`Extractor output contains unknown top-level field "${key}".`);
+    }
+  }
+
+  if (value.schema_version !== contractVersion) {
+    issues.push(`Extractor output must include schema_version "${contractVersion}".`);
+  }
+
+  for (const [sectionName, allowedKeys] of Object.entries(SECTION_KEYS)) {
+    const sectionValue = value[sectionName];
+    if (sectionValue === undefined) continue;
+    if (!isRecord(sectionValue)) {
+      issues.push(`Extractor output field "${sectionName}" must be an object when present.`);
+      continue;
+    }
+    for (const key of Object.keys(sectionValue)) {
+      if (!allowedKeys.has(key)) {
+        issues.push(`Extractor output contains unknown field "${sectionName}.${key}".`);
+        continue;
+      }
+      const fieldValue = sectionValue[key];
+      if (fieldValue === undefined) continue;
+      if (SECTION_ARRAY_FIELDS[sectionName]?.has(key)) {
+        if (!Array.isArray(fieldValue)) {
+          issues.push(`Extractor output field "${sectionName}.${key}" must be an array.`);
+          continue;
+        }
+        for (const entry of fieldValue) {
+          if (typeof entry !== 'string') {
+            issues.push(`Extractor output field "${sectionName}.${key}" must contain strings only.`);
+            break;
+          }
+        }
+      } else if (typeof fieldValue !== 'string') {
+        issues.push(`Extractor output field "${sectionName}.${key}" must be a string.`);
+      }
+    }
+  }
+
+  return {
+    ok: issues.length === 0,
+    issues,
+  };
 }
 
 export function normalizeCandidatePersonaContract(value: unknown): PersonaContractV1 {

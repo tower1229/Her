@@ -1,4 +1,4 @@
-import { LoadedPersonaContract } from './persona_contract';
+import { LoadedPersonaContract, PersonaAvailableSource } from './persona_contract';
 import { PersonaContractV1, emptyPersonaContract, hasPersonaConstraints } from './persona_contract';
 import { LegacyCoreFiles } from './persona_source_types';
 import {
@@ -7,7 +7,11 @@ import {
   readPersonaContractCache,
   writePersonaContractCache,
 } from './persona_contract_cache';
-import { normalizeCandidatePersonaContract, validatePersonaContract } from './persona_contract_validator';
+import {
+  normalizeCandidatePersonaContract,
+  validateCandidatePersonaContractPayload,
+  validatePersonaContract,
+} from './persona_contract_validator';
 
 export interface LegacyPersonaContractExtractor {
   extractorVersion: string;
@@ -32,6 +36,14 @@ interface ExtractLegacyPersonaContractOptions {
 const CONTRACT_VERSION = '1.0';
 const VALIDATOR_VERSION = '1';
 
+function deriveLegacyAvailableSources(legacy: LegacyCoreFiles): PersonaAvailableSource[] {
+  return [
+    legacy.found.soul ? 'legacy_soul' : null,
+    legacy.found.memory ? 'legacy_memory' : null,
+    legacy.found.identity ? 'legacy_identity' : null,
+  ].filter(Boolean) as PersonaAvailableSource[];
+}
+
 export async function extractLegacyPersonaContract(
   options: ExtractLegacyPersonaContractOptions,
 ): Promise<LoadedPersonaContract> {
@@ -40,6 +52,7 @@ export async function extractLegacyPersonaContract(
     options.legacy.found.memory ? 'MEMORY.md|memory.md' : '',
     options.legacy.found.identity ? 'IDENTITY.md|IDENTITY' : '',
   ].filter(Boolean);
+  const availableSources = deriveLegacyAvailableSources(options.legacy);
   const sourceHash = computePersonaContractSourceHash(options.legacy);
 
   if (!options.extractor) {
@@ -71,11 +84,11 @@ export async function extractLegacyPersonaContract(
 
   const cached = readPersonaContractCache(cacheDescriptor);
   if (cached) {
-    return {
-      contract: cached.contract,
-      available_sources: filesFound.map((entry) => entry.includes('SOUL') ? 'soul' : entry.includes('MEMORY') ? 'memory' : 'identity'),
-      should_constrain_generation: hasPersonaConstraints(cached.contract),
-      trace: {
+      return {
+        contract: cached.contract,
+        available_sources: availableSources,
+        should_constrain_generation: hasPersonaConstraints(cached.contract),
+        trace: {
         source_kind: 'legacy_core_files',
         files_found: filesFound,
         parse_warnings: [],
@@ -96,13 +109,18 @@ export async function extractLegacyPersonaContract(
       contractVersion: CONTRACT_VERSION,
       validationFeedback: validationFailures,
     });
+    const payloadValidation = validateCandidatePersonaContractPayload(candidate, CONTRACT_VERSION);
+    if (!payloadValidation.ok) {
+      validationFailures.push(...payloadValidation.issues);
+      continue;
+    }
     const normalized = normalizeCandidatePersonaContract(candidate);
     const validation = validatePersonaContract(normalized);
     if (validation.ok) {
       writePersonaContractCache(cacheDescriptor, normalized);
       return {
         contract: normalized,
-        available_sources: filesFound.map((entry) => entry.includes('SOUL') ? 'soul' : entry.includes('MEMORY') ? 'memory' : 'identity'),
+        available_sources: availableSources,
         should_constrain_generation: hasPersonaConstraints(normalized),
         trace: {
           source_kind: 'legacy_core_files',

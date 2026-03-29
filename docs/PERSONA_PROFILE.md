@@ -94,7 +94,7 @@ The file should be:
 
 Do:
 
-- prefer atomic bullets or fenced YAML blocks
+- prefer atomic bullets or the supported fenced YAML subset
 - keep wording stable and non-temporal
 - express durable traits, habits, scene anchors, and constraints
 
@@ -126,7 +126,7 @@ Source selection is exclusive:
 Supported section encodings:
 
 - simple bullets
-- fenced YAML blocks
+- fenced YAML blocks using simple scalar keys and list values
 
 Recommended top-level sections:
 
@@ -168,6 +168,14 @@ non_triggers:
   - quick convenience-store run
 ```
 ````
+
+Current parser support for fenced YAML is intentionally narrow:
+
+- flat scalar fields
+- inline lists such as `[a, b]`
+- simple block lists under one key
+
+Do not rely on advanced YAML features such as nested maps, anchors, tags, or multiline folded scalars.
 
 ## 6. Section Mapping
 

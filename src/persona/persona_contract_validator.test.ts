@@ -1,5 +1,9 @@
 import { emptyPersonaContract } from './persona_contract';
-import { normalizeCandidatePersonaContract, validatePersonaContract } from './persona_contract_validator';
+import {
+  normalizeCandidatePersonaContract,
+  validateCandidatePersonaContractPayload,
+  validatePersonaContract,
+} from './persona_contract_validator';
 
 describe('persona_contract_validator', () => {
   it('accepts a minimal well-formed contract', () => {
@@ -31,5 +35,15 @@ describe('persona_contract_validator', () => {
     const result = validatePersonaContract(contract);
     expect(result.ok).toBe(false);
     expect(result.issues.join(' ')).toContain('temporal wording');
+  });
+
+  it('rejects extractor payloads with missing schema_version or unknown fields', () => {
+    const result = validateCandidatePersonaContractPayload({
+      identity: { home_city: 'Shanghai', unsupported_field: 'x' },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.issues.join(' ')).toContain('schema_version');
+    expect(result.issues.join(' ')).toContain('unknown field "identity.unsupported_field"');
   });
 });
