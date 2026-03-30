@@ -594,12 +594,70 @@ function buildTimelineReasonerSystemPrompt(): string {
     '- If recovery_hint is forgetfulness_only, prefer return_empty with a clear forgetfulness rationale.',
   ];
 
+  const outputSchema = [
+    '',
+    'Output format:',
+    'Output a JSON object matching TimelineReasonerOutput with this shape:',
+    JSON.stringify({
+      schema_version: '1.0',
+      request_id: 'echo collector.request_id',
+      request_type: 'now | past_point | past_range',
+      time_interpretation: {
+        normalized_kind: 'now | point | range',
+        normalized_point: 'optional',
+        normalized_start: 'optional',
+        normalized_end: 'optional',
+        match_strategy: 'exact_match | continuation | range_summary | generated',
+        summary: 'how you interpreted the user time semantics',
+      },
+      decision: {
+        action: 'reuse_existing_fact | generate_new_fact | return_empty',
+        selected_fact_id: 'required when action is reuse_existing_fact',
+        should_write_canon: true,
+      },
+      continuity: {
+        judged: true,
+        is_continuing: true,
+        reason: 'continuity reasoning summary',
+      },
+      rationale: {
+        summary: 'short summary',
+        hard_fact_basis: ['...'],
+        canon_basis: ['...'],
+        persona_basis: ['...'],
+        constraint_basis: ['...'],
+        uncertainty: 'optional',
+      },
+      generated_fact: {
+        timestamp: 'optional ISO-like timestamp when generation should land at a specific past point or past range',
+        location: 'string',
+        action: 'string',
+        emotionTags: ['string'],
+        appearance: 'string',
+        internalMonologue: 'string',
+        confidence: 0.8,
+        reason: 'string',
+        sceneSemantics: {
+          activityMode: 'sleep | bath | meal | work_or_study | commute | exercise | social | shopping | leisure | domestic | errands | transition | rest | unknown',
+          continuityRelation: 'same_day_continuation | same_scene_continuation | shifted_scene | return_home | fresh_moment | unknown',
+          rationale: 'why this generated scene fits the current timeline state',
+        },
+        appearanceLogic: {
+          transition: 'inherit | change_required | change_allowed | unknown',
+          changeReason: 'same_day_continuation | exercise | bath | sleep | formal_outing | shopping | weather_adjustment | unknown',
+          outfitMode: 'casual_home | casual_outing | workwear | sportswear | sleepwear | bathrobe | dressed_up | fresh_purchase | unknown',
+        },
+      },
+    }, null, 2),
+  ];
+
   return [
     ...coreRules,
     ...reasoningRules,
     ...generationRules,
     ...appearanceRules,
     ...conversationAndRecoveryRules,
+    ...outputSchema,
   ].join('\n');
 }
 
@@ -932,66 +990,6 @@ function createTimelineQueryPlanner(
 function buildTimelineReasonerMessage(collector: TimelineCollectorOutput): string {
   return [
     'Perform structured time reasoning using only the collector JSON below.',
-    'Output a JSON object matching TimelineReasonerOutput:',
-    JSON.stringify({
-      schema_version: '1.0',
-      request_id: collector.request_id,
-      request_type: 'now | past_point | past_range',
-      time_interpretation: {
-        normalized_kind: 'now | point | range',
-        normalized_point: 'optional',
-        normalized_start: 'optional',
-        normalized_end: 'optional',
-        match_strategy: 'exact_match | continuation | range_summary | generated',
-        summary: 'how you interpreted the user time semantics',
-      },
-      decision: {
-        action: 'reuse_existing_fact | generate_new_fact | return_empty',
-        selected_fact_id: 'required when action is reuse_existing_fact',
-        should_write_canon: true,
-      },
-      continuity: {
-        judged: true,
-        is_continuing: true,
-        reason: 'continuity reasoning summary',
-        },
-        conversation_context: {
-          is_recently_active: true,
-          minutes_since_last_turn: 3,
-          stickiness_window_minutes: 10,
-          active_topic_summary: 'what the conversation was just about',
-          should_prefer_conversation_continuity_for_now: true,
-          last_active_timestamp: 'optional timestamp',
-        },
-        rationale: {
-          summary: 'short summary',
-        hard_fact_basis: ['...'],
-        canon_basis: ['...'],
-        persona_basis: ['...'],
-        constraint_basis: ['...'],
-        uncertainty: 'optional',
-      },
-      generated_fact: {
-        timestamp: 'optional ISO-like timestamp when generation should land at a specific past point or past range',
-        location: 'string',
-        action: 'string',
-        emotionTags: ['string'],
-        appearance: 'string',
-        internalMonologue: 'string',
-        confidence: 0.8,
-        reason: 'string',
-        sceneSemantics: {
-          activityMode: 'sleep | bath | meal | work_or_study | commute | exercise | social | shopping | leisure | domestic | errands | transition | rest | unknown',
-          continuityRelation: 'same_day_continuation | same_scene_continuation | shifted_scene | return_home | fresh_moment | unknown',
-          rationale: 'why this generated scene fits the current timeline state',
-        },
-        appearanceLogic: {
-          transition: 'inherit | change_required | change_allowed | unknown',
-          changeReason: 'same_day_continuation | exercise | bath | sleep | formal_outing | shopping | weather_adjustment | unknown',
-          outfitMode: 'casual_home | casual_outing | workwear | sportswear | sleepwear | bathrobe | dressed_up | fresh_purchase | unknown',
-        },
-      },
-    }, null, 2),
     '',
     'collector:',
     JSON.stringify(collector, null, 2),

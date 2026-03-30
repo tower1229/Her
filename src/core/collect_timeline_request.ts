@@ -4,7 +4,25 @@ import { enumerateCalendarDates } from './calendar_dates';
 import { CollectedSources } from './collect_sources';
 import { ResolvedWindow } from './resolve_window';
 import { TimelineCollectorOutput } from './timeline_reasoner_contract';
-import { buildTimelineWorldContext } from './world_rhythm';
+import { buildTimelineWorldContext, WorldRhythmSlot } from './world_rhythm';
+
+const MAX_RAW_CONTENT_CHARS = 2000;
+
+function truncateRawContent(content: string, maxChars: number): string {
+  if (content.length <= maxChars) return content;
+  const half = Math.floor((maxChars - 30) / 2);
+  return `${content.slice(0, half)}\n[...truncated...]\n${content.slice(-half)}`;
+}
+
+function deduplicateRangeCalendar(slots: WorldRhythmSlot[]): WorldRhythmSlot[] {
+  const seen = new Set<string>();
+  return slots.filter((slot) => {
+    const key = `${slot.season}:${slot.day_kind}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 export function buildTimelineCollectorOutput(
   requestId: string,
@@ -49,7 +67,7 @@ export function buildTimelineCollectorOutput(
     canon_memory: {
       daily_logs: dailyLogs.map((entry) => ({
         calendar_date: entry.calendar_date,
-        raw_content: entry.raw_content,
+        raw_content: truncateRawContent(entry.raw_content, MAX_RAW_CONTENT_CHARS),
         parsed_episode_count: entry.parsed_episodes.length,
       })),
     },
@@ -61,10 +79,16 @@ export function buildTimelineCollectorOutput(
       available_sources: sources.personaContext.available_sources,
       should_constrain_generation: sources.personaContext.should_constrain_generation,
     },
-    world_context: buildTimelineWorldContext({
-      ...window,
-      calendar_dates: window.calendar_dates.length > 0 ? window.calendar_dates : enumerateCalendarDates(window.start, window.end),
-    }),
+    world_context: (() => {
+      const ctx = buildTimelineWorldContext({
+        ...window,
+        calendar_dates: window.calendar_dates.length > 0 ? window.calendar_dates : enumerateCalendarDates(window.start, window.end),
+      });
+      return {
+        target: ctx.target,
+        range_calendar: deduplicateRangeCalendar(ctx.range_calendar),
+      };
+    })(),
     candidate_facts: dailyLogs.flatMap((entry) =>
       entry.parsed_episodes.map((episode, index) => ({
         fact_id: `canon:${entry.calendar_date}:${index}`,

@@ -27,11 +27,17 @@ function withRecoveryHint(
 
 export async function reasonWithPolicy(input: ReasonWithPolicyInput): Promise<ReasonWithPolicyResult> {
   const { collector, mode, reasonTimeline } = input;
-  let reasoned = await reasonTimeline(collector);
+
+  const effectiveCollector =
+    collector.candidate_facts.length === 0 && mode === 'allow_generate'
+      ? withRecoveryHint(collector, 'no_reuse_allowed')
+      : collector;
+
+  let reasoned = await reasonTimeline(effectiveCollector);
   if (!reasoned) {
     throw new Error('Timeline reasoner returned no decision');
   }
-  let guard = validateTimelineReasonerOutput(collector, reasoned);
+  let guard = validateTimelineReasonerOutput(effectiveCollector, reasoned);
 
   if (
     !guard.ok
