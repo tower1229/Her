@@ -38,42 +38,40 @@ export async function collectSources(
   window: ResolvedWindow,
   input: TimelineResolveInput,
 ): Promise<CollectedSources> {
-  const sourceOrder: string[] = [];
   const calendarDates = enumerateCalendarDates(window.start, window.end);
 
-  sourceOrder.push('sessions_history');
-  const sessionsHistory = await deps.sessionsHistory(window, input);
+  const [sessionsHistory, dailyLogs, memorySearch, personaContext, conversationContext] =
+    await Promise.all([
+      deps.sessionsHistory(window, input),
+      Promise.all(
+        calendarDates.map(async (calendarDate) => ({
+          calendar_date: calendarDate,
+          raw_content: await deps.memoryGet(calendarDate, window, input),
+        })),
+      ),
+      deps.memorySearch
+        ? deps.memorySearch(window, input)
+        : ([] as string[]),
+      deps.personaContext
+        ? deps.personaContext()
+        : ({
+            contract: emptyPersonaContract(),
+            available_sources: [] as string[],
+            should_constrain_generation: false,
+          } as TimelinePersonaContext),
+      deps.conversationContext
+        ? deps.conversationContext(window, input)
+        : ({
+            is_recently_active: false,
+            minutes_since_last_turn: null,
+            stickiness_window_minutes: 10,
+            active_topic_summary: '',
+            should_prefer_conversation_continuity_for_now: false,
+          } as TimelineConversationContext),
+    ]);
 
-  sourceOrder.push('memory_get');
-  const dailyLogs = await Promise.all(
-    calendarDates.map(async (calendarDate) => ({
-      calendar_date: calendarDate,
-      raw_content: await deps.memoryGet(calendarDate, window, input),
-    })),
-  );
-
-  let memorySearch: string[] = [];
-  if (deps.memorySearch) {
-    sourceOrder.push('memory_search');
-    memorySearch = await deps.memorySearch(window, input);
-  }
-
-  const personaContext = deps.personaContext
-    ? await deps.personaContext()
-    : {
-        contract: emptyPersonaContract(),
-        available_sources: [],
-        should_constrain_generation: false,
-      };
-  const conversationContext = deps.conversationContext
-    ? await deps.conversationContext(window, input)
-    : {
-        is_recently_active: false,
-        minutes_since_last_turn: null,
-        stickiness_window_minutes: 10,
-        active_topic_summary: '',
-        should_prefer_conversation_continuity_for_now: false,
-      };
+  const sourceOrder: string[] = ['sessions_history', 'memory_get'];
+  if (deps.memorySearch) sourceOrder.push('memory_search');
 
   return { sourceOrder, sessionsHistory, dailyLogs, memorySearch, personaContext, conversationContext };
 }

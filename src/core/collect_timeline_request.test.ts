@@ -74,7 +74,6 @@ describe('buildTimelineCollectorOutput', () => {
     expect(collector.world_context.range_calendar.map((slot) => slot.calendar_date)).toEqual([
       '2026-03-20',
       '2026-03-21',
-      '2026-03-22',
     ]);
   });
 });

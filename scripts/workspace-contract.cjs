@@ -8,7 +8,7 @@ const LEGACY_SOUL_SECTION_TITLE = '## 时间感知与回忆';
 const templatesDir = path.resolve(__dirname, '..', 'templates');
 
 const CURRENT_SOUL_MARKERS = [
-  'Use a coarse and optimistic routing rule:',
+  'If a truthful answer depends on time-grounded lived experience',
   'The timeline skill owns the precise routing rules',
   'When unsure, prefer entering the timeline skill rather than answering from persona.',
 ];
