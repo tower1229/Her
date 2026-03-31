@@ -1,6 +1,14 @@
 # Changelog
 
-## [Unreleased]
+## [2.6.0] - 2026-03-31
+
+- **`timeline_transition` Tool**: 新增场景迁移工具，支持“去洗澡”、“搬家”、“换工作”等物理状态、位置或任务目标的变更。
+- **Unified Transition Planner**: 完全基于 LLM 推理的场景识别引擎。支持根据现实逻辑自动判断 `interrupt`（打断当前动作并截断时间）、`insert_micro_task`（在宏观事件中插入微观任务，如：旅游时尝烤串）或 `reject`（物理冲突拒绝）。
+- **Canon 内存变动逻辑**: 在 `write-episode.ts` 中新增 `truncateEpisodeDuration` 实用程序，支持在打断发生时直接改写已有 canon 文件的事件时长，确保时间线逻辑自洽。
+- **7 天回溯采集 (7-day Lookback)**：新增 `collectActiveFacts` 逻辑。解决搬家、旅行、睡觉等大耗时事件在跨天后变为“隐形”的问题。Collector 现在会回溯过去 7 天的记录，找到仍在进行的宏观背景并注入推理池。
+- **Persona Skill 反向联动**: 建立与 `Zhuang-Yan`（人格 Skill）的解耦联动。并在 `timeline_transition` 识别到重大长期变更（如地址变动）时，主动标记 `requires_persona_update` 并通过 Subagent 调用 `Zhuang-Yan` 执行 JSON 增量更新。
+- **运行时增强**: `openclaw_timeline_runtime.ts` 适配了独立的 Planner 子代理（Subagent）实例；`plugin_metadata.ts` 注册了 `timeline_transition` 作为二级工具。
+- **文档与测试**: 更新 `architecture.md` (新增场景迁移流图)、`timeline-consumption-protocol.md` (新增迁移消费协议) 及 `QUICK_TEST_CASES.md` (新增 T-Trans 验证用例)。补齐 `timeline_transition.test.ts` 与 `collect_active_facts.test.ts` 核心算法单测。
 
 ## [2.5.1] - 2026-03-31
 

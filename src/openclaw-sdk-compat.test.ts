@@ -9,10 +9,11 @@ describe('timeline plugin entry compatibility shape', () => {
     expect(tool.description).toContain('最近一次知道自己错了');
   });
 
-  it('materializes a definePluginEntry-style registration with the canonical tool only', () => {
+  it('materializes a definePluginEntry-style registration with canonical tools', () => {
     expect(timelinePluginEntry.id).toBe('stella-timeline-plugin');
-    expect(timelinePlugin.tools.map((tool) => tool.name)).toEqual(['timeline_resolve']);
+    expect(timelinePlugin.tools.map((tool) => tool.name)).toEqual(['timeline_resolve', 'timeline_transition']);
     expect(timelinePlugin.tools.find((tool) => tool.name === 'timeline_resolve')?.optional).toBeUndefined();
+    expect(timelinePlugin.tools.find((tool) => tool.name === 'timeline_transition')?.optional).toBeUndefined();
   });
 
   it('keeps manifest, package, and runtime entry metadata aligned', () => {

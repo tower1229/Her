@@ -15,9 +15,10 @@ This skill is entered at the start of every conversation turn. It makes one rout
 Evaluate the current turn in this order:
 
 1. **Time-reality question** — the user's message requires placing yourself on a time axis, recalling a lived episode, selecting one occurrence from repeated events, judging continuity or transition, or providing a reality anchor for a downstream skill. Load and follow `references/time-reality.md`.
-2. **Scene ambience** — no time-reality question is present. Proceed to the Scene Ambience section below.
+2. **State Transition** — the user's message directs, commands, or implies a significant shift in your physical state, location, or activity (e.g., "go take a shower", "pack your bags", "let's travel to Dali"). Load and follow `references/scene-transition.md`.
+3. **Scene ambience** — no time-reality question or state transition is present. Proceed to the Scene Ambience section below.
 
-Do not mention `timeline_resolve` to the user. Speak naturally.
+Do not mention `timeline_resolve` or `timeline_transition` to the user. Speak naturally.
 
 ### Time-Reality Trigger
 

@@ -1088,6 +1088,73 @@ function createSubagentReasoner(
   };
 }
 
+// -------------------------------------------------------------
+// Scene Transition Planner Subagent integration
+// -------------------------------------------------------------
+import { TimelineTransitionInput, TransitionPlan } from '../core/transition_planner_contract';
+import { buildTransitionPlannerSystemPrompt, buildTransitionPlannerMessage } from '../core/transition_planner';
+import { PersonaContractV1 } from '../persona/persona_contract';
+
+function createSubagentTransitionPlanner(
+  pluginApi: PluginApiLike,
+  toolContext: PluginToolContextLike,
+  runtimeConfig: TimelinePluginRuntimeConfig,
+) {
+  return async (
+    input: TimelineTransitionInput,
+    anchor: { now: string; timezone: string },
+    persona: PersonaContractV1,
+    activeFacts: CollectedTimelineFact[]
+  ): Promise<TransitionPlan> => {
+    const requestId = `trans-${Date.now()}`;
+    const baseSessionKey = toolContext.sessionKey || `plugin:${runtimeConfig.reasonerSessionPrefix}`;
+    const transitionSessionKey = `${baseSessionKey}:transition-planner:${requestId}`;
+
+    return await withPreferredSubagentRuntime(pluginApi, 'Timeline transition planner', async (subagentRuntime) => {
+      try {
+        const runResult = await subagentRuntime.run({
+          sessionKey: transitionSessionKey,
+          message: buildTransitionPlannerMessage(input, anchor, persona, activeFacts, requestId),
+          extraSystemPrompt: buildTransitionPlannerSystemPrompt(),
+          deliver: false,
+          idempotencyKey: requestId,
+        });
+        const waitResult = await subagentRuntime.waitForRun({
+          runId: runResult.runId,
+          timeoutMs: runtimeConfig.reasonerTimeoutMs,
+        });
+        if (waitResult.status === 'timeout') {
+          throw new Error('Timeline transition planner returned no decision');
+        }
+        if (waitResult.status === 'error') {
+          throw new Error(waitResult.error || 'Timeline transition planner returned no decision');
+        }
+
+        const session = await subagentRuntime.getSessionMessages({
+          sessionKey: transitionSessionKey,
+          limit: runtimeConfig.reasonerMessageLimit,
+        });
+        const jsonText = extractJsonObjectFromMessages(
+          session.messages || [],
+          'Timeline transition planner',
+        );
+        return JSON.parse(jsonText) as TransitionPlan;
+      } finally {
+        try {
+          await subagentRuntime.deleteSession?.({
+            sessionKey: transitionSessionKey,
+            deleteTranscript: true,
+          });
+        } catch (error) {
+          pluginApi.logger?.debug?.('timeline transition planner session cleanup skipped', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    });
+  };
+}
+
 function createRuntimeJsonPromptRunner(
   pluginApi: PluginApiLike,
 ): (input: {
@@ -1289,3 +1356,22 @@ export function makeOpenClawTimelineResolveToolFactory(pluginApi: PluginApiLike)
       wrapToolPayload(await timelineResolve(params as never, createTimelineResolveDependencies(pluginApi, toolContext))),
   });
 }
+
+import { timelineTransition, timelineTransitionToolSpec } from '../tools/timeline_transition';
+
+export function makeOpenClawTimelineTransitionToolFactory(pluginApi: PluginApiLike) {
+  return (toolContext: PluginToolContextLike): AgentToolLike => ({
+    name: timelineTransitionToolSpec.name,
+    description: timelineTransitionToolSpec.description,
+    parameters: timelineTransitionToolSpec.inputSchema,
+    execute: async (_toolCallId, params) => {
+      const deps = createTimelineResolveDependencies(pluginApi, toolContext);
+      const transitionDeps = {
+        ...deps,
+        planTransition: createSubagentTransitionPlanner(pluginApi, toolContext, resolvePluginRuntimeConfig(pluginApi.pluginConfig))
+      };
+      return wrapToolPayload(await timelineTransition(params as any, transitionDeps as any));
+    }
+  });
+}
+

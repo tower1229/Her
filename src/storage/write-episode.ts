@@ -218,3 +218,89 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
     };
   }
 }
+
+export async function truncateEpisodeDuration(
+  filePath: string,
+  eventId: string,
+  interruptionTimeISO: string
+): Promise<boolean> {
+  if (!fs.existsSync(filePath)) {
+    return false;
+  }
+  
+  try {
+    const existingContent = fs.readFileSync(filePath, 'utf8');
+    const allEpisodes = parseMemoryFile(existingContent);
+    let found = false;
+
+    // We locate the episode by eventId (or simply the latest if eventId is missing but we're doing a strict interrupt)
+    for (const ep of allEpisodes) {
+      if (ep.eventId === eventId && ep.estimatedDurationMinutes) {
+        const epTimeParts = parseTimestampParts(ep.timestamp);
+        const interruptParts = parseTimestampParts(interruptionTimeISO);
+        if (epTimeParts && interruptParts && epTimeParts.year === interruptParts.year && epTimeParts.month === interruptParts.month && epTimeParts.day === interruptParts.day) {
+           const startMinutes = epTimeParts.hour * 60 + epTimeParts.minute;
+           const endMinutes = interruptParts.hour * 60 + interruptParts.minute;
+           const diff = endMinutes - startMinutes;
+           if (diff > 0 && diff < ep.estimatedDurationMinutes) {
+              ep.estimatedDurationMinutes = diff;
+              found = true;
+           } else if (diff <= 0) {
+              ep.estimatedDurationMinutes = 1; // Minimum 1 min length
+              found = true;
+           }
+        } else {
+           // Basic fallback if unparseable / multi-day
+           const d1 = new Date(ep.timestamp.replace(' ', 'T')).getTime();
+           const d2 = new Date(interruptionTimeISO.replace(' ', 'T')).getTime();
+           if (!isNaN(d1) && !isNaN(d2)) {
+             const diffMins = Math.floor((d2 - d1) / 60000);
+             if (diffMins > 0 && diffMins < ep.estimatedDurationMinutes) {
+               ep.estimatedDurationMinutes = diffMins;
+               found = true;
+             }
+           }
+        }
+      }
+    }
+
+    if (!found) return false;
+
+    // Rewrite exactly like writeEpisode
+    const fileLines: string[] = [];
+    for (const ep of allEpisodes) {
+      const epTimeParts = parseTimestampParts(ep.timestamp) ?? parseTimestampParts(`${ep.timestamp.replace(' ', 'T')}+00:00`);
+      const epTimeStr = epTimeParts ? formatTime(epTimeParts) : ep.timestamp.slice(11, 19);
+      fileLines.push(`### [${epTimeStr}]`, '');
+      fileLines.push(`- Timestamp: ${ep.timestamp}`);
+      fileLines.push(`- Location: ${ep.location}`);
+      fileLines.push(`- Action: ${ep.action}`);
+      fileLines.push(`- Emotion_Tags: [${ep.emotionTags.join(', ')}]`);
+      fileLines.push(`- Appearance: ${ep.appearance}`);
+      if (ep.internalMonologue) {
+        fileLines.push(`- Internal_Monologue: ${ep.internalMonologue}`);
+      }
+      if (ep.estimatedDurationMinutes != null) {
+        fileLines.push(`- Estimated_Duration: ${ep.estimatedDurationMinutes}`);
+      }
+      if (ep.eventId) {
+        fileLines.push(`- Event_Id: ${ep.eventId}`);
+      }
+      if (ep.parentEventTag) {
+        fileLines.push(`- Parent_Event: ${ep.parentEventTag}`);
+      }
+      if (ep.parentEventPhase) {
+        fileLines.push(`- Parent_Event_Phase: ${ep.parentEventPhase}`);
+      }
+      if (ep.parentEventProgress != null) {
+        fileLines.push(`- Parent_Event_Progress: ${ep.parentEventProgress}`);
+      }
+      fileLines.push('');
+    }
+
+    fs.writeFileSync(filePath, fileLines.join('\n') + '\n', 'utf8');
+    return true;
+  } catch(e) {
+    return false;
+  }
+}

@@ -7,9 +7,13 @@ import {
 import {
   definePluginEntry,
   makeTimelineToolRegistration,
+  makeTimelineTransitionToolRegistration,
   materializePlugin,
 } from './src/openclaw-sdk-compat';
-import { makeOpenClawTimelineResolveToolFactory } from './src/runtime/openclaw_timeline_runtime';
+import {
+  makeOpenClawTimelineResolveToolFactory,
+  makeOpenClawTimelineTransitionToolFactory
+} from './src/runtime/openclaw_timeline_runtime';
 
 export const timelinePluginEntry = definePluginEntry({
   id: TIMELINE_PLUGIN_ID,
@@ -17,6 +21,7 @@ export const timelinePluginEntry = definePluginEntry({
   description: TIMELINE_PLUGIN_DESCRIPTION,
   register(api) {
     api.registerTool(makeTimelineToolRegistration());
+    api.registerTool(makeTimelineTransitionToolRegistration());
   },
 });
 
@@ -43,6 +48,7 @@ const openClawTimelinePlugin = {
   }) {
     const runtimeApi = api as any;
     api.registerTool(makeOpenClawTimelineResolveToolFactory(runtimeApi));
+    api.registerTool(makeOpenClawTimelineTransitionToolFactory(runtimeApi));
   },
 };
 

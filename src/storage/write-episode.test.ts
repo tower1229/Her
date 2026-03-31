@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { writeEpisode } from './write-episode';
+import { writeEpisode, truncateEpisodeDuration } from './write-episode';
 import { getHoliday } from '../lib/holidays';
 
 jest.mock('../lib/holidays');
@@ -248,5 +248,130 @@ describe('writeEpisode', () => {
     expect(idx0730).toBeGreaterThanOrEqual(0);
     expect(idx1047).toBeGreaterThanOrEqual(0);
     expect(idx0730).toBeLessThan(idx1047);
+  });
+});
+
+describe('truncateEpisodeDuration', () => {
+  const tempFile = path.join(__dirname, 'mock_truncate.md');
+
+  beforeEach(() => {
+    if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+  });
+
+  afterAll(() => {
+    if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+  });
+
+  it('truncates an episode duration when interrupted mid-way', async () => {
+    // Write an episode that lasts 120 minutes starting at 10:00
+    fs.writeFileSync(
+      tempFile,
+      [
+        '### [10:00:00]',
+        '',
+        '- Timestamp: 2026-03-24 10:00:00+08:00',
+        '- Location: 书房',
+        '- Action: 看书',
+        '- Emotion_Tags: [专注]',
+        '- Appearance: 家居服',
+        '- Estimated_Duration: 120',
+        '- Event_Id: evt-20260324-100000',
+        '',
+      ].join('\n') + '\n',
+      'utf8',
+    );
+
+    // Interrupt at 10:45 → should truncate to 45 minutes
+    const result = await truncateEpisodeDuration(
+      tempFile,
+      'evt-20260324-100000',
+      '2026-03-24 10:45:00+08:00',
+    );
+
+    expect(result).toBe(true);
+    const content = fs.readFileSync(tempFile, 'utf8');
+    expect(content).toContain('- Estimated_Duration: 45');
+    expect(content).not.toContain('- Estimated_Duration: 120');
+  });
+
+  it('returns false when file does not exist', async () => {
+    const result = await truncateEpisodeDuration(
+      path.join(__dirname, 'nonexistent.md'),
+      'evt-xxx',
+      '2026-03-24T10:00:00+08:00',
+    );
+    expect(result).toBe(false);
+  });
+
+  it('returns false when event id is not found in file', async () => {
+    fs.writeFileSync(
+      tempFile,
+      [
+        '### [10:00:00]',
+        '',
+        '- Timestamp: 2026-03-24 10:00:00+08:00',
+        '- Location: 书房',
+        '- Action: 看书',
+        '- Emotion_Tags: [专注]',
+        '- Appearance: 家居服',
+        '- Estimated_Duration: 120',
+        '- Event_Id: evt-20260324-100000',
+        '',
+      ].join('\n') + '\n',
+      'utf8',
+    );
+
+    const result = await truncateEpisodeDuration(
+      tempFile,
+      'evt-nonexistent',
+      '2026-03-24T10:45:00+08:00',
+    );
+    expect(result).toBe(false);
+  });
+
+  it('preserves other episodes when truncating one', async () => {
+    fs.writeFileSync(
+      tempFile,
+      [
+        '### [09:00:00]',
+        '',
+        '- Timestamp: 2026-03-24 09:00:00+08:00',
+        '- Location: 厨房',
+        '- Action: 做早餐',
+        '- Emotion_Tags: [平静]',
+        '- Appearance: 家居服',
+        '- Estimated_Duration: 30',
+        '- Event_Id: evt-20260324-090000',
+        '',
+        '### [10:00:00]',
+        '',
+        '- Timestamp: 2026-03-24 10:00:00+08:00',
+        '- Location: 书房',
+        '- Action: 看书',
+        '- Emotion_Tags: [专注]',
+        '- Appearance: 家居服',
+        '- Estimated_Duration: 120',
+        '- Event_Id: evt-20260324-100000',
+        '',
+      ].join('\n') + '\n',
+      'utf8',
+    );
+
+    const result = await truncateEpisodeDuration(
+      tempFile,
+      'evt-20260324-100000',
+      '2026-03-24 10:30:00+08:00',
+    );
+
+    expect(result).toBe(true);
+    const content = fs.readFileSync(tempFile, 'utf8');
+    // The breakfast episode should be untouched
+    expect(content).toContain('- Estimated_Duration: 30');
+    // The reading episode should be truncated to 30 min
+    expect(content).toContain('- Estimated_Duration: 30');
+    expect(content).not.toContain('- Estimated_Duration: 120');
+    // Both episodes should still exist
+    expect(content).toContain('evt-20260324-090000');
+    expect(content).toContain('evt-20260324-100000');
   });
 });

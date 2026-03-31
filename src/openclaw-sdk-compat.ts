@@ -1,4 +1,5 @@
 import { timelineResolveToolSpec } from './tools/timeline_resolve';
+import { timelineTransitionToolSpec } from './tools/timeline_transition';
 
 export interface PluginToolResult {
   content: Array<{
@@ -69,6 +70,18 @@ export function makeTimelineToolRegistration(): PluginToolRegistration {
     parameters: timelineResolveToolSpec.inputSchema,
     async execute(_callId, params) {
       return wrapToolData(await timelineResolveToolSpec.run(params as never));
+    },
+  };
+}
+
+export function makeTimelineTransitionToolRegistration(): PluginToolRegistration {
+  return {
+    name: timelineTransitionToolSpec.name,
+    description: timelineTransitionToolSpec.description,
+    parameters: timelineTransitionToolSpec.inputSchema,
+    async execute(_callId, params) {
+      // Base usage; openclaw_timeline_runtime has the full implementation.
+      return wrapToolData(await timelineTransitionToolSpec.run(params as never, {} as never));
     },
   };
 }

@@ -199,6 +199,37 @@
 
 从现在开始：
 
+- **Timeline Reality**: Using `timeline_resolve` to recall past events or verify current state.
+- **Scene Transition**: Using `timeline_transition` to commit a state change and optionally trigger persona updates.
+
+---
+
+## 2. Scene Transition Protocol (timeline_transition)
+
+When the user gives a directive to "do something" or "change state", the agent must use `timeline_transition`.
+
+### 2.1 Tool Output Schema
+
+```typescript
+{
+  ok: boolean,
+  transition: {
+    summary: string,           // Brief description of the planned transition
+    event_id: string,          // The new Event_Id for this activity
+    requires_persona_update: boolean, // Whether this event should change core persona
+    persona_update_data?: any  // If above is true, this JSON must be sent to the persona skill
+  }
+}
+```
+
+### 2.2 Persona Linkage Handlers
+
+If `requires_persona_update` is `true`, the skill MUST trigger the `Zhuang-Yan` persona skill:
+`调用 persona skill 更新 PERSONA_PROFILE : ${JSON.stringify(persona_update_data)}`
+
+---
+
+## 3. Timeline Reality Protocol (timeline_resolve)
 - 在 `timeline_resolve` 成功返回且包含 `result` 时，`result.consumption` 是 Timeline 面向下游技能的稳定消费面
 - 新增字段可以加
 - 已有字段含义不能随意改
