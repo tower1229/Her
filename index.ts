@@ -3,6 +3,7 @@ import {
   TIMELINE_PLUGIN_ID,
   TIMELINE_PLUGIN_NAME,
   TIMELINE_PLUGIN_VERSION,
+  TIMELINE_TOOL_NAMES,
 } from './src/plugin_metadata';
 import {
   definePluginEntry,
@@ -32,6 +33,7 @@ const openClawTimelinePlugin = {
   name: TIMELINE_PLUGIN_NAME,
   version: TIMELINE_PLUGIN_VERSION,
   description: TIMELINE_PLUGIN_DESCRIPTION,
+  tools: TIMELINE_TOOL_NAMES,
   register(api: {
     pluginConfig?: Record<string, unknown>;
     config?: unknown;

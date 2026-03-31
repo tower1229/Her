@@ -288,8 +288,8 @@ if (payload.plugin.status !== 'loaded') {
   console.error(`OpenClaw smoke loaded stella-timeline-plugin with unexpected status: ${payload.plugin.status}`);
   process.exit(1);
 }
-if (!Array.isArray(payload.resolvedToolNames) || !payload.resolvedToolNames.includes('timeline_resolve')) {
-  console.error(`OpenClaw smoke did not resolve timeline_resolve into runtime tools.\n${JSON.stringify(payload)}`);
+if (!Array.isArray(payload.resolvedToolNames) || !payload.resolvedToolNames.includes('timeline_resolve') || !payload.resolvedToolNames.includes('timeline_transition')) {
+  console.error(`OpenClaw smoke did not resolve required timeline tools into runtime tools.\n${JSON.stringify(payload)}`);
   process.exit(1);
 }
 
