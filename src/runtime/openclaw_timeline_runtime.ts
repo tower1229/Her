@@ -573,6 +573,10 @@ function buildTimelineReasonerSystemPrompt(): string {
     '- Avoid generic template scenes. Location, action, emotion, appearance, and internalMonologue must reflect lived continuity.',
     '- Respect collector.world_context temporal logic: meals, sleep, work/study, leisure, weekends, weekdays, and holidays.',
     '- For late-night and pre-dawn, prefer sleep/rest/quiet activities. Meal scenes must stay within plausible meal windows.',
+    '- estimated_duration_minutes (top-level, integer): how many minutes this scene/state is expected to persist.',
+    '  Must be present when decision.action is reuse_existing_fact or generate_new_fact.',
+    '  Consider activityMode, persona temperament, time of day, and typical real-world durations.',
+    '  Examples: sleep ≈ 420, meal ≈ 30–60, work_or_study ≈ 60–180, bath ≈ 20–40, commute ≈ 20–50, exercise ≈ 30–90, rest ≈ 15–45, transition ≈ 5–20.',
   ];
 
   const appearanceRules = [
@@ -620,6 +624,7 @@ function buildTimelineReasonerSystemPrompt(): string {
         is_continuing: true,
         reason: 'continuity reasoning summary',
       },
+      estimated_duration_minutes: 'integer, required when action is reuse_existing_fact or generate_new_fact',
       rationale: {
         summary: 'short summary',
         hard_fact_basis: ['...'],
@@ -641,6 +646,7 @@ function buildTimelineReasonerSystemPrompt(): string {
           activityMode: 'sleep | bath | meal | work_or_study | commute | exercise | social | shopping | leisure | domestic | errands | transition | rest | unknown',
           continuityRelation: 'same_day_continuation | same_scene_continuation | shifted_scene | return_home | fresh_moment | unknown',
           rationale: 'why this generated scene fits the current timeline state',
+          estimatedDurationMinutes: 'optional integer, mirrors top-level estimated_duration_minutes',
         },
         appearanceLogic: {
           transition: 'inherit | change_required | change_allowed | unknown',

@@ -526,4 +526,98 @@ describe('timelineResolve', () => {
     if (!result.ok) throw new Error('expected recovered empty-window success envelope');
     expect(result.resolution_summary.mode).toBe('empty_window');
   });
+
+  describe('read_only_fast', () => {
+    it('returns read_only_fast_hit when canon has an unexpired fact', async () => {
+      setTimelineResolveDependencies({
+        currentTime: async () => ({ now: '2026-03-22T15:00:00+08:00', timezone: 'Asia/Shanghai' }),
+        sessionsHistory: async () => [],
+        memoryGet: async () => `
+### [14:30:00] 整理数字工作区
+- Timestamp: 2026-03-22 14:30:00
+- Location: 家里书房靠窗的桌子
+- Action: 把最近的零碎念头整理进 Obsidian 的第二大脑
+- Emotion_Tags: [专注, 灵光乍现]
+- Appearance: 浅灰色的舒适家居服，头发随意挽起
+- Estimated_Duration: 120
+        `,
+      });
+
+      const result = await timelineResolve({ query: 'now', mode: 'read_only_fast' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error('expected success');
+      expect(result.resolution_summary.mode).toBe('read_only_fast_hit');
+      expect(result.result?.consumption?.fact.status).toBe('resolved');
+      expect(result.result?.consumption?.scene?.location).toBe('家里书房靠窗的桌子');
+      expect(result.result?.consumption?.scene?.estimated_duration_minutes).toBe(120);
+    });
+
+    it('returns empty_window when no canon exists for today', async () => {
+      setTimelineResolveDependencies({
+        currentTime: async () => ({ now: '2026-03-22T15:00:00+08:00', timezone: 'Asia/Shanghai' }),
+        sessionsHistory: async () => [],
+        memoryGet: async () => '',
+      });
+
+      const result = await timelineResolve({ query: 'now', mode: 'read_only_fast' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error('expected success');
+      expect(result.resolution_summary.mode).toBe('empty_window');
+      expect(result.result?.consumption?.fact.status).toBe('empty');
+      expect(result.result?.consumption?.scene?.estimated_duration_minutes).toBe(30);
+    });
+
+    it('returns empty_window when the latest fact is expired', async () => {
+      setTimelineResolveDependencies({
+        currentTime: async () => ({ now: '2026-03-22T18:00:00+08:00', timezone: 'Asia/Shanghai' }),
+        sessionsHistory: async () => [],
+        memoryGet: async () => `
+### [14:30:00] 整理数字工作区
+- Timestamp: 2026-03-22 14:30:00
+- Location: 家里书房靠窗的桌子
+- Action: 整理笔记
+- Emotion_Tags: [专注]
+- Appearance: 浅灰色的舒适家居服
+- Estimated_Duration: 60
+        `,
+      });
+
+      const result = await timelineResolve({ query: 'now', mode: 'read_only_fast' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error('expected success');
+      expect(result.resolution_summary.mode).toBe('empty_window');
+      expect(result.result?.consumption?.scene?.estimated_duration_minutes).toBe(30);
+    });
+
+    it('uses defaultDurationForActivityMode when canon has no Estimated_Duration', async () => {
+      setTimelineResolveDependencies({
+        currentTime: async () => ({ now: '2026-03-22T15:00:00+08:00', timezone: 'Asia/Shanghai' }),
+        sessionsHistory: async () => [],
+        memoryGet: async () => `
+### [14:30:00] 整理数字工作区
+- Timestamp: 2026-03-22 14:30:00
+- Location: 家里书房靠窗的桌子
+- Action: 整理笔记
+- Emotion_Tags: [专注]
+- Appearance: 浅灰色的舒适家居服
+        `,
+      });
+
+      const result = await timelineResolve({ query: 'now', mode: 'read_only_fast' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error('expected success');
+      expect(result.resolution_summary.mode).toBe('read_only_fast_hit');
+    });
+
+    it('does not require a query for read_only_fast mode', async () => {
+      setTimelineResolveDependencies({
+        currentTime: async () => ({ now: '2026-03-22T15:00:00+08:00', timezone: 'Asia/Shanghai' }),
+        sessionsHistory: async () => [],
+        memoryGet: async () => '',
+      });
+
+      const result = await timelineResolve({ query: '', mode: 'read_only_fast' });
+      expect(result.ok).toBe(true);
+    });
+  });
 });

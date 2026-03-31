@@ -55,6 +55,7 @@ export interface SceneSemantics {
   activityMode: ActivityMode;
   continuityRelation: ContinuityRelation;
   rationale: string;
+  estimatedDurationMinutes?: number;
 }
 
 export interface AppearanceLogic {

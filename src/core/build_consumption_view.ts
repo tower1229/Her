@@ -118,6 +118,40 @@ function deriveLightingHint(timeOfDay: string): string | undefined {
   return undefined;
 }
 
+export function defaultDurationForActivityMode(mode: string | undefined): number {
+  switch (mode) {
+    case 'sleep': return 420;
+    case 'meal': return 45;
+    case 'bath': return 30;
+    case 'exercise': return 60;
+    case 'work_or_study': return 120;
+    case 'commute': return 40;
+    case 'transition': return 15;
+    case 'rest': return 30;
+    case 'social': return 90;
+    case 'shopping': return 60;
+    case 'leisure': return 60;
+    case 'domestic': return 60;
+    case 'errands': return 45;
+    default: return 60;
+  }
+}
+
+function deriveEstimatedDurationMinutes(input: ConsumptionInput): number | undefined {
+  if (input.reasoned.estimated_duration_minutes != null) {
+    return input.reasoned.estimated_duration_minutes;
+  }
+  const fromSemantics = input.reasoned.generated_fact?.sceneSemantics?.estimatedDurationMinutes;
+  if (fromSemantics != null) {
+    return fromSemantics;
+  }
+  const activityMode = deriveActivityMode(input);
+  if (activityMode) {
+    return defaultDurationForActivityMode(activityMode);
+  }
+  return undefined;
+}
+
 function deriveFramingHint(episode: Episode): string | undefined {
   const combined = [
     episode.state_snapshot.scene.location_label,
@@ -222,6 +256,7 @@ export function buildConsumptionView(input: ConsumptionInput): TimelineConsumpti
     location_props: deriveLocationProps(input.episode),
     lighting_hint: deriveLightingHint(input.episode.state_snapshot.scene.time_of_day),
     framing_hint: deriveFramingHint(input.episode),
+    estimated_duration_minutes: deriveEstimatedDurationMinutes(input),
   };
 
   const selfieReady: NonNullable<TimelineConsumptionView['selfie_ready']> = {

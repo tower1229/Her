@@ -1,4 +1,4 @@
-import { buildConsumptionView } from './build_consumption_view';
+import { buildConsumptionView, defaultDurationForActivityMode } from './build_consumption_view';
 import { CollectedTimelineFact, TimelineCollectorOutput, TimelineReasonerOutput } from './timeline_reasoner_contract';
 import { mapToEpisode } from '../lib/parse-memory';
 import { computeFingerprint } from '../lib/fingerprint';
@@ -9,7 +9,7 @@ import { getHoliday } from '../lib/holidays';
 import { inferCountryFromOffset } from '../lib/country';
 import { TimelineResolveSuccessContract, TimelineResolutionMode } from './timeline_output_contract';
 import { WriteResult } from '../storage/write-episode';
-import { Episode } from '../lib/types';
+import { Episode, ParsedEpisode } from '../lib/types';
 
 type TimelineOutputWindowView = Pick<
   ResolvedWindow,
@@ -283,6 +283,162 @@ export function buildTraceDefaults(input: {
       write_outcome: 'not_attempted',
       category: input.reasoned.request_type,
     },
+  };
+}
+
+export function buildReadOnlyFastOutput(input: {
+  traceId: string;
+  parsed: ParsedEpisode;
+  calendarDate: string;
+  now: string;
+  timezone: string;
+}): TimelineResolveSuccessContract {
+  const { traceId, parsed, calendarDate, now, timezone } = input;
+  const fp = computeFingerprint(calendarDate, parsed.location, parsed.action, parsed.timestamp);
+  const worldHooks = buildWorldHooks(parsed.timestamp);
+  const episode = mapToEpisode(parsed, worldHooks, fp);
+  const activityMode = parsed.action ? undefined : undefined;
+  const durationFromParsed = parsed.estimatedDurationMinutes;
+  const stubReasoned: TimelineReasonerOutput = {
+    schema_version: '1.0',
+    request_id: `fast-${traceId}`,
+    request_type: 'now',
+    time_interpretation: {
+      normalized_kind: 'now',
+      match_strategy: 'continuation',
+      summary: 'read_only_fast hit from canon daily log.',
+    },
+    decision: {
+      action: 'reuse_existing_fact',
+      selected_fact_id: `canon:${calendarDate}:fast`,
+      should_write_canon: false,
+    },
+    continuity: {
+      judged: true,
+      is_continuing: true,
+      reason: 'Fast-path reuse of unexpired canon fact.',
+    },
+    estimated_duration_minutes: durationFromParsed,
+    rationale: {
+      summary: 'read_only_fast: reused the latest unexpired canon fact without LLM reasoning.',
+      hard_fact_basis: [],
+      canon_basis: [`canon:${calendarDate}:fast`],
+      persona_basis: [],
+      constraint_basis: [],
+    },
+  };
+
+  return {
+    ok: true,
+    schema_version: '1.0',
+    trace_id: traceId,
+    resolution_summary: {
+      mode: 'read_only_fast_hit',
+      writes_attempted: 0,
+      writes_succeeded: 0,
+      sources: ['memory_get'],
+      confidence_min: parsed.confidence,
+      confidence_max: parsed.confidence,
+    },
+    result: {
+      schema_version: '1.0',
+      document_type: 'timeline.window',
+      anchor: { now, timezone },
+      window: {
+        calendar_date: calendarDate,
+        preset: 'now',
+        semantic_target: 'now',
+        collection_scope: 'today_so_far',
+        start: parsed.timestamp,
+        end: now,
+        idempotency_key: fp,
+      },
+      resolution: {
+        mode: 'read_only_fast_hit',
+        notes: 'read_only_fast hit from canon daily log.',
+      },
+      consumption: buildConsumptionView({
+        preset: 'now',
+        semanticTarget: 'now',
+        collectionScope: 'today_so_far',
+        resolutionMode: 'read_only_fast_hit',
+        anchorTimezone: timezone,
+        reasoned: stubReasoned,
+        episode,
+        sourceType: 'canon',
+      }),
+      episodes: [episode],
+    },
+    notes: ['read_only_fast: reused the latest unexpired canon fact.'],
+  };
+}
+
+const FAST_EMPTY_DEBOUNCE_MINUTES = 30;
+
+export function buildReadOnlyFastEmptyOutput(input: {
+  traceId: string;
+  now: string;
+  timezone: string;
+  calendarDate: string;
+}): TimelineResolveSuccessContract {
+  const { traceId, now, timezone, calendarDate } = input;
+  return {
+    ok: true,
+    schema_version: '1.0',
+    trace_id: traceId,
+    resolution_summary: {
+      mode: 'empty_window',
+      writes_attempted: 0,
+      writes_succeeded: 0,
+      sources: ['memory_get'],
+      confidence_min: 0,
+      confidence_max: 0,
+    },
+    result: {
+      schema_version: '1.0',
+      document_type: 'timeline.window',
+      anchor: { now, timezone },
+      window: {
+        calendar_date: calendarDate,
+        preset: 'now',
+        semantic_target: 'now',
+        collection_scope: 'today_so_far',
+        start: now,
+        end: now,
+        idempotency_key: 'none',
+      },
+      resolution: {
+        mode: 'empty_window',
+        notes: 'read_only_fast: no unexpired canon fact found.',
+      },
+      consumption: {
+        schema_version: '1.0',
+        document_type: 'timeline.consumption',
+        query: {
+          preset: 'now',
+          semantic_target: 'now',
+          collection_scope: 'today_so_far',
+          resolution_mode: 'empty_window',
+        },
+        fact: {
+          status: 'empty',
+          source_type: 'none',
+          summary: 'read_only_fast: no active scene.',
+        },
+        scene: {
+          location: '',
+          activity: '',
+          emotion_primary: null,
+          emotion_secondary: null,
+          appearance: '',
+          time_of_day: '',
+          summary: '',
+          estimated_duration_minutes: FAST_EMPTY_DEBOUNCE_MINUTES,
+        },
+      },
+      episodes: [],
+    },
+    notes: ['read_only_fast: no unexpired canon fact found; debounce for 30 minutes.'],
   };
 }
 

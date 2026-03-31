@@ -14,6 +14,7 @@ export interface WriteEpisodeInput {
   emotionTags: string[];
   appearance: string;
   internalMonologue?: string;
+  estimatedDurationMinutes?: number;
   filePath: string;
   confidence?: number;
 }
@@ -65,7 +66,7 @@ function detectWriteConflict(
 }
 
 export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResult> {
-  const { timestamp, location, action, emotionTags, appearance, internalMonologue, filePath } = input;
+  const { timestamp, location, action, emotionTags, appearance, internalMonologue, estimatedDurationMinutes, filePath } = input;
 
   if (!timestamp || !location || !action || !emotionTags || emotionTags.length === 0 || !appearance) {
     return {
@@ -151,6 +152,7 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       emotionTags,
       appearance,
       internalMonologue,
+      estimatedDurationMinutes,
     };
 
     const allEpisodes = [...existingEpisodes, newEpisode];
@@ -168,6 +170,9 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       fileLines.push(`- Appearance: ${ep.appearance}`);
       if (ep.internalMonologue) {
         fileLines.push(`- Internal_Monologue: ${ep.internalMonologue}`);
+      }
+      if (ep.estimatedDurationMinutes != null) {
+        fileLines.push(`- Estimated_Duration: ${ep.estimatedDurationMinutes}`);
       }
       fileLines.push('');
     }

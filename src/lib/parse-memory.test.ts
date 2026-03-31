@@ -42,6 +42,38 @@ describe('parseMemoryFile', () => {
     expect(result[0].emotionTags).toEqual(['neutral']);
   });
 
+  it('should parse Estimated_Duration field', () => {
+    const memory = `
+### [14:30:00] 整理数字工作区
+- Timestamp: 2026-03-22 14:30:00
+- Location: 家里书房靠窗的桌子
+- Action: 把最近的零碎念头整理进 Obsidian 的第二大脑
+- Emotion_Tags: [专注, 灵光乍现]
+- Appearance: 浅灰色的舒适家居服，头发随意挽起
+- Internal_Monologue: 今天下午的思绪特别清晰，整理完心情也变好了。
+- Estimated_Duration: 90
+    `;
+
+    const result = parseMemoryFile(memory);
+    expect(result.length).toBe(1);
+    expect(result[0].estimatedDurationMinutes).toBe(90);
+  });
+
+  it('should parse entries without Estimated_Duration as undefined', () => {
+    const memory = `
+### [14:30:00] 整理数字工作区
+- Timestamp: 2026-03-22 14:30:00
+- Location: 家里书房靠窗的桌子
+- Action: 把最近的零碎念头整理进 Obsidian 的第二大脑
+- Emotion_Tags: [专注, 灵光乍现]
+- Appearance: 浅灰色的舒适家居服，头发随意挽起
+    `;
+
+    const result = parseMemoryFile(memory);
+    expect(result.length).toBe(1);
+    expect(result[0].estimatedDurationMinutes).toBeUndefined();
+  });
+
   it('should ignore segments without timestamps', () => {
     const memory = `
 ### [09:00:00] 起床

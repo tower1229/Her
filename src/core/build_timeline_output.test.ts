@@ -615,5 +615,121 @@ describe('build_timeline_output', () => {
     expect(output.result?.consumption?.scene?.lighting_hint).toBe('natural morning light');
     expect(output.result?.consumption?.scene?.framing_hint).toBe('mid-shot, standing or movement-ready framing');
   });
+
+  it('propagates estimated_duration_minutes from reasoner top-level field', () => {
+    const output = buildGeneratedTestOutput({
+      traceId: 'trace-test-duration-toplevel',
+      reasoned: {
+        ...reasoned,
+        decision: { action: 'generate_new_fact', should_write_canon: true },
+        continuity: { judged: true, is_continuing: false, reason: 'new scene' },
+        estimated_duration_minutes: 90,
+        generated_fact: {
+          location: '书房',
+          action: '整理笔记',
+          emotionTags: ['专注'],
+          appearance: '家居服',
+          internalMonologue: '把结构梳理清楚',
+          confidence: 0.77,
+          sceneSemantics: {
+            activityMode: 'work_or_study',
+            continuityRelation: 'fresh_moment',
+            rationale: 'generated work scene',
+          },
+          appearanceLogic: {
+            transition: 'inherit',
+            changeReason: 'same_day_continuation',
+            outfitMode: 'casual_home',
+          },
+        },
+      },
+      episode: makeEpisode({
+        id: 'ep-dur',
+        timestamp: '2026-03-26T15:30:00+08:00',
+        timeOfDay: 'afternoon',
+        locationLabel: '书房',
+        activity: '整理笔记',
+        summary: '整理笔记',
+      }),
+    });
+    expect(output.result?.consumption?.scene?.estimated_duration_minutes).toBe(90);
+  });
+
+  it('falls back to sceneSemantics estimatedDurationMinutes when top-level is absent', () => {
+    const output = buildGeneratedTestOutput({
+      traceId: 'trace-test-duration-semantics',
+      reasoned: {
+        ...reasoned,
+        decision: { action: 'generate_new_fact', should_write_canon: true },
+        continuity: { judged: true, is_continuing: false, reason: 'new scene' },
+        generated_fact: {
+          location: '书房',
+          action: '整理笔记',
+          emotionTags: ['专注'],
+          appearance: '家居服',
+          internalMonologue: '把结构梳理清楚',
+          confidence: 0.77,
+          sceneSemantics: {
+            activityMode: 'work_or_study',
+            continuityRelation: 'fresh_moment',
+            rationale: 'generated work scene',
+            estimatedDurationMinutes: 120,
+          },
+          appearanceLogic: {
+            transition: 'inherit',
+            changeReason: 'same_day_continuation',
+            outfitMode: 'casual_home',
+          },
+        },
+      },
+      episode: makeEpisode({
+        id: 'ep-dur-sem',
+        timestamp: '2026-03-26T15:30:00+08:00',
+        timeOfDay: 'afternoon',
+        locationLabel: '书房',
+        activity: '整理笔记',
+        summary: '整理笔记',
+      }),
+    });
+    expect(output.result?.consumption?.scene?.estimated_duration_minutes).toBe(120);
+  });
+
+  it('falls back to activity_mode default when no explicit duration is provided', () => {
+    const output = buildGeneratedTestOutput({
+      traceId: 'trace-test-duration-fallback',
+      reasoned: {
+        ...reasoned,
+        decision: { action: 'generate_new_fact', should_write_canon: true },
+        continuity: { judged: true, is_continuing: false, reason: 'new scene' },
+        generated_fact: {
+          location: '书房',
+          action: '整理笔记',
+          emotionTags: ['专注'],
+          appearance: '家居服',
+          internalMonologue: '把结构梳理清楚',
+          confidence: 0.77,
+          sceneSemantics: {
+            activityMode: 'meal',
+            continuityRelation: 'fresh_moment',
+            rationale: 'generated meal scene',
+          },
+          appearanceLogic: {
+            transition: 'inherit',
+            changeReason: 'same_day_continuation',
+            outfitMode: 'casual_home',
+          },
+        },
+      },
+      episode: makeEpisode({
+        id: 'ep-dur-fallback',
+        timestamp: '2026-03-26T12:30:00+08:00',
+        timeOfDay: 'afternoon',
+        locationLabel: '家里餐桌',
+        activity: '吃午饭',
+        summary: '吃午饭',
+      }),
+    });
+    expect(output.result?.consumption?.scene?.estimated_duration_minutes).toBe(45);
+  });
 });
 

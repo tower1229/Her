@@ -20,6 +20,7 @@ export interface ExecuteWriteDeps {
     emotionTags: string[];
     appearance: string;
     internalMonologue?: string;
+    estimatedDurationMinutes?: number;
     filePath: string;
     confidence?: number;
   }) => Promise<WriteResult>;
@@ -85,6 +86,7 @@ export async function executeGeneratedWrite(input: {
   collector: TimelineCollectorOutput;
   generatedFact: TimelineGeneratedDraft;
   generationReason: string;
+  estimatedDurationMinutesOverride?: number;
   deps: ExecuteWriteDeps;
   calendarDateFromTimestamp: (timestamp: string) => string;
 }): Promise<ExecuteWriteResult> {
@@ -115,6 +117,8 @@ export async function executeGeneratedWrite(input: {
       generatedCalendarDate,
       input.deps.canonicalRootName || 'memory',
     );
+    const estimatedDuration = input.generatedFact.sceneSemantics?.estimatedDurationMinutes
+      ?? input.estimatedDurationMinutesOverride;
     writeResult = input.deps.writeEpisode
       ? await withFileLock(filePath, async () =>
           input.deps.writeEpisode!({
@@ -124,6 +128,7 @@ export async function executeGeneratedWrite(input: {
             emotionTags: generated.parsed.emotionTags,
             appearance: generated.parsed.appearance,
             internalMonologue: generated.parsed.internalMonologue,
+            estimatedDurationMinutes: estimatedDuration,
             filePath,
             confidence: generated.parsed.confidence,
           }),

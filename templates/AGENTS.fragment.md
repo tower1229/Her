@@ -12,6 +12,7 @@ Each daily-log memory should include these fields whenever possible:
 - `Emotion_Tags`
 - `Appearance`
 - `Internal_Monologue` (optional)
+- `Estimated_Duration` (optional, integer minutes)
 
 Recommended shape:
 
@@ -23,6 +24,7 @@ Recommended shape:
     - Emotion_Tags: [calm, focused]
     - Appearance: Light home top, hair loosely tied up, a fresh cup of coffee on the desk
     - Internal_Monologue: I want to finish the two most important things this morning first, then maybe go out later if the day goes well
+    - Estimated_Duration: 120
 
 Do not store long-term durable facts in `memory/YYYY-MM-DD.md`; stable preferences, relationships, and long-term decisions still belong in long-term persona storage.
 

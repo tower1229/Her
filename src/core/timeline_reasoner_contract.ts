@@ -126,5 +126,6 @@ export interface TimelineReasonerOutput {
     constraint_basis: string[];
     uncertainty?: string;
   };
+  estimated_duration_minutes?: number;
   generated_fact?: TimelineGeneratedDraft;
 }

@@ -116,6 +116,37 @@ describe('writeEpisode', () => {
     expect(res.recovery_hint).toContain('Inspect the existing daily log entry');
   });
 
+  it('writes Estimated_Duration when provided', async () => {
+    const res = await writeEpisode({
+      timestamp: '2026-03-22T14:30:00+08:00',
+      location: 'bedroom',
+      action: 'reading',
+      emotionTags: ['calm'],
+      appearance: 'pajamas',
+      estimatedDurationMinutes: 90,
+      filePath: tempFile,
+    });
+
+    expect(res.success).toBe(true);
+    const content = fs.readFileSync(tempFile, 'utf8');
+    expect(content).toContain('- Estimated_Duration: 90');
+  });
+
+  it('omits Estimated_Duration when not provided', async () => {
+    const res = await writeEpisode({
+      timestamp: '2026-03-22T14:30:00+08:00',
+      location: 'bedroom',
+      action: 'reading',
+      emotionTags: ['calm'],
+      appearance: 'pajamas',
+      filePath: tempFile,
+    });
+
+    expect(res.success).toBe(true);
+    const content = fs.readFileSync(tempFile, 'utf8');
+    expect(content).not.toContain('Estimated_Duration');
+  });
+
   it('keeps chronological order when a past-time episode is written after a later one', async () => {
     // Write the later episode first
     await writeEpisode({

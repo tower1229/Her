@@ -12,7 +12,11 @@ import {
   buildForgetfulnessNotes,
   buildGeneratedOutput,
   buildReadOnlyHitOutput,
+  buildReadOnlyFastOutput,
+  buildReadOnlyFastEmptyOutput,
 } from '../core/build_timeline_output';
+import { defaultDurationForActivityMode } from '../core/build_consumption_view';
+import { parseMemoryFile } from '../lib/parse-memory';
 import { executeGeneratedWrite, classifyWriteFailure } from '../core/execute_write';
 import { reasonWithPolicy } from '../core/reason_with_policy';
 import { formatDate, parseTimestampParts } from '../lib/time-utils';
@@ -22,7 +26,7 @@ import { resolveWindow, TimelineQueryPlan } from '../core/resolve_window';
 import { loadTimelinePersonaContractFromWorkspace } from '../persona/load_persona_contract';
 import { LegacyPersonaContractExtractor } from '../persona/extract_legacy_persona_contract';
 
-export type TimelineResolveMode = 'read_only' | 'allow_generate';
+export type TimelineResolveMode = 'read_only' | 'allow_generate' | 'read_only_fast';
 
 export type TimelineResolveErrorCode =
   | 'INVALID_INPUT'
@@ -349,7 +353,49 @@ export async function timelineResolve(
   let timezone = '';
 
   try {
+    const effectiveMode = normalizeMode(input.mode);
+
+    if (effectiveMode === 'read_only_fast') {
+      const traceId = makeTraceId();
+      const currentTime = await deps.currentTime();
+      timezone = currentTime.timezone;
+      const nowISO = currentTime.now;
+      const nowDate = new Date(nowISO);
+      const calendarDate = formatDate(parseTimestampParts(nowISO)!);
+      const stubInput: TimelineResolveInput = { query: 'now', mode: 'read_only_fast' };
+      const stubWindow = { start: nowISO, end: nowISO, calendar_dates: [calendarDate], query_range: 'now' as const, semantic_target: 'now', collection_scope: 'today_so_far', timezone };
+      const raw = await deps.memoryGet(calendarDate, stubWindow as any, stubInput);
+      const episodes = parseMemoryFile(raw);
+
+      if (episodes.length > 0) {
+        const latest = episodes[episodes.length - 1];
+        const latestTime = new Date(latest.timestamp.replace(' ', 'T'));
+        const elapsedMs = nowDate.getTime() - latestTime.getTime();
+        const elapsedMinutes = elapsedMs / 60_000;
+        const duration = latest.estimatedDurationMinutes ?? defaultDurationForActivityMode(undefined);
+        if (elapsedMinutes < duration) {
+          const successOutput = buildReadOnlyFastOutput({
+            traceId,
+            parsed: latest,
+            calendarDate,
+            now: nowISO,
+            timezone,
+          });
+          return { ...successOutput } as TimelineResolveSuccessOutput;
+        }
+      }
+
+      const emptyOutput = buildReadOnlyFastEmptyOutput({
+        traceId,
+        now: nowISO,
+        timezone,
+        calendarDate,
+      });
+      return { ...emptyOutput } as TimelineResolveSuccessOutput;
+    }
+
     validateTimelineResolveInput(input);
+    const pipelineMode = normalizeMode(input.mode) as 'read_only' | 'allow_generate';
     const traceId = makeTraceId();
 
     const currentTime = await deps.currentTime();
@@ -368,7 +414,7 @@ export async function timelineResolve(
     }
     const reasonResult = await reasonWithPolicy({
       collector,
-      mode: normalizeMode(input.mode),
+      mode: pipelineMode,
       reasonTimeline: deps.reasonTimeline,
     });
     let reasoned = reasonResult.reasoned;
@@ -432,6 +478,7 @@ export async function timelineResolve(
           collector,
           generatedFact: guard.generated_fact,
           generationReason: guard.generated_fact.reason || reasoned.rationale.summary || 'llm-guided semantic timeline synthesis',
+          estimatedDurationMinutesOverride: reasoned.estimated_duration_minutes,
           deps: {
             memoryFilePath: deps.memoryFilePath,
             canonicalRootName: deps.canonicalRootName,
@@ -497,7 +544,7 @@ export async function timelineResolve(
         window,
         collector,
         reasoned,
-        notesOverride: normalizeMode(input.mode) === 'allow_generate'
+        notesOverride: pipelineMode === 'allow_generate'
           ? buildForgetfulnessNotes(reasoned, window)
           : undefined,
       });

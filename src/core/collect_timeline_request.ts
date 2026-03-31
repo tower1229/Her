@@ -44,7 +44,7 @@ export function buildTimelineCollectorOutput(
     request_id: requestId,
     request: {
       user_query: input.query,
-      mode: input.mode || 'allow_generate',
+      mode: (input.mode === 'read_only' ? 'read_only' : 'allow_generate') as 'read_only' | 'allow_generate',
     },
     anchor: {
       now: window.end,

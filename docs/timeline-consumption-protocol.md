@@ -113,6 +113,7 @@
 - `location_props`：可供视觉下游复用的显著场景物件
 - `lighting_hint`：稳定的光线提示
 - `framing_hint`：稳定的构图提示
+- `estimated_duration_minutes`：当前场景的预计持续时间（分钟）；由 Reasoner 在事实产出时生成，当 canon 中缺失时由 `activity_mode` 推导默认值
 
 ### 3.4 `selfie_ready`
 
@@ -153,6 +154,7 @@
 
 - `allow_generate`：优先补全非睡眠空窗，失败时用“记不清”表达
 - `read_only`：允许直接 `empty_window`，不触发补全写入
+- `read_only_fast`：零 LLM 调用的极速查询模式，仅读取当日 canon 并检查最新事实是否在 `estimated_duration_minutes` 有效期内；命中时返回 `read_only_fast_hit`，未命中返回 `empty_window`（含 30 分钟防抖）
 - 任何内部非输入类错误（reasoner 不可用、guard 拦截等）均以遗忘语义降级，`timeline_resolve` 对外始终返回 `ok: true`；仅 `INVALID_INPUT`（query 为空）仍返回 `ok: false`
 
 ### 4.2 自拍类技能
@@ -206,3 +208,24 @@
 
 - 聊天里说“在家里书房整理工作”
 - 当下游自拍 skill 真正接入后，也会看到相同的地点、事件、外观与状态
+
+## 7. `read_only_fast` 模式与场景氛围
+
+`read_only_fast` 是专为场景氛围设计的零成本查询模式。它跳过 Planner 和 Reasoner，直接从当日 canon 日志中读取最新事实并检查有效期。
+
+### 消费流程
+
+1. 先检查当前会话中是否已有 `timeline_resolve` 结果，且 `consumption.scene.estimated_duration_minutes` 未过期——如果是，直接复用
+2. 如果当前会话没有可复用结果，调用 `timeline_resolve(mode=read_only_fast)`
+3. 如果返回 `read_only_fast_hit`，使用 `consumption.scene` 的场景信息影响语气和节奏
+4. 如果返回 `empty_window`（防抖 30 分钟），在该窗口内视为无场景状态，不再重复调用
+
+### 跨 channel 一致性
+
+由于 canon 日志（`memory/YYYY-MM-DD.md`）是 workspace 级共享文件，某个 channel 通过 `allow_generate` 写入的事实，其他 channel 可以通过 `read_only_fast` 读取到，从而实现跨 channel 的场景感知一致性。
+
+### `estimated_duration_minutes` 来源优先级
+
+1. Reasoner 输出的 `estimated_duration_minutes`（顶层字段）
+2. `generated_fact.sceneSemantics.estimatedDurationMinutes`
+3. 基于 `activity_mode` 的默认值（sleep=420, meal=45, bath=30, exercise=60, work_or_study=120, commute=40, transition=15, rest=30, 其他=60）

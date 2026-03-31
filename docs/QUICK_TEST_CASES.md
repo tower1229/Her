@@ -358,6 +358,62 @@
 
 ---
 
+## T-Fast. read_only_fast 场景氛围
+
+### T-Fast-1 fast 命中
+
+先通过 T1.1 或 T5.1 让 canon 中存在一条未过期事实，然后在另一个 channel 或新会话中调用 `timeline_resolve(mode=read_only_fast)`。
+
+- **预期**：返回 `read_only_fast_hit`，`consumption.scene` 包含前序事实的场景信息
+- **关注点**：
+  - 不应触发 LLM 调用
+  - `estimated_duration_minutes` 应存在且合理
+
+### T-Fast-2 fast 空命中
+
+在当日 canon 为空时调用 `timeline_resolve(mode=read_only_fast)`。
+
+- **预期**：返回 `empty_window`，`consumption.scene.estimated_duration_minutes = 30`
+- **关注点**：无 LLM 调用，防抖 30 分钟
+
+### T-Fast-3 fast 过期命中
+
+在 canon 中存在一条已超过 `estimated_duration_minutes` 的旧事实时调用。
+
+- **预期**：返回 `empty_window`（防抖 30 分钟）
+
+### T-Fast-4 跨 channel 场景复用
+
+Channel A 通过 `allow_generate` 写入一条 canon 事实，Channel B 通过 `read_only_fast` 查询。
+
+- **预期**：Channel B 能读到 Channel A 写入的事实并返回 `read_only_fast_hit`
+
+### T-Fast-5 防抖验证
+
+`read_only_fast` 返回 `empty_window` 后，30 分钟内再次调用。
+
+- **预期**：应按 SOUL 指引直接复用上次的空状态结果，不再发起新调用
+
+---
+
+## T-Duration. estimated_duration_minutes
+
+### T-Duration-1 生成事实包含 Estimated_Duration
+
+通过 `allow_generate` 生成一条新事实后检查 canon 文件。
+
+- **预期**：`memory/YYYY-MM-DD.md` 中包含 `- Estimated_Duration: [number]`
+- **关注点**：值应合理（meal 约 30-60, work_or_study 约 60-180）
+
+### T-Duration-2 复用事实获得 estimated_duration_minutes
+
+通过 `read_only` 复用已存在的 canon 事实。
+
+- **预期**：`consumption.scene.estimated_duration_minutes` 存在
+- **关注点**：来源可以是 Reasoner 输出或 activity_mode 的默认值
+
+---
+
 ## 快速验收检查表
 
 | 编号 | 测试项 | 通过条件 |
@@ -373,3 +429,9 @@
 | T6.1 | 外观连贯 | 同日无故不换装 |
 | T8.1 | 路由分类 | point 和 range 正确区分 |
 | T10.1 | 高频一致性 | 连续 5 条描述同一场景 |
+| T-Fast-1 | fast 命中 | 返回 read_only_fast_hit，无 LLM 调用 |
+| T-Fast-2 | fast 空命中 | 返回 empty_window，防抖 30m |
+| T-Fast-3 | fast 过期命中 | 过期事实返回 empty_window |
+| T-Fast-4 | 跨 channel 复用 | Channel B 读到 Channel A 的 canon |
+| T-Duration-1 | 生成含 duration | canon 包含 Estimated_Duration |
+| T-Duration-2 | 复用含 duration | consumption.scene 有 estimated_duration_minutes |
