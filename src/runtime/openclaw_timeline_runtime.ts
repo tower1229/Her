@@ -8,6 +8,7 @@ import {
 import { buildConversationContextFromMessages } from './conversation_context';
 import { TimelineQueryPlan } from '../core/resolve_window';
 import { addHours, formatTimestamp, parseTimestampParts, TimestampParts } from '../lib/time-utils';
+import { writeEpisode } from '../storage/write-episode';
 import {
   timelineResolve,
   timelineResolveToolSpec,
@@ -1237,6 +1238,7 @@ function createTimelineResolveDependencies(
       now: formatCurrentTimestamp(new Date()),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     }),
+    writeEpisode,
     sessionsHistory: async () => {
       const sessionKey = toolContext.sessionKey;
       if (!sessionKey) return [];
