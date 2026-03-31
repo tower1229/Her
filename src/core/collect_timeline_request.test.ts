@@ -76,4 +76,156 @@ describe('buildTimelineCollectorOutput', () => {
       '2026-03-21',
     ]);
   });
+
+  it('precomputes elapsed_minutes and is_within_duration_window on candidate facts', () => {
+    const window: ResolvedWindow = {
+      query_range: 'now',
+      semantic_target: 'now',
+      collection_scope: 'today_so_far',
+      start: '2026-03-31T00:00:00+08:00',
+      end: '2026-03-31T15:00:00+08:00',
+      calendar_date: '2026-03-31',
+      calendar_dates: ['2026-03-31'],
+      timezone: 'Asia/Shanghai',
+      normalization_notes: [],
+    };
+
+    const collector = buildTimelineCollectorOutput(
+      'req-precompute',
+      { query: 'now', mode: 'allow_generate' },
+      window,
+      {
+        sourceOrder: ['memory_get'],
+        sessionsHistory: [],
+        dailyLogs: [
+          {
+            calendar_date: '2026-03-31',
+            raw_content: `### [14:00:00]\n- Timestamp: 2026-03-31T14:00:00+08:00\n- Location: 书房\n- Action: 整理笔记\n- Emotion_Tags: [专注]\n- Appearance: 家居服\n- Estimated_Duration: 120\n`,
+          },
+        ],
+        memorySearch: [],
+        personaContext: {
+          contract: emptyPersonaContract(),
+          available_sources: [],
+          should_constrain_generation: false,
+        },
+        conversationContext: {
+          is_recently_active: false,
+          minutes_since_last_turn: null,
+          stickiness_window_minutes: 10,
+          active_topic_summary: '',
+          should_prefer_conversation_continuity_for_now: false,
+        },
+      },
+    );
+
+    expect(collector.candidate_facts).toHaveLength(1);
+    const fact = collector.candidate_facts[0];
+    expect(fact.elapsed_minutes).toBe(60);
+    expect(fact.estimated_duration_minutes).toBe(120);
+    expect(fact.is_within_duration_window).toBe(true);
+    expect(fact.event_id).toBeUndefined();
+    expect(fact.has_parent_event).toBe(false);
+    expect(fact.parent_event_tag).toBeUndefined();
+  });
+
+  it('uses default duration when episode has no Estimated_Duration', () => {
+    const window: ResolvedWindow = {
+      query_range: 'now',
+      semantic_target: 'now',
+      collection_scope: 'today_so_far',
+      start: '2026-03-31T00:00:00+08:00',
+      end: '2026-03-31T10:30:00+08:00',
+      calendar_date: '2026-03-31',
+      calendar_dates: ['2026-03-31'],
+      timezone: 'Asia/Shanghai',
+      normalization_notes: [],
+    };
+
+    const collector = buildTimelineCollectorOutput(
+      'req-default-dur',
+      { query: 'now', mode: 'allow_generate' },
+      window,
+      {
+        sourceOrder: ['memory_get'],
+        sessionsHistory: [],
+        dailyLogs: [
+          {
+            calendar_date: '2026-03-31',
+            raw_content: `### [09:00:00]\n- Timestamp: 2026-03-31T09:00:00+08:00\n- Location: 书房\n- Action: 看书\n- Emotion_Tags: [平静]\n- Appearance: 睡衣\n`,
+          },
+        ],
+        memorySearch: [],
+        personaContext: {
+          contract: emptyPersonaContract(),
+          available_sources: [],
+          should_constrain_generation: false,
+        },
+        conversationContext: {
+          is_recently_active: false,
+          minutes_since_last_turn: null,
+          stickiness_window_minutes: 10,
+          active_topic_summary: '',
+          should_prefer_conversation_continuity_for_now: false,
+        },
+      },
+    );
+
+    const fact = collector.candidate_facts[0];
+    expect(fact.estimated_duration_minutes).toBe(60);
+    expect(fact.elapsed_minutes).toBe(90);
+    expect(fact.is_within_duration_window).toBe(false);
+  });
+
+  it('populates parent event fields on candidate facts when present in canon', () => {
+    const window: ResolvedWindow = {
+      query_range: 'now',
+      semantic_target: 'now',
+      collection_scope: 'today_so_far',
+      start: '2026-03-31T00:00:00+08:00',
+      end: '2026-03-31T15:00:00+08:00',
+      calendar_date: '2026-03-31',
+      calendar_dates: ['2026-03-31'],
+      timezone: 'Asia/Shanghai',
+      normalization_notes: [],
+    };
+
+    const collector = buildTimelineCollectorOutput(
+      'req-parent-event',
+      { query: 'now', mode: 'allow_generate' },
+      window,
+      {
+        sourceOrder: ['memory_get'],
+        sessionsHistory: [],
+        dailyLogs: [
+          {
+            calendar_date: '2026-03-31',
+            raw_content: `### [14:00:00]\n- Timestamp: 2026-03-31T14:00:00+08:00\n- Location: 高铁上\n- Action: 坐高铁前往大理\n- Emotion_Tags: [期待]\n- Appearance: 休闲外套\n- Estimated_Duration: 90\n- Event_Id: evt-20260331-140000\n- Parent_Event: evt-20260331-080000\n- Parent_Event_Phase: in-transit\n- Parent_Event_Progress: 0.5\n`,
+          },
+        ],
+        memorySearch: [],
+        personaContext: {
+          contract: emptyPersonaContract(),
+          available_sources: [],
+          should_constrain_generation: false,
+        },
+        conversationContext: {
+          is_recently_active: false,
+          minutes_since_last_turn: null,
+          stickiness_window_minutes: 10,
+          active_topic_summary: '',
+          should_prefer_conversation_continuity_for_now: false,
+        },
+      },
+    );
+
+    const fact = collector.candidate_facts[0];
+    expect(fact.event_id).toBe('evt-20260331-140000');
+    expect(fact.has_parent_event).toBe(true);
+    expect(fact.parent_event_tag).toBe('evt-20260331-080000');
+    expect(fact.parent_event_phase).toBe('in-transit');
+    expect(fact.parent_event_progress).toBe(0.5);
+    expect(fact.estimated_duration_minutes).toBe(90);
+    expect(fact.is_within_duration_window).toBe(true);
+  });
 });

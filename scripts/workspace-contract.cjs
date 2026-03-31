@@ -3,14 +3,13 @@ const path = require('node:path');
 
 const DEFAULT_CANONICAL_ROOT_NAME = 'memory';
 const AGENTS_SECTION_TITLE = '## Timeline Daily Log Contract';
-const SOUL_SECTION_TITLE = '## Temporal Awareness And Recall';
-const LEGACY_SOUL_SECTION_TITLE = '## 时间感知与回忆';
+const SOUL_SECTION_TITLE = '## Timeline';
+const LEGACY_SOUL_SECTION_TITLE_V1 = '## 时间感知与回忆';
+const LEGACY_SOUL_SECTION_TITLE_V2 = '## Temporal Awareness And Recall';
 const templatesDir = path.resolve(__dirname, '..', 'templates');
 
 const CURRENT_SOUL_MARKERS = [
-  'If a truthful answer depends on time-grounded lived experience',
-  'The timeline skill owns the precise routing rules',
-  'When unsure, prefer entering the timeline skill rather than answering from persona.',
+  'Enter the timeline skill at the start of every conversation turn',
 ];
 
 function normalizeRootName(rootName) {
@@ -40,7 +39,8 @@ function detectAgentsContract(content) {
 
 function detectSoulContract(content) {
   return content.includes(SOUL_SECTION_TITLE)
-    || content.includes(LEGACY_SOUL_SECTION_TITLE)
+    || content.includes(LEGACY_SOUL_SECTION_TITLE_V1)
+    || content.includes(LEGACY_SOUL_SECTION_TITLE_V2)
     || content.includes('Only Timeline results are the final factual basis')
     || content.includes('只有 Timeline 返回的结果')
     || content.includes('You must not bypass the timeline skill by directly reading files under');
@@ -64,7 +64,8 @@ module.exports = {
   DEFAULT_CANONICAL_ROOT_NAME,
   AGENTS_SECTION_TITLE,
   SOUL_SECTION_TITLE,
-  LEGACY_SOUL_SECTION_TITLE,
+  LEGACY_SOUL_SECTION_TITLE_V1,
+  LEGACY_SOUL_SECTION_TITLE_V2,
   normalizeRootName,
   buildAgentsContract,
   buildSoulContract,

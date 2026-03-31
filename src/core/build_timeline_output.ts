@@ -62,7 +62,8 @@ export function buildReadOnlyHitOutput(input: {
   collector: TimelineCollectorOutput;
   reasoned: TimelineReasonerOutput;
 }): TimelineResolveSuccessContract {
-  const { traceId, selectedFact, window, collector, reasoned } = input;
+  const { traceId, selectedFact, window, collector } = input;
+  let { reasoned } = input;
   const date = selectedFact.calendar_date;
   const fp = computeFingerprint(date, selectedFact.location, selectedFact.action, selectedFact.timestamp);
   const episode = mapToEpisode(
@@ -79,6 +80,28 @@ export function buildReadOnlyHitOutput(input: {
     buildWorldHooks(selectedFact.timestamp),
     fp,
   );
+
+  if (selectedFact.has_parent_event && selectedFact.parent_event_tag && !reasoned.generated_fact) {
+    reasoned = {
+      ...reasoned,
+      generated_fact: {
+        location: selectedFact.location,
+        action: selectedFact.action,
+        emotionTags: selectedFact.emotion_tags,
+        appearance: selectedFact.appearance,
+        internalMonologue: selectedFact.internal_monologue || '',
+        confidence: selectedFact.confidence,
+        sceneSemantics: {
+          activityMode: 'unknown' as const,
+          continuityRelation: 'same_day_continuation' as const,
+          rationale: 'read_only_hit stub for parent event passthrough',
+          parentEventTag: selectedFact.parent_event_tag,
+          parentEventPhase: selectedFact.parent_event_phase,
+          parentEventProgress: selectedFact.parent_event_progress,
+        },
+      },
+    };
+  }
 
   return {
     ok: true,
@@ -119,6 +142,7 @@ export function buildReadOnlyHitOutput(input: {
         reasoned,
         episode,
         sourceType: 'canon',
+        eventId: selectedFact.event_id,
       }),
       episodes: [episode],
     },
@@ -179,6 +203,12 @@ export function buildEmptyOutput(input: {
   };
 }
 
+function deriveEventIdFromTimestamp(isoTimestamp: string): string {
+  const match = isoTimestamp.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+  if (!match) return `evt-unknown-${Date.now()}`;
+  return `evt-${match[1]}${match[2]}${match[3]}-${match[4]}${match[5]}${match[6]}`;
+}
+
 export function buildGeneratedOutput(input: {
   traceId: string;
   window: TimelineOutputWindowView;
@@ -236,6 +266,7 @@ export function buildGeneratedOutput(input: {
         reasoned: input.reasoned,
         episode: input.generated.episode,
         sourceType: 'generated',
+        eventId: deriveEventIdFromTimestamp(input.generated.episode.temporal.start),
       }),
       episodes: [input.generated.episode],
     },
@@ -297,8 +328,25 @@ export function buildReadOnlyFastOutput(input: {
   const fp = computeFingerprint(calendarDate, parsed.location, parsed.action, parsed.timestamp);
   const worldHooks = buildWorldHooks(parsed.timestamp);
   const episode = mapToEpisode(parsed, worldHooks, fp);
-  const activityMode = parsed.action ? undefined : undefined;
   const durationFromParsed = parsed.estimatedDurationMinutes;
+  const hasParentEvent = Boolean(parsed.parentEventTag);
+  const stubGeneratedFact = hasParentEvent ? {
+    location: parsed.location,
+    action: parsed.action,
+    emotionTags: parsed.emotionTags,
+    appearance: parsed.appearance,
+    internalMonologue: parsed.internalMonologue || '',
+    confidence: parsed.confidence,
+    sceneSemantics: {
+      activityMode: 'unknown' as const,
+      continuityRelation: 'same_day_continuation' as const,
+      rationale: 'read_only_fast stub for parent event passthrough',
+      estimatedDurationMinutes: durationFromParsed,
+      parentEventTag: parsed.parentEventTag,
+      parentEventPhase: parsed.parentEventPhase,
+      parentEventProgress: parsed.parentEventProgress,
+    },
+  } : undefined;
   const stubReasoned: TimelineReasonerOutput = {
     schema_version: '1.0',
     request_id: `fast-${traceId}`,
@@ -326,6 +374,7 @@ export function buildReadOnlyFastOutput(input: {
       persona_basis: [],
       constraint_basis: [],
     },
+    generated_fact: stubGeneratedFact,
   };
 
   return {
@@ -366,6 +415,7 @@ export function buildReadOnlyFastOutput(input: {
         reasoned: stubReasoned,
         episode,
         sourceType: 'canon',
+        eventId: parsed.eventId,
       }),
       episodes: [episode],
     },

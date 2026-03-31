@@ -97,6 +97,10 @@
 - `location_props`
 - `lighting_hint`
 - `framing_hint`
+- `event_id`
+- `parent_event_tag`
+- `parent_event_phase`
+- `parent_event_progress`
 
 其中：
 
@@ -114,6 +118,10 @@
 - `lighting_hint`：稳定的光线提示
 - `framing_hint`：稳定的构图提示
 - `estimated_duration_minutes`：当前场景的预计持续时间（分钟）；由 Reasoner 在事实产出时生成，当 canon 中缺失时由 `activity_mode` 推导默认值
+- `event_id`：当前 canon 条目的确定性唯一标识，格式 `evt-YYYYMMDD-HHmmss`，由脚本在写入时自动生成
+- `parent_event_tag`：当前场景所属的宏观事件的 `event_id`；仅在当前场景是某个长时间事件的细化阶段时存在
+- `parent_event_phase`：当前细化阶段的简短标签（如 `"packing"`, `"in-transit"`, `"settling-in"`）
+- `parent_event_progress`：宏观事件的完成进度，0.0-1.0 浮点数
 
 ### 3.4 `selfie_ready`
 
@@ -229,3 +237,43 @@
 1. Reasoner 输出的 `estimated_duration_minutes`（顶层字段）
 2. `generated_fact.sceneSemantics.estimatedDurationMinutes`
 3. 基于 `activity_mode` 的默认值（sleep=420, meal=45, bath=30, exercise=60, work_or_study=120, commute=40, transition=15, rest=30, 其他=60）
+
+## 8. 宏观事件细化（Macro Event Refinement）
+
+当 Timeline 记忆中存在一个长时间持续的宏观事件（如搬家、旅行、长途出行），Reasoner 会在后续查询时将其自动细化为当前时间点合理的瞬时阶段。
+
+### 核心概念
+
+- **宏观事件**：`estimated_duration_minutes > 120` 且没有 `Parent_Event` 字段的 canon 记忆
+- **细化阶段**：带有 `Parent_Event` 字段的 canon 记忆，是宏观事件在某个时间点的具体化
+- **多次细化**：一个宏观事件在其生命周期内可以产生多个时间不重叠的细化阶段。只要当前时间没有被任何仍在有效期内的细化阶段覆盖，就可以生成新的细化阶段（例如一天的旅游行程可以产出"古城游玩"、"洱海边漫步"、"民宿附近闲逛"等多个阶段）
+- **防递归**：已经带有 `Parent_Event` 的细化阶段不会被再次细化，防止无限细分
+
+### 下游消费
+
+当 `consumption.scene` 包含 `parent_event_tag` 时，下游应知道当前场景是更大事件的一部分：
+
+- 聊天层：在回答中保持与整体事件叙事的连贯性
+- 自拍技能：场景描述应反映当前阶段的具体状态，而非笼统的宏观事件
+- `parent_event_progress` 可用于判断事件进展程度
+
+### canon 格式
+
+每条 canon 条目在写入时自动分配 `Event_Id`：
+
+```
+- Event_Id: evt-20260331-080000
+```
+
+细化阶段在 canon 中通过 `Parent_Event` 引用父事件的 `Event_Id`：
+
+```
+- Event_Id: evt-20260331-140000
+- Parent_Event: evt-20260331-080000
+- Parent_Event_Phase: in-transit
+- Parent_Event_Progress: 0.5
+```
+
+### `read_only_fast` 兼容
+
+`read_only_fast` 路径会透传 canon 中的 `Parent_Event` 字段到 `consumption.scene`，无需 LLM 调用即可让下游感知宏观事件上下文。

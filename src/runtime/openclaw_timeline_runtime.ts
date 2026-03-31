@@ -577,6 +577,26 @@ function buildTimelineReasonerSystemPrompt(): string {
     '  Must be present when decision.action is reuse_existing_fact or generate_new_fact.',
     '  Consider activityMode, persona temperament, time of day, and typical real-world durations.',
     '  Examples: sleep ≈ 420, meal ≈ 30–60, work_or_study ≈ 60–180, bath ≈ 20–40, commute ≈ 20–50, exercise ≈ 30–90, rest ≈ 15–45, transition ≈ 5–20.',
+    '- Scene diversity: when collector.world_context.target.day_kind is weekend or holiday, or time_band is evening on any day, actively consider outdoor, social, shopping, exercise, and leisure activity modes instead of defaulting to indoor/domestic scenes.',
+    '- Use persona.rhythm weekend_bias, evening_bias, and persona.scene plausible_locations/plausible_activities to select realistic non-indoor scenes.',
+    '- If the previous canon entries for the day are all indoor, increase the likelihood of an outdoor or social scene for subsequent generation, unless persona constraints explicitly restrict it.',
+    '- Avoid generating the same activity_mode for more than 3 consecutive entries on the same day (excluding sleep and work_or_study).',
+  ];
+
+  const macroEventRules = [
+    'Priority C3 - Macro event refinement (long-duration events):',
+    '- Each candidate_fact now carries precomputed time fields: estimated_duration_minutes, elapsed_minutes, is_within_duration_window (boolean), event_id (string), has_parent_event (boolean), parent_event_tag, parent_event_phase, parent_event_progress. Use these directly; do NOT recalculate elapsed time or duration windows yourself.',
+    '- event_id is a deterministic identifier assigned to every canon entry at write time. When generating a refined phase, set sceneSemantics.parentEventTag to the event_id of the parent macro event (available on the candidate_fact). Do NOT invent freeform strings; always copy the exact event_id value.',
+    '- When a candidate_fact has estimated_duration_minutes > 120 AND has_parent_event is false (meaning it is an original macro event, not already a refined phase) AND is_within_duration_window is true:',
+    '  Check whether any other candidate_fact with a matching parent_event_tag (equal to the parent\'s event_id) also has is_within_duration_window=true. If such a still-active refined phase exists, reuse it (reuse_existing_fact) instead of generating a new one.',
+    '  If no still-active refined phase covers the current time, you SHOULD generate_new_fact as a new refined instantaneous phase of that macro event. A macro event can spawn multiple non-overlapping refined phases over its lifetime.',
+    '  Set sceneSemantics.parentEventTag to the parent candidate_fact\'s event_id.',
+    '  Set sceneSemantics.parentEventPhase to a short label for the current phase (e.g., "packing", "in-transit", "arriving", "exploring-old-town", "lakeside-walk"). Each new phase should be distinct from previous phases of the same parent event.',
+    '  Set sceneSemantics.parentEventProgress to elapsed_minutes / estimated_duration_minutes from the parent fact (already available as precomputed numbers).',
+    '  The refined fact must be temporally plausible: location, action, appearance, and emotion should reflect what would realistically be happening at this point in the larger event. Consider previously generated phases (visible as expired candidate_facts with the same parent_event_tag) to ensure narrative continuity and avoid repeating the same phase.',
+    '  Set estimated_duration_minutes for the refined phase to a reasonable sub-interval (typically 30-120 minutes).',
+    '- ANTI-RECURSION GUARD: If a candidate_fact has has_parent_event=true, it is itself a refined phase. Do NOT generate a further refinement of it. Treat it as a normal reusable fact instead. This prevents infinite subdivision.',
+    '- When a macro event fact has is_within_duration_window=false, it has expired. Do NOT reference it as a parent. The macro event is complete.',
   ];
 
   const appearanceRules = [
@@ -647,6 +667,9 @@ function buildTimelineReasonerSystemPrompt(): string {
           continuityRelation: 'same_day_continuation | same_scene_continuation | shifted_scene | return_home | fresh_moment | unknown',
           rationale: 'why this generated scene fits the current timeline state',
           estimatedDurationMinutes: 'optional integer, mirrors top-level estimated_duration_minutes',
+          parentEventTag: 'optional string, must be the exact event_id of the parent macro event candidate_fact — do NOT invent values',
+          parentEventPhase: 'optional string, short label for the current phase of the macro event (e.g., "packing", "in-transit", "settling-in")',
+          parentEventProgress: 'optional float 0.0-1.0, elapsed proportion of the macro event duration',
         },
         appearanceLogic: {
           transition: 'inherit | change_required | change_allowed | unknown',
@@ -661,6 +684,7 @@ function buildTimelineReasonerSystemPrompt(): string {
     ...coreRules,
     ...reasoningRules,
     ...generationRules,
+    ...macroEventRules,
     ...appearanceRules,
     ...conversationAndRecoveryRules,
     ...outputSchema,

@@ -74,6 +74,84 @@ describe('parseMemoryFile', () => {
     expect(result[0].estimatedDurationMinutes).toBeUndefined();
   });
 
+  it('should parse Event_Id field', () => {
+    const memory = `
+### [09:30:00] 工作
+- Timestamp: 2026-03-24 09:30:00
+- Location: Home study
+- Action: Reviewing tasks
+- Emotion_Tags: [calm]
+- Appearance: Light home top
+- Estimated_Duration: 120
+- Event_Id: evt-20260324-093000
+    `;
+
+    const result = parseMemoryFile(memory);
+    expect(result.length).toBe(1);
+    expect(result[0].eventId).toBe('evt-20260324-093000');
+  });
+
+  it('should parse Parent_Event fields with Event_Id', () => {
+    const memory = `
+### [08:00:00] 搬家
+- Timestamp: 2026-03-31 08:00:00
+- Location: 北京旧居
+- Action: 开始打包行李准备搬去大理
+- Emotion_Tags: [期待, 忙碌]
+- Appearance: 宽松T恤和运动裤
+- Internal_Monologue: 终于要出发了，有点兴奋也有点紧张
+- Estimated_Duration: 720
+- Event_Id: evt-20260331-080000
+- Parent_Event: evt-20260331-060000
+- Parent_Event_Phase: packing
+- Parent_Event_Progress: 0.1
+    `;
+
+    const result = parseMemoryFile(memory);
+    expect(result.length).toBe(1);
+    expect(result[0].eventId).toBe('evt-20260331-080000');
+    expect(result[0].parentEventTag).toBe('evt-20260331-060000');
+    expect(result[0].parentEventPhase).toBe('packing');
+    expect(result[0].parentEventProgress).toBe(0.1);
+  });
+
+  it('should parse entries without Event_Id and Parent_Event fields as undefined', () => {
+    const memory = `
+### [14:30:00] 整理
+- Timestamp: 2026-03-22 14:30:00
+- Location: 书房
+- Action: 整理东西
+- Emotion_Tags: [专注]
+- Appearance: 家居服
+- Estimated_Duration: 60
+    `;
+
+    const result = parseMemoryFile(memory);
+    expect(result.length).toBe(1);
+    expect(result[0].eventId).toBeUndefined();
+    expect(result[0].parentEventTag).toBeUndefined();
+    expect(result[0].parentEventPhase).toBeUndefined();
+    expect(result[0].parentEventProgress).toBeUndefined();
+  });
+
+  it('should parse Parent_Event_Progress as float', () => {
+    const memory = `
+### [14:00:00] 搬家途中
+- Timestamp: 2026-03-31 14:00:00
+- Location: 高铁上
+- Action: 坐高铁前往大理
+- Emotion_Tags: [期待]
+- Appearance: 休闲外套
+- Parent_Event: moving-to-dali-20260331
+- Parent_Event_Phase: in-transit
+- Parent_Event_Progress: 0.55
+    `;
+
+    const result = parseMemoryFile(memory);
+    expect(result.length).toBe(1);
+    expect(result[0].parentEventProgress).toBeCloseTo(0.55);
+  });
+
   it('should ignore segments without timestamps', () => {
     const memory = `
 ### [09:00:00] 起床

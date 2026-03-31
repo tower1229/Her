@@ -1,4 +1,4 @@
-import { buildEmptyOutput, buildForgetfulnessNotes, buildGeneratedOutput, buildReadOnlyHitOutput } from './build_timeline_output';
+import { buildEmptyOutput, buildForgetfulnessNotes, buildGeneratedOutput, buildReadOnlyHitOutput, buildReadOnlyFastOutput } from './build_timeline_output';
 import { TimelineCollectorOutput, TimelineReasonerOutput } from './timeline_reasoner_contract';
 import { emptyPersonaContract } from '../persona/persona_contract';
 
@@ -232,7 +232,60 @@ describe('build_timeline_output', () => {
     expect(output.result?.consumption?.scene?.lighting_hint).toBe('soft daylight');
     expect(output.result?.consumption?.scene?.framing_hint).toBe('half-body, seated, near-table framing');
     expect(output.result?.consumption?.selfie_ready?.location).toContain('Shanghai');
+    expect(output.result?.consumption?.scene?.event_id).toBeUndefined();
+    expect(output.result?.consumption?.scene?.parent_event_tag).toBeUndefined();
+    expect(output.result?.consumption?.scene?.parent_event_phase).toBeUndefined();
+    expect(output.result?.consumption?.scene?.parent_event_progress).toBeUndefined();
     expect(output.result?.episodes).toHaveLength(1);
+  });
+
+  it('read_only_hit propagates event_id and parent event fields from selectedFact', () => {
+    const collector = makeCollector();
+    const output = buildReadOnlyHitOutput({
+      traceId: 'trace-test-readonly-parent',
+      selectedFact: {
+        fact_id: 'canon:2026-03-31:1',
+        source_type: 'canon_daily_log',
+        calendar_date: '2026-03-31',
+        timestamp: '2026-03-31T14:00:00+08:00',
+        location: '高铁上',
+        action: '坐高铁前往大理',
+        emotion_tags: ['期待'],
+        appearance: '休闲外套',
+        parse_level: 'A',
+        confidence: 0.8,
+        estimated_duration_minutes: 90,
+        elapsed_minutes: 30,
+        is_within_duration_window: true,
+        event_id: 'evt-20260331-140000',
+        has_parent_event: true,
+        parent_event_tag: 'evt-20260331-080000',
+        parent_event_phase: 'in-transit',
+        parent_event_progress: 0.5,
+      },
+      window: {
+        calendar_date: '2026-03-31',
+        query_range: 'now',
+        semantic_target: 'now',
+        collection_scope: 'today_so_far',
+        start: '2026-03-31T14:00:00+08:00',
+        end: '2026-03-31T14:30:00+08:00',
+        timezone: 'Asia/Shanghai',
+      },
+      collector,
+      reasoned: {
+        ...reasoned,
+        decision: {
+          action: 'reuse_existing_fact',
+          selected_fact_id: 'canon:2026-03-31:1',
+          should_write_canon: false,
+        },
+      },
+    });
+    expect(output.result?.consumption?.scene?.event_id).toBe('evt-20260331-140000');
+    expect(output.result?.consumption?.scene?.parent_event_tag).toBe('evt-20260331-080000');
+    expect(output.result?.consumption?.scene?.parent_event_phase).toBe('in-transit');
+    expect(output.result?.consumption?.scene?.parent_event_progress).toBe(0.5);
   });
 
   it('builds generated output with consistent resolution and notes', () => {
@@ -366,6 +419,10 @@ describe('build_timeline_output', () => {
       summary: expect.any(String),
     });
     expect(output.result?.consumption?.selfie_ready?.emotion).toContain('专注');
+    expect(output.result?.consumption?.scene?.event_id).toBeDefined();
+    expect(output.result?.consumption?.scene?.parent_event_tag).toBeUndefined();
+    expect(output.result?.consumption?.scene?.parent_event_phase).toBeUndefined();
+    expect(output.result?.consumption?.scene?.parent_event_progress).toBeUndefined();
     expect(output.notes.join(' ')).toContain('Generated episode persisted');
   });
 
@@ -692,6 +749,104 @@ describe('build_timeline_output', () => {
       }),
     });
     expect(output.result?.consumption?.scene?.estimated_duration_minutes).toBe(120);
+  });
+
+  it('propagates parent_event fields from sceneSemantics to consumption.scene', () => {
+    const output = buildGeneratedTestOutput({
+      traceId: 'trace-test-parent-event',
+      reasoned: {
+        ...reasoned,
+        decision: { action: 'generate_new_fact', should_write_canon: true },
+        continuity: { judged: true, is_continuing: false, reason: 'macro event refinement' },
+        estimated_duration_minutes: 90,
+        generated_fact: {
+          location: '高铁上',
+          action: '坐高铁前往大理',
+          emotionTags: ['期待'],
+          appearance: '休闲外套',
+          internalMonologue: '离大理越来越近了',
+          confidence: 0.8,
+          sceneSemantics: {
+            activityMode: 'commute',
+            continuityRelation: 'same_day_continuation',
+            rationale: 'refined phase of moving event',
+            estimatedDurationMinutes: 90,
+            parentEventTag: 'moving-to-dali-20260331',
+            parentEventPhase: 'in-transit',
+            parentEventProgress: 0.5,
+          },
+          appearanceLogic: {
+            transition: 'change_required',
+            changeReason: 'formal_outing',
+            outfitMode: 'casual_outing',
+          },
+        },
+      },
+      episode: makeEpisode({
+        id: 'ep-macro',
+        timestamp: '2026-03-31T14:00:00+08:00',
+        timeOfDay: 'afternoon',
+        locationLabel: '高铁上',
+        activity: '坐高铁前往大理',
+        summary: '坐高铁前往大理，看着窗外风景',
+        outfitStyle: '休闲外套',
+        primaryEmotion: '期待',
+      }),
+    });
+    expect(output.result?.consumption?.scene?.event_id).toBeDefined();
+    expect(output.result?.consumption?.scene?.parent_event_tag).toBe('moving-to-dali-20260331');
+    expect(output.result?.consumption?.scene?.parent_event_phase).toBe('in-transit');
+    expect(output.result?.consumption?.scene?.parent_event_progress).toBe(0.5);
+  });
+
+  it('read_only_fast output includes event_id and parent event fields from parsed canon', () => {
+    const output = buildReadOnlyFastOutput({
+      traceId: 'trace-fast-parent',
+      parsed: {
+        timestamp: '2026-03-31 14:00:00',
+        location: '高铁上',
+        action: '坐高铁前往大理',
+        emotionTags: ['期待'],
+        appearance: '休闲外套',
+        parseLevel: 'A',
+        confidence: 0.8,
+        estimatedDurationMinutes: 90,
+        eventId: 'evt-20260331-140000',
+        parentEventTag: 'evt-20260331-080000',
+        parentEventPhase: 'in-transit',
+        parentEventProgress: 0.5,
+      },
+      calendarDate: '2026-03-31',
+      now: '2026-03-31T14:30:00+08:00',
+      timezone: 'Asia/Shanghai',
+    });
+    expect(output.result?.consumption?.scene?.event_id).toBe('evt-20260331-140000');
+    expect(output.result?.consumption?.scene?.parent_event_tag).toBe('evt-20260331-080000');
+    expect(output.result?.consumption?.scene?.parent_event_phase).toBe('in-transit');
+    expect(output.result?.consumption?.scene?.parent_event_progress).toBe(0.5);
+  });
+
+  it('read_only_fast output omits parent event fields when canon has none', () => {
+    const output = buildReadOnlyFastOutput({
+      traceId: 'trace-fast-no-parent',
+      parsed: {
+        timestamp: '2026-03-31 14:00:00',
+        location: '书房',
+        action: '整理笔记',
+        emotionTags: ['专注'],
+        appearance: '家居服',
+        parseLevel: 'A',
+        confidence: 0.9,
+        estimatedDurationMinutes: 120,
+      },
+      calendarDate: '2026-03-31',
+      now: '2026-03-31T14:30:00+08:00',
+      timezone: 'Asia/Shanghai',
+    });
+    expect(output.result?.consumption?.scene?.event_id).toBeUndefined();
+    expect(output.result?.consumption?.scene?.parent_event_tag).toBeUndefined();
+    expect(output.result?.consumption?.scene?.parent_event_phase).toBeUndefined();
+    expect(output.result?.consumption?.scene?.parent_event_progress).toBeUndefined();
   });
 
   it('falls back to activity_mode default when no explicit duration is provided', () => {

@@ -15,6 +15,10 @@ export interface WriteEpisodeInput {
   appearance: string;
   internalMonologue?: string;
   estimatedDurationMinutes?: number;
+  eventId?: string;
+  parentEventTag?: string;
+  parentEventPhase?: string;
+  parentEventProgress?: number;
   filePath: string;
   confidence?: number;
 }
@@ -66,7 +70,7 @@ function detectWriteConflict(
 }
 
 export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResult> {
-  const { timestamp, location, action, emotionTags, appearance, internalMonologue, estimatedDurationMinutes, filePath } = input;
+  const { timestamp, location, action, emotionTags, appearance, internalMonologue, estimatedDurationMinutes, eventId, parentEventTag, parentEventPhase, parentEventProgress, filePath } = input;
 
   if (!timestamp || !location || !action || !emotionTags || emotionTags.length === 0 || !appearance) {
     return {
@@ -145,6 +149,7 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
     const existingContent = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '';
     const existingEpisodes = parseMemoryFile(existingContent);
 
+    const generatedEventId = eventId ?? `evt-${dateStr.replace(/-/g, '')}-${timeStr.replace(/:/g, '')}`;
     const newEpisode = {
       timestamp: `${dateStr} ${timeStr}`,
       location,
@@ -153,6 +158,10 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       appearance,
       internalMonologue,
       estimatedDurationMinutes,
+      eventId: generatedEventId,
+      parentEventTag,
+      parentEventPhase,
+      parentEventProgress,
     };
 
     const allEpisodes = [...existingEpisodes, newEpisode];
@@ -173,6 +182,18 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       }
       if (ep.estimatedDurationMinutes != null) {
         fileLines.push(`- Estimated_Duration: ${ep.estimatedDurationMinutes}`);
+      }
+      if (ep.eventId) {
+        fileLines.push(`- Event_Id: ${ep.eventId}`);
+      }
+      if (ep.parentEventTag) {
+        fileLines.push(`- Parent_Event: ${ep.parentEventTag}`);
+      }
+      if (ep.parentEventPhase) {
+        fileLines.push(`- Parent_Event_Phase: ${ep.parentEventPhase}`);
+      }
+      if (ep.parentEventProgress != null) {
+        fileLines.push(`- Parent_Event_Progress: ${ep.parentEventProgress}`);
       }
       fileLines.push('');
     }

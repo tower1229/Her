@@ -39,6 +39,14 @@ export interface CollectedTimelineFact {
   internal_monologue?: string;
   parse_level: 'A' | 'B';
   confidence: number;
+  estimated_duration_minutes?: number;
+  elapsed_minutes?: number;
+  is_within_duration_window?: boolean;
+  event_id?: string;
+  has_parent_event?: boolean;
+  parent_event_tag?: string;
+  parent_event_phase?: string;
+  parent_event_progress?: number;
 }
 
 export interface TimelineCollectorOutput {

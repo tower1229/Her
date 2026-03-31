@@ -147,6 +147,77 @@ describe('writeEpisode', () => {
     expect(content).not.toContain('Estimated_Duration');
   });
 
+  it('auto-generates Event_Id from timestamp', async () => {
+    const res = await writeEpisode({
+      timestamp: '2026-03-24T09:30:00+08:00',
+      location: 'Home study',
+      action: 'Reviewing tasks',
+      emotionTags: ['calm'],
+      appearance: 'light home top',
+      filePath: tempFile,
+    });
+
+    expect(res.success).toBe(true);
+    const content = fs.readFileSync(tempFile, 'utf8');
+    expect(content).toContain('- Event_Id: evt-20260324-093000');
+  });
+
+  it('uses provided eventId instead of auto-generating', async () => {
+    const res = await writeEpisode({
+      timestamp: '2026-03-24T09:30:00+08:00',
+      location: 'Home study',
+      action: 'Reviewing tasks',
+      emotionTags: ['calm'],
+      appearance: 'light home top',
+      eventId: 'evt-custom-id',
+      filePath: tempFile,
+    });
+
+    expect(res.success).toBe(true);
+    const content = fs.readFileSync(tempFile, 'utf8');
+    expect(content).toContain('- Event_Id: evt-custom-id');
+  });
+
+  it('writes Parent_Event fields referencing event_id', async () => {
+    const res = await writeEpisode({
+      timestamp: '2026-03-31T08:00:00+08:00',
+      location: '北京旧居',
+      action: '打包行李',
+      emotionTags: ['期待', '忙碌'],
+      appearance: '宽松T恤和运动裤',
+      estimatedDurationMinutes: 720,
+      parentEventTag: 'evt-20260331-060000',
+      parentEventPhase: 'packing',
+      parentEventProgress: 0.1,
+      filePath: tempFile,
+    });
+
+    expect(res.success).toBe(true);
+    const content = fs.readFileSync(tempFile, 'utf8');
+    expect(content).toContain('- Event_Id: evt-20260331-080000');
+    expect(content).toContain('- Parent_Event: evt-20260331-060000');
+    expect(content).toContain('- Parent_Event_Phase: packing');
+    expect(content).toContain('- Parent_Event_Progress: 0.1');
+  });
+
+  it('omits Parent_Event fields when not provided but still writes Event_Id', async () => {
+    const res = await writeEpisode({
+      timestamp: '2026-03-22T14:30:00+08:00',
+      location: 'bedroom',
+      action: 'reading a book',
+      emotionTags: ['calm'],
+      appearance: 'pajamas',
+      filePath: tempFile,
+    });
+
+    expect(res.success).toBe(true);
+    const content = fs.readFileSync(tempFile, 'utf8');
+    expect(content).toContain('- Event_Id: evt-20260322-143000');
+    expect(content).not.toContain('Parent_Event:');
+    expect(content).not.toContain('Parent_Event_Phase');
+    expect(content).not.toContain('Parent_Event_Progress');
+  });
+
   it('keeps chronological order when a past-time episode is written after a later one', async () => {
     // Write the later episode first
     await writeEpisode({

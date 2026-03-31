@@ -619,5 +619,59 @@ describe('timelineResolve', () => {
       const result = await timelineResolve({ query: '', mode: 'read_only_fast' });
       expect(result.ok).toBe(true);
     });
+
+    it('returns event_id and parent event fields from canon in read_only_fast mode', async () => {
+      setTimelineResolveDependencies({
+        currentTime: async () => ({ now: '2026-03-31T14:30:00+08:00', timezone: 'Asia/Shanghai' }),
+        sessionsHistory: async () => [],
+        memoryGet: async () => `
+### [14:00:00] 搬家途中
+- Timestamp: 2026-03-31 14:00:00
+- Location: 高铁上
+- Action: 坐高铁前往大理
+- Emotion_Tags: [期待]
+- Appearance: 休闲外套
+- Estimated_Duration: 90
+- Event_Id: evt-20260331-140000
+- Parent_Event: evt-20260331-080000
+- Parent_Event_Phase: in-transit
+- Parent_Event_Progress: 0.5
+`,
+      });
+
+      const result = await timelineResolve({ query: 'now', mode: 'read_only_fast' });
+      expect(result.ok).toBe(true);
+      expect(result.resolution_summary.mode).toBe('read_only_fast_hit');
+      const scene = (result as any).result?.consumption?.scene;
+      expect(scene?.event_id).toBe('evt-20260331-140000');
+      expect(scene?.parent_event_tag).toBe('evt-20260331-080000');
+      expect(scene?.parent_event_phase).toBe('in-transit');
+      expect(scene?.parent_event_progress).toBe(0.5);
+    });
+
+    it('read_only_fast omits event_id and parent event fields when canon has none', async () => {
+      setTimelineResolveDependencies({
+        currentTime: async () => ({ now: '2026-03-22T15:00:00+08:00', timezone: 'Asia/Shanghai' }),
+        sessionsHistory: async () => [],
+        memoryGet: async () => `
+### [14:30:00] 整理
+- Timestamp: 2026-03-22 14:30:00
+- Location: 书房
+- Action: 整理笔记
+- Emotion_Tags: [专注]
+- Appearance: 家居服
+- Estimated_Duration: 120
+`,
+      });
+
+      const result = await timelineResolve({ query: 'now', mode: 'read_only_fast' });
+      expect(result.ok).toBe(true);
+      expect(result.resolution_summary.mode).toBe('read_only_fast_hit');
+      const scene = (result as any).result?.consumption?.scene;
+      expect(scene?.event_id).toBeUndefined();
+      expect(scene?.parent_event_tag).toBeUndefined();
+      expect(scene?.parent_event_phase).toBeUndefined();
+      expect(scene?.parent_event_progress).toBeUndefined();
+    });
   });
 });

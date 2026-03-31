@@ -10,6 +10,10 @@ export interface ParsedEpisode {
   parseLevel: 'A' | 'B';
   confidence: number;
   estimatedDurationMinutes?: number;
+  eventId?: string;
+  parentEventTag?: string;
+  parentEventPhase?: string;
+  parentEventProgress?: number;
 }
 
 export interface TimelineWindow {
@@ -133,6 +137,10 @@ export interface TimelineConsumptionView {
     lighting_hint?: string;
     framing_hint?: string;
     estimated_duration_minutes?: number;
+    event_id?: string;
+    parent_event_tag?: string;
+    parent_event_phase?: string;
+    parent_event_progress?: number;
   };
   selfie_ready?: {
     location: string;

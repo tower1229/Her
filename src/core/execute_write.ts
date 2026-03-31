@@ -21,6 +21,10 @@ export interface ExecuteWriteDeps {
     appearance: string;
     internalMonologue?: string;
     estimatedDurationMinutes?: number;
+    eventId?: string;
+    parentEventTag?: string;
+    parentEventPhase?: string;
+    parentEventProgress?: number;
     filePath: string;
     confidence?: number;
   }) => Promise<WriteResult>;
@@ -119,6 +123,7 @@ export async function executeGeneratedWrite(input: {
     );
     const estimatedDuration = input.generatedFact.sceneSemantics?.estimatedDurationMinutes
       ?? input.estimatedDurationMinutesOverride;
+    const parentSemantics = input.generatedFact.sceneSemantics;
     writeResult = input.deps.writeEpisode
       ? await withFileLock(filePath, async () =>
           input.deps.writeEpisode!({
@@ -129,6 +134,9 @@ export async function executeGeneratedWrite(input: {
             appearance: generated.parsed.appearance,
             internalMonologue: generated.parsed.internalMonologue,
             estimatedDurationMinutes: estimatedDuration,
+            parentEventTag: parentSemantics?.parentEventTag,
+            parentEventPhase: parentSemantics?.parentEventPhase,
+            parentEventProgress: parentSemantics?.parentEventProgress,
             filePath,
             confidence: generated.parsed.confidence,
           }),

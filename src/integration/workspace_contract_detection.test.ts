@@ -14,24 +14,33 @@ describe('workspace contract detection', () => {
     expect(contracts.detectLegacySoulContract(soul)).toBe(false);
   });
 
-  it('classifies older SOUL contracts as legacy so setup/doctor can upgrade them', async () => {
+  it('classifies v1 SOUL contracts as legacy so setup/doctor can upgrade them', async () => {
     const contracts = await loadWorkspaceContractModule();
-    const legacySoul = [
+    const legacySoulV1 = [
+      '## 时间感知与回忆',
+      '',
+      '只有 Timeline 返回的结果才是时间状态和回忆问题的最终事实依据。',
+    ].join('\n');
+
+    expect(contracts.detectSoulContract(legacySoulV1)).toBe(true);
+    expect(contracts.detectCurrentSoulContract(legacySoulV1)).toBe(false);
+    expect(contracts.detectLegacySoulContract(legacySoulV1)).toBe(true);
+  });
+
+  it('classifies v2 SOUL contracts as legacy so setup/doctor can upgrade them', async () => {
+    const contracts = await loadWorkspaceContractModule();
+    const legacySoulV2 = [
       '## Temporal Awareness And Recall',
       '',
       'You have clear temporal awareness and continuous recall.',
       '',
-      'When the user asks about temporal state or recall-related questions, you must not answer directly from persona, recent chat context, `SOUL`, `IDENTITY`, `MEMORY`, `persona/PERSONA_PROFILE.md`, or manually read timeline logs.',
+      'If a truthful answer depends on time-grounded lived experience, enter the timeline skill first.',
       '',
-      'In those cases, you must first enter the timeline skill, and only then follow the skill\'s rules to decide how Timeline should be called and how the reply should be composed.',
-      '',
-      'You must not bypass the timeline skill by directly reading files under `memory/` and assembling the answer yourself.',
-      '',
-      'Only Timeline results are the final factual basis for temporal-state and recall questions.',
+      'The timeline skill owns the precise routing rules and whether Timeline should be called.',
     ].join('\n');
 
-    expect(contracts.detectSoulContract(legacySoul)).toBe(true);
-    expect(contracts.detectCurrentSoulContract(legacySoul)).toBe(false);
-    expect(contracts.detectLegacySoulContract(legacySoul)).toBe(true);
+    expect(contracts.detectSoulContract(legacySoulV2)).toBe(true);
+    expect(contracts.detectCurrentSoulContract(legacySoulV2)).toBe(false);
+    expect(contracts.detectLegacySoulContract(legacySoulV2)).toBe(true);
   });
 });
