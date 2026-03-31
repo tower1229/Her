@@ -9,7 +9,7 @@ const LEGACY_SOUL_SECTION_TITLE_V2 = '## Temporal Awareness And Recall';
 const templatesDir = path.resolve(__dirname, '..', 'templates');
 
 const CURRENT_SOUL_MARKERS = [
-  'Enter the timeline skill at the start of every conversation turn',
+  'Enter the timeline skill at the start of every turn to handle these scenarios:',
 ];
 
 function normalizeRootName(rootName) {
