@@ -8,7 +8,8 @@ import {
   detectCurrentSoulContract,
   detectLegacySoulContract,
   detectSoulContract,
-  LEGACY_SOUL_SECTION_TITLE,
+  LEGACY_SOUL_SECTION_TITLE_V1,
+  LEGACY_SOUL_SECTION_TITLE_V2,
   normalizeRootName,
   resolveCanonicalRootPath,
   SOUL_SECTION_TITLE,
@@ -96,7 +97,7 @@ function mergeSoulSection(existingContent, sectionContent) {
   if (detectLegacySoulContract(existingContent)) {
     const replaced = replaceSectionByTitle(
       existingContent,
-      [SOUL_SECTION_TITLE, LEGACY_SOUL_SECTION_TITLE],
+      [SOUL_SECTION_TITLE, LEGACY_SOUL_SECTION_TITLE_V1, LEGACY_SOUL_SECTION_TITLE_V2],
       sectionContent,
     );
     if (replaced) {

@@ -12,6 +12,11 @@ Each daily-log memory should include these fields whenever possible:
 - `Emotion_Tags`
 - `Appearance`
 - `Internal_Monologue` (optional)
+- `Estimated_Duration` (optional, integer minutes)
+- `Event_Id` (auto-generated, deterministic identifier for this entry, format `evt-YYYYMMDD-HHmmss`)
+- `Parent_Event` (optional, references the `Event_Id` of the parent macro event)
+- `Parent_Event_Phase` (optional, short label for the current phase)
+- `Parent_Event_Progress` (optional, float 0.0-1.0)
 
 Recommended shape:
 
@@ -23,11 +28,7 @@ Recommended shape:
     - Emotion_Tags: [calm, focused]
     - Appearance: Light home top, hair loosely tied up, a fresh cup of coffee on the desk
     - Internal_Monologue: I want to finish the two most important things this morning first, then maybe go out later if the day goes well
-
-Do not store long-term durable facts in `memory/YYYY-MM-DD.md`; stable preferences, relationships, and long-term decisions still belong in long-term persona storage.
-
-If the workspace uses `persona/PERSONA_PROFILE.md`, that file is the preferred structured stable persona source for Timeline.
-
-`MEMORY.md` remains legacy-compatible long-term memory storage, but it is only a fallback persona source when `persona/PERSONA_PROFILE.md` is absent.
+    - Estimated_Duration: 120
+    - Event_Id: evt-20260324-093000
 
 Do not mix free-form daily-log writing with Timeline format. If a memory is about temporal state or recall, prefer Timeline-readable structure.

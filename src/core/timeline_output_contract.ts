@@ -2,6 +2,7 @@ import { Episode, TimelineConsumptionView } from '../lib/types';
 
 export type TimelineResolutionMode =
   | 'read_only_hit'
+  | 'read_only_fast_hit'
   | 'empty_window'
   | 'generated_new'
   | 'already_present'

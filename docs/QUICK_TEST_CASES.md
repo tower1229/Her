@@ -358,6 +358,119 @@
 
 ---
 
+## T-Fast. read_only_fast 场景氛围
+
+### T-Fast-1 fast 命中
+
+先通过 T1.1 或 T5.1 让 canon 中存在一条未过期事实，然后在另一个 channel 或新会话中调用 `timeline_resolve(mode=read_only_fast)`。
+
+- **预期**：返回 `read_only_fast_hit`，`consumption.scene` 包含前序事实的场景信息
+- **关注点**：
+  - 不应触发 LLM 调用
+  - `estimated_duration_minutes` 应存在且合理
+
+### T-Fast-2 fast 空命中
+
+在当日 canon 为空时调用 `timeline_resolve(mode=read_only_fast)`。
+
+- **预期**：返回 `empty_window`，`consumption.scene.estimated_duration_minutes = 30`
+- **关注点**：无 LLM 调用，防抖 30 分钟
+
+### T-Fast-3 fast 过期命中
+
+在 canon 中存在一条已超过 `estimated_duration_minutes` 的旧事实时调用。
+
+- **预期**：返回 `empty_window`（防抖 30 分钟）
+
+### T-Fast-4 跨 channel 场景复用
+
+Channel A 通过 `allow_generate` 写入一条 canon 事实，Channel B 通过 `read_only_fast` 查询。
+
+- **预期**：Channel B 能读到 Channel A 写入的事实并返回 `read_only_fast_hit`
+
+### T-Fast-5 防抖验证
+
+`read_only_fast` 返回 `empty_window` 后，30 分钟内再次调用。
+
+- **预期**：应按 SOUL 指引直接复用上次的空状态结果，不再发起新调用
+
+---
+
+## T-Duration. estimated_duration_minutes
+
+### T-Duration-1 生成事实包含 Estimated_Duration
+
+通过 `allow_generate` 生成一条新事实后检查 canon 文件。
+
+- **预期**：`memory/YYYY-MM-DD.md` 中包含 `- Estimated_Duration: [number]`
+- **关注点**：值应合理（meal 约 30-60, work_or_study 约 60-180）
+
+### T-Duration-2 复用事实获得 estimated_duration_minutes
+
+通过 `read_only` 复用已存在的 canon 事实。
+
+- **预期**：`consumption.scene.estimated_duration_minutes` 存在
+- **关注点**：来源可以是 Reasoner 输出或 activity_mode 的默认值
+
+---
+
+## T-Macro. 宏观事件细化
+
+### T-Macro-1 长持续事件在不同经过时间生成不同细化阶段
+
+创建一条 `estimated_duration_minutes=720`（12 小时）的宏观事件记忆（如"搬家"，时间 08:00），在第 1 小时、第 6 小时、第 10 小时分别查询 `timeline_resolve(mode=allow_generate)`。
+
+- **预期**：每次返回不同的细化阶段（如 packing -> in-transit -> settling-in），`consumption.scene.parent_event_tag` 等于父事件的 `event_id`（如 `evt-20260331-080000`），`parent_event_phase` 和 `parent_event_progress` 随时间递增
+- **关注点**：location、action、appearance 应随阶段变化而合理变化；`parent_event_tag` 必须是精确的 `event_id` 引用而非自由文本
+
+### T-Macro-2 细化阶段不可再次细化（防递归）
+
+在 canon 中存在一条已带 `Parent_Event`（引用父事件 `event_id`）的细化阶段记忆，再次查询 `timeline_resolve`。
+
+- **预期**：Reasoner 将该细化阶段视为普通可复用事实（`reuse_existing_fact`），不会对其产生进一步的细化子阶段
+- **关注点**：返回结果中不应出现嵌套的 `parent_event_tag`
+
+### T-Macro-3 宏观事件过期后新生成无 parentEventTag
+
+宏观事件的 `estimated_duration_minutes` 已完全经过（如 12 小时前创建，当前已超过 12 小时），查询 `timeline_resolve`。
+
+- **预期**：新生成的事实没有 `parent_event_tag`，宏观事件被视为已完成
+- **关注点**：`consumption.scene.parent_event_tag` 应为空
+
+### T-Macro-4 read_only_fast 返回 parentEventTag
+
+canon 中存在带 `Event_Id` 和 `Parent_Event`（引用父事件 `event_id`）的未过期事实，调用 `timeline_resolve(mode=read_only_fast)`。
+
+- **预期**：返回 `read_only_fast_hit`，`consumption.scene.event_id`、`parent_event_tag`、`parent_event_phase`、`parent_event_progress` 正确透传
+- **关注点**：零 LLM 调用，纯脚本路径
+
+### T-Macro-5 跨 channel 宏观事件感知
+
+Channel A 通过 `allow_generate` 生成一条长持续宏观事件，Channel B 通过 `read_only_fast` 查询。
+
+- **预期**：Channel B 能读到宏观事件或其细化阶段的 `event_id` 和 `parent_event_tag`
+- **关注点**：canon 文件共享实现跨 channel 一致性
+
+---
+
+## T-Scene-Diversity. 场景多样性
+
+### T-Scene-Diversity-1 周末生成户外/社交场景
+
+将 world_context 的 day_kind 设置为 weekend，persona 允许户外活动，查询 `timeline_resolve(mode=allow_generate)`。
+
+- **预期**：生成的场景有较高概率是户外、社交、购物等非室内活动
+- **关注点**：activity_mode 应为 social / shopping / exercise / leisure 之一
+
+### T-Scene-Diversity-2 工作日晚间考虑休闲/社交
+
+将 world_context 的 time_band 设置为 evening，day_kind 为 workday，查询 `timeline_resolve(mode=allow_generate)`。
+
+- **预期**：生成的场景考虑到晚间休闲，不再默认为 work_or_study
+- **关注点**：activity_mode 应为 leisure / social / rest / meal 等晚间合理活动
+
+---
+
 ## 快速验收检查表
 
 | 编号 | 测试项 | 通过条件 |
@@ -373,3 +486,16 @@
 | T6.1 | 外观连贯 | 同日无故不换装 |
 | T8.1 | 路由分类 | point 和 range 正确区分 |
 | T10.1 | 高频一致性 | 连续 5 条描述同一场景 |
+| T-Fast-1 | fast 命中 | 返回 read_only_fast_hit，无 LLM 调用 |
+| T-Fast-2 | fast 空命中 | 返回 empty_window，防抖 30m |
+| T-Fast-3 | fast 过期命中 | 过期事实返回 empty_window |
+| T-Fast-4 | 跨 channel 复用 | Channel B 读到 Channel A 的 canon |
+| T-Duration-1 | 生成含 duration | canon 包含 Estimated_Duration |
+| T-Duration-2 | 复用含 duration | consumption.scene 有 estimated_duration_minutes |
+| T-Macro-1 | 宏观事件细化 | 不同时间点生成不同阶段，parent_event_tag 一致 |
+| T-Macro-2 | 防递归 | 细化阶段不被再次细化 |
+| T-Macro-3 | 过期无 parent | 宏观事件过期后新事实无 parent_event_tag |
+| T-Macro-4 | fast 透传 parent | read_only_fast 正确透传 event_id 和 parent_event 字段 |
+| T-Macro-5 | 跨 channel 宏观 | Channel B 读到 Channel A 的宏观事件 |
+| T-Scene-Diversity-1 | 周末场景多样 | 周末生成户外/社交场景 |
+| T-Scene-Diversity-2 | 晚间场景多样 | 工作日晚间考虑休闲活动 |

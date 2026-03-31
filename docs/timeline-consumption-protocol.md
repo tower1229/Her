@@ -97,6 +97,10 @@
 - `location_props`
 - `lighting_hint`
 - `framing_hint`
+- `event_id`
+- `parent_event_tag`
+- `parent_event_phase`
+- `parent_event_progress`
 
 其中：
 
@@ -113,6 +117,11 @@
 - `location_props`：可供视觉下游复用的显著场景物件
 - `lighting_hint`：稳定的光线提示
 - `framing_hint`：稳定的构图提示
+- `estimated_duration_minutes`：当前场景的预计持续时间（分钟）；由 Reasoner 在事实产出时生成，当 canon 中缺失时由 `activity_mode` 推导默认值
+- `event_id`：当前 canon 条目的确定性唯一标识，格式 `evt-YYYYMMDD-HHmmss`，由脚本在写入时自动生成
+- `parent_event_tag`：当前场景所属的宏观事件的 `event_id`；仅在当前场景是某个长时间事件的细化阶段时存在
+- `parent_event_phase`：当前细化阶段的简短标签（如 `"packing"`, `"in-transit"`, `"settling-in"`）
+- `parent_event_progress`：宏观事件的完成进度，0.0-1.0 浮点数
 
 ### 3.4 `selfie_ready`
 
@@ -153,6 +162,7 @@
 
 - `allow_generate`：优先补全非睡眠空窗，失败时用“记不清”表达
 - `read_only`：允许直接 `empty_window`，不触发补全写入
+- `read_only_fast`：零 LLM 调用的极速查询模式，仅读取当日 canon 并检查最新事实是否在 `estimated_duration_minutes` 有效期内；命中时返回 `read_only_fast_hit`，未命中返回 `empty_window`（含 30 分钟防抖）
 - 任何内部非输入类错误（reasoner 不可用、guard 拦截等）均以遗忘语义降级，`timeline_resolve` 对外始终返回 `ok: true`；仅 `INVALID_INPUT`（query 为空）仍返回 `ok: false`
 
 ### 4.2 自拍类技能
@@ -189,6 +199,37 @@
 
 从现在开始：
 
+- **Timeline Reality**: Using `timeline_resolve` to recall past events or verify current state.
+- **Scene Transition**: Using `timeline_transition` to commit a state change and optionally trigger persona updates.
+
+---
+
+## 2. Scene Transition Protocol (timeline_transition)
+
+When the user gives a directive to "do something" or "change state", the agent must use `timeline_transition`.
+
+### 2.1 Tool Output Schema
+
+```typescript
+{
+  ok: boolean,
+  transition: {
+    summary: string,           // Brief description of the planned transition
+    event_id: string,          // The new Event_Id for this activity
+    requires_persona_update: boolean, // Whether this event should change core persona
+    persona_update_data?: any  // If above is true, this JSON must be sent to the persona skill
+  }
+}
+```
+
+### 2.2 Persona Linkage Handlers
+
+If `requires_persona_update` is `true`, the skill MUST trigger the `Zhuang-Yan` persona skill:
+`调用 persona skill 更新 PERSONA_PROFILE : ${JSON.stringify(persona_update_data)}`
+
+---
+
+## 3. Timeline Reality Protocol (timeline_resolve)
 - 在 `timeline_resolve` 成功返回且包含 `result` 时，`result.consumption` 是 Timeline 面向下游技能的稳定消费面
 - 新增字段可以加
 - 已有字段含义不能随意改
@@ -206,3 +247,64 @@
 
 - 聊天里说“在家里书房整理工作”
 - 当下游自拍 skill 真正接入后，也会看到相同的地点、事件、外观与状态
+
+## 7. `read_only_fast` 模式与场景氛围
+
+`read_only_fast` 是专为场景氛围设计的零成本查询模式。它跳过 Planner 和 Reasoner，直接从当日 canon 日志中读取最新事实并检查有效期。
+
+### 消费流程
+
+1. 先检查当前会话中是否已有 `timeline_resolve` 结果，且 `consumption.scene.estimated_duration_minutes` 未过期——如果是，直接复用
+2. 如果当前会话没有可复用结果，调用 `timeline_resolve(mode=read_only_fast)`
+3. 如果返回 `read_only_fast_hit`，使用 `consumption.scene` 的场景信息影响语气和节奏
+4. 如果返回 `empty_window`（防抖 30 分钟），在该窗口内视为无场景状态，不再重复调用
+
+### 跨 channel 一致性
+
+由于 canon 日志（`memory/YYYY-MM-DD.md`）是 workspace 级共享文件，某个 channel 通过 `allow_generate` 写入的事实，其他 channel 可以通过 `read_only_fast` 读取到，从而实现跨 channel 的场景感知一致性。
+
+### `estimated_duration_minutes` 来源优先级
+
+1. Reasoner 输出的 `estimated_duration_minutes`（顶层字段）
+2. `generated_fact.sceneSemantics.estimatedDurationMinutes`
+3. 基于 `activity_mode` 的默认值（sleep=420, meal=45, bath=30, exercise=60, work_or_study=120, commute=40, transition=15, rest=30, 其他=60）
+
+## 8. 宏观事件细化（Macro Event Refinement）
+
+当 Timeline 记忆中存在一个长时间持续的宏观事件（如搬家、旅行、长途出行），Reasoner 会在后续查询时将其自动细化为当前时间点合理的瞬时阶段。
+
+### 核心概念
+
+- **宏观事件**：`estimated_duration_minutes > 120` 且没有 `Parent_Event` 字段的 canon 记忆
+- **细化阶段**：带有 `Parent_Event` 字段的 canon 记忆，是宏观事件在某个时间点的具体化
+- **多次细化**：一个宏观事件在其生命周期内可以产生多个时间不重叠的细化阶段。只要当前时间没有被任何仍在有效期内的细化阶段覆盖，就可以生成新的细化阶段（例如一天的旅游行程可以产出"古城游玩"、"洱海边漫步"、"民宿附近闲逛"等多个阶段）
+- **防递归**：已经带有 `Parent_Event` 的细化阶段不会被再次细化，防止无限细分
+
+### 下游消费
+
+当 `consumption.scene` 包含 `parent_event_tag` 时，下游应知道当前场景是更大事件的一部分：
+
+- 聊天层：在回答中保持与整体事件叙事的连贯性
+- 自拍技能：场景描述应反映当前阶段的具体状态，而非笼统的宏观事件
+- `parent_event_progress` 可用于判断事件进展程度
+
+### canon 格式
+
+每条 canon 条目在写入时自动分配 `Event_Id`：
+
+```
+- Event_Id: evt-20260331-080000
+```
+
+细化阶段在 canon 中通过 `Parent_Event` 引用父事件的 `Event_Id`：
+
+```
+- Event_Id: evt-20260331-140000
+- Parent_Event: evt-20260331-080000
+- Parent_Event_Phase: in-transit
+- Parent_Event_Progress: 0.5
+```
+
+### `read_only_fast` 兼容
+
+`read_only_fast` 路径会透传 canon 中的 `Parent_Event` 字段到 `consumption.scene`，无需 LLM 调用即可让下游感知宏观事件上下文。

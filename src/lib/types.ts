@@ -9,6 +9,11 @@ export interface ParsedEpisode {
   naturalText?: string;
   parseLevel: 'A' | 'B';
   confidence: number;
+  estimatedDurationMinutes?: number;
+  eventId?: string;
+  parentEventTag?: string;
+  parentEventPhase?: string;
+  parentEventProgress?: number;
 }
 
 export interface TimelineWindow {
@@ -28,7 +33,7 @@ export interface TimelineWindow {
     idempotency_key: string;
   };
   resolution: {
-    mode: 'read_only_hit' | 'empty_window' | 'generated_new' | 'already_present' | 'write_blocked' | 'write_conflict' | 'write_failed' | 'error';
+    mode: 'read_only_hit' | 'read_only_fast_hit' | 'empty_window' | 'generated_new' | 'already_present' | 'write_blocked' | 'write_conflict' | 'write_failed' | 'error';
     notes?: string;
   };
   consumption?: TimelineConsumptionView;
@@ -131,6 +136,11 @@ export interface TimelineConsumptionView {
     location_props?: string[];
     lighting_hint?: string;
     framing_hint?: string;
+    estimated_duration_minutes?: number;
+    event_id?: string;
+    parent_event_tag?: string;
+    parent_event_phase?: string;
+    parent_event_progress?: number;
   };
   selfie_ready?: {
     location: string;

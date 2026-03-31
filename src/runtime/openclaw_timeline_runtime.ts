@@ -8,6 +8,7 @@ import {
 import { buildConversationContextFromMessages } from './conversation_context';
 import { TimelineQueryPlan } from '../core/resolve_window';
 import { addHours, formatTimestamp, parseTimestampParts, TimestampParts } from '../lib/time-utils';
+import { writeEpisode } from '../storage/write-episode';
 import {
   timelineResolve,
   timelineResolveToolSpec,
@@ -573,6 +574,30 @@ function buildTimelineReasonerSystemPrompt(): string {
     '- Avoid generic template scenes. Location, action, emotion, appearance, and internalMonologue must reflect lived continuity.',
     '- Respect collector.world_context temporal logic: meals, sleep, work/study, leisure, weekends, weekdays, and holidays.',
     '- For late-night and pre-dawn, prefer sleep/rest/quiet activities. Meal scenes must stay within plausible meal windows.',
+    '- estimated_duration_minutes (top-level, integer): how many minutes this scene/state is expected to persist.',
+    '  Must be present when decision.action is reuse_existing_fact or generate_new_fact.',
+    '  Consider activityMode, persona temperament, time of day, and typical real-world durations.',
+    '  Examples: sleep ≈ 420, meal ≈ 30–60, work_or_study ≈ 60–180, bath ≈ 20–40, commute ≈ 20–50, exercise ≈ 30–90, rest ≈ 15–45, transition ≈ 5–20.',
+    '- Scene diversity: when collector.world_context.target.day_kind is weekend or holiday, or time_band is evening on any day, actively consider outdoor, social, shopping, exercise, and leisure activity modes instead of defaulting to indoor/domestic scenes.',
+    '- Use persona.rhythm weekend_bias, evening_bias, and persona.scene plausible_locations/plausible_activities to select realistic non-indoor scenes.',
+    '- If the previous canon entries for the day are all indoor, increase the likelihood of an outdoor or social scene for subsequent generation, unless persona constraints explicitly restrict it.',
+    '- Avoid generating the same activity_mode for more than 3 consecutive entries on the same day (excluding sleep and work_or_study).',
+  ];
+
+  const macroEventRules = [
+    'Priority C3 - Macro event refinement (long-duration events):',
+    '- Each candidate_fact now carries precomputed time fields: estimated_duration_minutes, elapsed_minutes, is_within_duration_window (boolean), event_id (string), has_parent_event (boolean), parent_event_tag, parent_event_phase, parent_event_progress. Use these directly; do NOT recalculate elapsed time or duration windows yourself.',
+    '- event_id is a deterministic identifier assigned to every canon entry at write time. When generating a refined phase, set sceneSemantics.parentEventTag to the event_id of the parent macro event (available on the candidate_fact). Do NOT invent freeform strings; always copy the exact event_id value.',
+    '- When a candidate_fact has estimated_duration_minutes > 120 AND has_parent_event is false (meaning it is an original macro event, not already a refined phase) AND is_within_duration_window is true:',
+    '  Check whether any other candidate_fact with a matching parent_event_tag (equal to the parent\'s event_id) also has is_within_duration_window=true. If such a still-active refined phase exists, reuse it (reuse_existing_fact) instead of generating a new one.',
+    '  If no still-active refined phase covers the current time, you SHOULD generate_new_fact as a new refined instantaneous phase of that macro event. A macro event can spawn multiple non-overlapping refined phases over its lifetime.',
+    '  Set sceneSemantics.parentEventTag to the parent candidate_fact\'s event_id.',
+    '  Set sceneSemantics.parentEventPhase to a short label for the current phase (e.g., "packing", "in-transit", "arriving", "exploring-old-town", "lakeside-walk"). Each new phase should be distinct from previous phases of the same parent event.',
+    '  Set sceneSemantics.parentEventProgress to elapsed_minutes / estimated_duration_minutes from the parent fact (already available as precomputed numbers).',
+    '  The refined fact must be temporally plausible: location, action, appearance, and emotion should reflect what would realistically be happening at this point in the larger event. Consider previously generated phases (visible as expired candidate_facts with the same parent_event_tag) to ensure narrative continuity and avoid repeating the same phase.',
+    '  Set estimated_duration_minutes for the refined phase to a reasonable sub-interval (typically 30-120 minutes).',
+    '- ANTI-RECURSION GUARD: If a candidate_fact has has_parent_event=true, it is itself a refined phase. Do NOT generate a further refinement of it. Treat it as a normal reusable fact instead. This prevents infinite subdivision.',
+    '- When a macro event fact has is_within_duration_window=false, it has expired. Do NOT reference it as a parent. The macro event is complete.',
   ];
 
   const appearanceRules = [
@@ -620,6 +645,7 @@ function buildTimelineReasonerSystemPrompt(): string {
         is_continuing: true,
         reason: 'continuity reasoning summary',
       },
+      estimated_duration_minutes: 'integer, required when action is reuse_existing_fact or generate_new_fact',
       rationale: {
         summary: 'short summary',
         hard_fact_basis: ['...'],
@@ -641,6 +667,10 @@ function buildTimelineReasonerSystemPrompt(): string {
           activityMode: 'sleep | bath | meal | work_or_study | commute | exercise | social | shopping | leisure | domestic | errands | transition | rest | unknown',
           continuityRelation: 'same_day_continuation | same_scene_continuation | shifted_scene | return_home | fresh_moment | unknown',
           rationale: 'why this generated scene fits the current timeline state',
+          estimatedDurationMinutes: 'optional integer, mirrors top-level estimated_duration_minutes',
+          parentEventTag: 'optional string, must be the exact event_id of the parent macro event candidate_fact — do NOT invent values',
+          parentEventPhase: 'optional string, short label for the current phase of the macro event (e.g., "packing", "in-transit", "settling-in")',
+          parentEventProgress: 'optional float 0.0-1.0, elapsed proportion of the macro event duration',
         },
         appearanceLogic: {
           transition: 'inherit | change_required | change_allowed | unknown',
@@ -655,6 +685,7 @@ function buildTimelineReasonerSystemPrompt(): string {
     ...coreRules,
     ...reasoningRules,
     ...generationRules,
+    ...macroEventRules,
     ...appearanceRules,
     ...conversationAndRecoveryRules,
     ...outputSchema,
@@ -1058,6 +1089,73 @@ function createSubagentReasoner(
   };
 }
 
+// -------------------------------------------------------------
+// Scene Transition Planner Subagent integration
+// -------------------------------------------------------------
+import { TimelineTransitionInput, TransitionPlan } from '../core/transition_planner_contract';
+import { buildTransitionPlannerSystemPrompt, buildTransitionPlannerMessage } from '../core/transition_planner';
+import { PersonaContractV1 } from '../persona/persona_contract';
+
+function createSubagentTransitionPlanner(
+  pluginApi: PluginApiLike,
+  toolContext: PluginToolContextLike,
+  runtimeConfig: TimelinePluginRuntimeConfig,
+) {
+  return async (
+    input: TimelineTransitionInput,
+    anchor: { now: string; timezone: string },
+    persona: PersonaContractV1,
+    activeFacts: CollectedTimelineFact[]
+  ): Promise<TransitionPlan> => {
+    const requestId = `trans-${Date.now()}`;
+    const baseSessionKey = toolContext.sessionKey || `plugin:${runtimeConfig.reasonerSessionPrefix}`;
+    const transitionSessionKey = `${baseSessionKey}:transition-planner:${requestId}`;
+
+    return await withPreferredSubagentRuntime(pluginApi, 'Timeline transition planner', async (subagentRuntime) => {
+      try {
+        const runResult = await subagentRuntime.run({
+          sessionKey: transitionSessionKey,
+          message: buildTransitionPlannerMessage(input, anchor, persona, activeFacts, requestId),
+          extraSystemPrompt: buildTransitionPlannerSystemPrompt(),
+          deliver: false,
+          idempotencyKey: requestId,
+        });
+        const waitResult = await subagentRuntime.waitForRun({
+          runId: runResult.runId,
+          timeoutMs: runtimeConfig.reasonerTimeoutMs,
+        });
+        if (waitResult.status === 'timeout') {
+          throw new Error('Timeline transition planner returned no decision');
+        }
+        if (waitResult.status === 'error') {
+          throw new Error(waitResult.error || 'Timeline transition planner returned no decision');
+        }
+
+        const session = await subagentRuntime.getSessionMessages({
+          sessionKey: transitionSessionKey,
+          limit: runtimeConfig.reasonerMessageLimit,
+        });
+        const jsonText = extractJsonObjectFromMessages(
+          session.messages || [],
+          'Timeline transition planner',
+        );
+        return JSON.parse(jsonText) as TransitionPlan;
+      } finally {
+        try {
+          await subagentRuntime.deleteSession?.({
+            sessionKey: transitionSessionKey,
+            deleteTranscript: true,
+          });
+        } catch (error) {
+          pluginApi.logger?.debug?.('timeline transition planner session cleanup skipped', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    });
+  };
+}
+
 function createRuntimeJsonPromptRunner(
   pluginApi: PluginApiLike,
 ): (input: {
@@ -1140,6 +1238,7 @@ function createTimelineResolveDependencies(
       now: formatCurrentTimestamp(new Date()),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     }),
+    writeEpisode,
     sessionsHistory: async () => {
       const sessionKey = toolContext.sessionKey;
       if (!sessionKey) return [];
@@ -1259,3 +1358,22 @@ export function makeOpenClawTimelineResolveToolFactory(pluginApi: PluginApiLike)
       wrapToolPayload(await timelineResolve(params as never, createTimelineResolveDependencies(pluginApi, toolContext))),
   });
 }
+
+import { timelineTransition, timelineTransitionToolSpec } from '../tools/timeline_transition';
+
+export function makeOpenClawTimelineTransitionToolFactory(pluginApi: PluginApiLike) {
+  return (toolContext: PluginToolContextLike): AgentToolLike => ({
+    name: timelineTransitionToolSpec.name,
+    description: timelineTransitionToolSpec.description,
+    parameters: timelineTransitionToolSpec.inputSchema,
+    execute: async (_toolCallId, params) => {
+      const deps = createTimelineResolveDependencies(pluginApi, toolContext);
+      const transitionDeps = {
+        ...deps,
+        planTransition: createSubagentTransitionPlanner(pluginApi, toolContext, resolvePluginRuntimeConfig(pluginApi.pluginConfig))
+      };
+      return wrapToolPayload(await timelineTransition(params as any, transitionDeps as any));
+    }
+  });
+}
+

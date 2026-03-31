@@ -31,6 +31,11 @@ export function parseMemoryFile(content: string): ParsedEpisode[] {
                              || part.match(/[-*]\s*Emotion_Tags:\s*([^\n]+)/i);
     const appearanceMatch = part.match(/[-*]\s*Appearance:\s*([^\n]+)/i);
     const monologueMatch = part.match(/[-*]\s*Internal_Monologue:\s*([^\n]+)/i);
+    const durationMatch = part.match(/[-*]\s*Estimated_Duration:\s*(\d+)/i);
+    const eventIdMatch = part.match(/[-*]\s*Event_Id:\s*([^\n]+)/i);
+    const parentEventMatch = part.match(/[-*]\s*Parent_Event:\s*([^\n]+)/i);
+    const parentPhaseMatch = part.match(/[-*]\s*Parent_Event_Phase:\s*([^\n]+)/i);
+    const parentProgressMatch = part.match(/[-*]\s*Parent_Event_Progress:\s*([\d.]+)/i);
 
     // Extract natural text: everything after the last key-value field
     const lastKeyValIndex = part.lastIndexOf('-');
@@ -54,6 +59,11 @@ export function parseMemoryFile(content: string): ParsedEpisode[] {
 
     const appearance = appearanceMatch ? appearanceMatch[1].trim() : "unknown";
     const internalMonologue = monologueMatch ? monologueMatch[1].trim() : undefined;
+    const estimatedDurationMinutes = durationMatch ? Number(durationMatch[1]) : undefined;
+    const eventId = eventIdMatch ? eventIdMatch[1].trim() : undefined;
+    const parentEventTag = parentEventMatch ? parentEventMatch[1].trim() : undefined;
+    const parentEventPhase = parentPhaseMatch ? parentPhaseMatch[1].trim() : undefined;
+    const parentEventProgress = parentProgressMatch ? Number(parentProgressMatch[1]) : undefined;
 
     // Check Level A vs Level B
     let parseLevel: 'A' | 'B' = 'A';
@@ -77,7 +87,12 @@ export function parseMemoryFile(content: string): ParsedEpisode[] {
       internalMonologue,
       naturalText,
       parseLevel,
-      confidence
+      confidence,
+      estimatedDurationMinutes,
+      eventId,
+      parentEventTag,
+      parentEventPhase,
+      parentEventProgress,
     });
   }
 
