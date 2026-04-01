@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.8.6]
+
+- **可观测性增强 (Observability)**：在 `timeline_resolve` 的降级路径中，将原始报错内容（Raw error）包含在返回结果的 `notes` 中。现在当 Subagent 发生解析错误或 Request ID 不匹配时，开发者可以更直观地从 JSON 日志中查看到具体的错误信息。
+- **构建输出优化**：修正了 `build_timeline_output.ts` 中 `buildReasonerNotes` 忽略 `uncertainty` 字段的问题，确保在降级过程中由于模型输出非法导致的推理中断不仅提供保底结果，还能保留现场证据。
+
 ## [2.8.5]
 
 - **`timeline_transition` / 路由优先级**：升级状态切换（State Transition）优先级。在 `SKILL.md` 与 `SOUL.fragment.md` 中明确要求：当命中 Path 2 (状态变更) 时，AGENT 应忽略既有的 `active_instant` 上下文，优先执行跳转工具。解决了“活跃上下文阻塞场景迁移”的逻辑冲突。
