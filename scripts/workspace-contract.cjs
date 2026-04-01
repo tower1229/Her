@@ -9,7 +9,8 @@ const LEGACY_SOUL_SECTION_TITLE_V2 = '## Temporal Awareness And Recall';
 const templatesDir = path.resolve(__dirname, '..', 'templates');
 
 const CURRENT_SOUL_MARKERS = [
-  'Enter the timeline-skill skill at the start of every turn to check whether either of these applies:',
+  'Enter the **timeline-skill** skill at the start of every turn to see whether either path below applies.',
+  'follow its **fixed order** (time-reality → state transition → exit)',
 ];
 
 function normalizeRootName(rootName) {

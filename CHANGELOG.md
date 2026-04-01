@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.8.3]
+
+- **timeline-skill / SOUL**：State transition 触发改为**意图优先**（与句式无关），明确与 time-reality、元讨论、纯假设的边界；`SOUL.fragment.md` 补充进入 skill 后的**顺序与引用执行**说明，减少“定义与执行脱节”导致的漏触发或误触发。跟进 OpenClaw 评审：**假设+指令**拆成独立正向规则（去掉嵌套 unless）；**主语模糊**时在 `SKILL.md` 增加逐步消解（含交给 `timeline_transition` 原句裁决）。
+- **OpenClaw 跟进**：`SOUL.fragment.md` 将主语消解指向 `SKILL.md` 中真实标题 **Disambiguation rules (who acts when the subject is vague)**，避免“disambiguation rules”空头引用；新增 **Substantive ongoing task** 操作定义（持续占用身体或可叙述时间块 vs 瞬时动作，边界交给 `timeline_transition`），并在 SOUL 中交叉指向该小节。
+- **workspace-contract**：`scripts/workspace-contract.cjs` 的 `CURRENT_SOUL_MARKERS` 与新版 `SOUL.fragment.md` 对齐，避免模板被误判为 legacy。
+
 ## [2.8.2]
 
 - **Timeline reasoner (OpenClaw subagent)**：`buildTimelineReasonerSystemPrompt` / `buildTimelineReasonerMessage` 现与 query planner 一致，在 **system 输出示例** 与 **user 消息** 中写入**字面量 `request_id`**，并明确要求 **仅输出裸 JSON**（禁止 markdown 围栏与前后说明），降低 `extractJsonObjectFromMessages` 报 `Timeline reasoner did not return a JSON object` 或 `mismatched request_id` 的概率。
