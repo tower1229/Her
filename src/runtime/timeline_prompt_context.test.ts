@@ -94,6 +94,35 @@ describe('timeline prompt context', () => {
     expect(context.style.tone).toBe('natural');
   });
 
+  it('infers duration from scene activity when explicit Estimated_Duration is missing', () => {
+    const context = buildTimelinePromptContextFromFastSnapshot(
+      {
+        status: 'hit',
+        source: 'same_day_fast_hit',
+        now: '2026-04-01T02:30:00+08:00',
+        timezone: 'Asia/Shanghai',
+        calendarDate: '2026-04-01',
+        parsed: {
+          timestamp: '2026-04-01 00:30:00',
+          location: '卧室',
+          action: '已经洗漱完，正准备睡觉',
+          emotionTags: ['困倦'],
+          appearance: '宽松睡衣',
+          parseLevel: 'A',
+          confidence: 0.9,
+        },
+      },
+      {
+        macroThresholdMinutes: 120,
+        directCurrentStateAnswersAllowed: true,
+      },
+    );
+
+    expect(context.status).toBe('active_macro_background');
+    if (context.status !== 'active_macro_background') throw new Error('expected active_macro_background');
+    expect(context.style.tone).toBe('grounded');
+  });
+
   it('formats degraded prompt context without exposing raw errors', () => {
     const context = createDegradedTimelinePromptContext('resolver_unavailable');
     const text = buildTimelinePromptContextText(context);

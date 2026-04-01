@@ -198,9 +198,10 @@ export function buildTimelinePromptContextFromFastSnapshot(
   }
 
   const scene = materializeScene(snapshot);
+  const inferredMode = inferActivityMode(scene);
   const duration = scene?.estimated_duration_minutes
     ?? snapshot.parsed.estimatedDurationMinutes
-    ?? defaultDurationForActivityMode(undefined);
+    ?? defaultDurationForActivityMode(inferredMode);
   const hasParentEvent = Boolean(snapshot.parsed.parentEventTag);
 
   if (!hasParentEvent && duration > options.macroThresholdMinutes) {

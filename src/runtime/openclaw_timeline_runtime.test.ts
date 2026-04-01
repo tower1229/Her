@@ -908,6 +908,53 @@ describe('openclaw timeline runtime factories', () => {
     expect((result as any).prependContext).toContain('current_state_resolution_required: yes');
   });
 
+  it('respects promptTimelineDirectCurrentStateAnswers=false in both system guidance and injected context', async () => {
+    const now = new Date();
+    const today = formatLocalCalendarDate(now);
+    const twentyMinutesAgo = new Date(now.getTime() - 20 * 60_000);
+
+    fs.writeFileSync(
+      path.join(canonicalRoot, `${today}.md`),
+      [
+        '### [Prompt Context]',
+        `- Timestamp: ${formatLocalTimestamp(twentyMinutesAgo).replace('T', ' ')}`,
+        '- Location: 家里书房',
+        '- Action: 继续整理刚才的工作笔记',
+        '- Emotion_Tags: [专注, 平静]',
+        '- Appearance: 宽松的家居服',
+        '- Estimated_Duration: 120',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const handler = makeOpenClawTimelineBeforePromptBuildHook({
+      workspaceDir: tmpDir,
+      pluginConfig: {
+        canonicalMemoryRoot: 'timeline-memory',
+        promptTimelineDirectCurrentStateAnswers: false,
+      },
+      config: {},
+      runtime: {},
+      logger: {},
+    });
+
+    const result = await handler(
+      {
+        prompt: '你现在在干嘛',
+        messages: [{ role: 'user', bodyText: '你现在在干嘛' }],
+      },
+      {
+        workspaceDir: tmpDir,
+        sessionKey: 'session-main',
+      },
+    );
+
+    expect(result).toBeTruthy();
+    expect((result as any).prependSystemContext).toContain('must not be used for direct current-state answers');
+    expect((result as any).prependContext).toContain('status: active_instant');
+    expect((result as any).prependContext).toContain('direct_current_state_answers_allowed: no');
+  });
+
   it('returns no prompt mutation when prompt timeline context is disabled', async () => {
     const handler = makeOpenClawTimelineBeforePromptBuildHook({
       workspaceDir: tmpDir,
@@ -955,6 +1002,29 @@ describe('openclaw timeline runtime factories', () => {
     );
 
     expect(result).toBeUndefined();
+  });
+
+  it('degrades prompt context when the hook cannot resolve workspace dependencies', async () => {
+    const handler = makeOpenClawTimelineBeforePromptBuildHook({
+      pluginConfig: {
+        canonicalMemoryRoot: 'timeline-memory',
+      },
+      config: {},
+      runtime: {},
+      logger: {},
+      resolvePath: () => {
+        throw new Error('workspace resolution failed');
+      },
+    });
+
+    const result = await handler(
+      { prompt: '你好', messages: [] },
+      { sessionKey: 'session-main' },
+    );
+
+    expect(result).toBeTruthy();
+    expect((result as any).prependContext).toContain('status: degraded');
+    expect((result as any).prependContext).toContain('reason: resolver_unavailable');
   });
 
 });

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.0]
+
+- Prompt timeline context: 新增 `before_prompt_build` prompt context 链路。Timeline 现在会在每轮生成前注入标准化的 `Timeline prompt context`，用于对话语气调制，并允许 `timeline-skill` 在 `active_instant` 场景下直接回答当前态问题。
+- Enhanced `read_only_fast`: `read_only_fast` 从“仅看当天最新事实”升级为“先看当天，再回溯最多 N 天仍在持续的 active fact”。跨日宏观事件和已细化 phase 现在都能被 fast path 命中，并继续透传 `event_id` / `parent_event_*`。
+- Runtime / config: 为 plugin manifest 与 runtime 新增 `enablePromptTimelineContext`、`promptTimelineLookbackDays`、`promptTimelineMacroThresholdMinutes`、`promptTimelineDirectCurrentStateAnswers` 配置；兼容层 `definePluginEntry/materializePlugin` 也新增 hook 注册模型。
+- Contracts / tests: 更新 `timeline-skill`、`time-reality` reference 与 `SOUL.fragment.md` 契约，明确只有 `active_instant` 可绕过完整 `timeline_resolve`。补充 `read_only_fast` lookback、prompt context 分类、`before_prompt_build` 注入与兼容层 hook 注册测试。
+
 ## [2.7.0]
 
 - Skill rename: 将 bundled skill 从 `timeline` 更名为 `timeline-skill`，并同步更新 `openclaw.plugin.json`、`src/plugin_metadata.ts`、workspace sync 脚本、README 与兼容性测试中的路径和名称。
