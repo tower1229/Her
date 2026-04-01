@@ -1,6 +1,6 @@
 export const TIMELINE_PLUGIN_ID = 'stella-timeline-plugin';
 export const TIMELINE_PLUGIN_NAME = 'Stella Timeline Plugin';
-export const TIMELINE_PLUGIN_VERSION = '2.8.4';
+export const TIMELINE_PLUGIN_VERSION = '2.8.5';
 export const TIMELINE_PLUGIN_DESCRIPTION =
   'OpenClaw timeline runtime with canonical timeline_resolve and timeline_transition, LLM-based temporal reasoning, and guarded append-only writes.';
 
