@@ -263,19 +263,21 @@ export async function truncateEpisodeDuration(
         
         let diffMins = -1;
         if (epTimeParts && interruptParts && epTimeParts.year === interruptParts.year && epTimeParts.month === interruptParts.month && epTimeParts.day === interruptParts.day) {
-           const startMinutes = epTimeParts.hour * 60 + epTimeParts.minute;
-           const endMinutes = interruptParts.hour * 60 + interruptParts.minute;
-           diffMins = endMinutes - startMinutes;
+           const startSeconds = epTimeParts.hour * 3600 + epTimeParts.minute * 60 + (epTimeParts.second || 0);
+           const endSeconds = interruptParts.hour * 3600 + interruptParts.minute * 60 + (interruptParts.second || 0);
+           diffMins = Math.round((endSeconds - startSeconds) / 60);
         } else {
            // Fallback for cross-day or complex formats
            const d1 = new Date(ep.timestamp.replace(' ', 'T')).getTime();
            const d2 = new Date(interruptionTimeISO.replace(' ', 'T')).getTime();
            if (!isNaN(d1) && !isNaN(d2)) {
-             diffMins = Math.floor((d2 - d1) / 60000);
+             // Use Round instead of floor to reduce truncation gap smells in high-frequency transitions
+             diffMins = Math.round((d2 - d1) / 60000);
            }
         }
 
         if (diffMins !== -1) {
+          // Ensure at least 1 minute for a visible fragment, capped by original estimate
           const finalDuration = Math.max(1, Math.min(diffMins, ep.estimatedDurationMinutes));
           ep.estimatedDurationMinutes = finalDuration;
           found = true;

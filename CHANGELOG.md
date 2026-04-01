@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.7]
+
+- **连续状态迁移修复 (Consecutive Transition)**：修复了在同一个 30 分钟窗口内连续触发 `timeline_transition` 时，因半小时桶冲突（`CONFLICT_EXISTS`）导致写入失败的问题。现在会扫描目标时间桶内的所有既有记录 ID 并全量豁免，支持任意频次的快速状态切换。
+- **写入原子性保障 (Atomicity)**：重构了中断（interrupt）路径的执行顺序。旧事件的时长截断现在**仅在新记忆成功写入之后**才执行，彻底消除了"旧记忆被截短但新记忆写入失败"导致的数据腐败风险。
+- **截断精度统一 (Truncation Precision)**：将同日路径的截断计算从分钟级（丢弃秒数）升级为秒级精度，并统一使用 `Math.round` 四舍五入。两条计算路径（同日 / 跨日）现在行为完全一致，消除了高频操作中的"时间黑洞"。
+- **Trace 语义修正**：`interrupted_event_id` 字段现在仅在 `interruption_handling === 'interrupt'` 时填充，避免在微任务插入或普通迁移路径下产生误导性的调试信息。
+
 ## [2.8.6]
 
 - **可观测性增强 (Observability)**：在 `timeline_resolve` 的降级路径中，将原始报错内容（Raw error）包含在返回结果的 `notes` 中。现在当 Subagent 发生解析错误或 Request ID 不匹配时，开发者可以更直观地从 JSON 日志中查看到具体的错误信息。
