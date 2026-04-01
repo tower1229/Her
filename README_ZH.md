@@ -128,7 +128,7 @@ npm run sync:local-openclaw
 
 - 构建最新 `dist/`
 - 同步到 `~/.openclaw/extensions/stella-timeline-plugin`
-- 刷新 `~/.openclaw/workspace/skills/timeline`
+- 刷新 `~/.openclaw/workspace/skills/timeline-skill`
 - 运行 workspace setup 升级 `SOUL.md`
 - 收紧插件与 skill 目录权限，避免因为权限过宽被 OpenClaw 拒绝加载
 

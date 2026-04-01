@@ -130,7 +130,7 @@ function applySafePermissions(rootDir, topMode) {
 }
 
 function syncWorkspaceSkill(extensionDir, workspaceSkillDir) {
-  const sourceSkillDir = path.join(extensionDir, 'skills', 'timeline');
+  const sourceSkillDir = path.join(extensionDir, 'skills', 'timeline-skill');
   fs.rmSync(workspaceSkillDir, { recursive: true, force: true });
   fs.mkdirSync(path.dirname(workspaceSkillDir), { recursive: true });
   fs.cpSync(sourceSkillDir, workspaceSkillDir, { recursive: true });
@@ -160,7 +160,7 @@ function printHelp() {
     'Usage: npm run sync:local-openclaw -- [--no-build] [--no-backup] [--workspace <dir>] [--extension-dir <dir>]',
     '',
     'Builds the plugin, syncs it into the local WSL OpenClaw extension directory,',
-    'updates the workspace timeline skill and SOUL/AGENTS contracts, and tightens permissions.',
+    'updates the workspace timeline-skill skill and SOUL/AGENTS contracts, and tightens permissions.',
   ].join('\n'));
 }
 
@@ -208,7 +208,7 @@ function parseArgs(argv) {
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const version = syncPluginVersion();
-  const workspaceSkillDir = path.join(options.workspaceDir, 'skills', 'timeline');
+  const workspaceSkillDir = path.join(options.workspaceDir, 'skills', 'timeline-skill');
 
   if (options.build) {
     run(npmCommand(), ['run', 'build']);

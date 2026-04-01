@@ -248,20 +248,21 @@ If `requires_persona_update` is `true`, the skill MUST trigger the `Zhuang-Yan` 
 - 聊天里说“在家里书房整理工作”
 - 当下游自拍 skill 真正接入后，也会看到相同的地点、事件、外观与状态
 
-## 7. `read_only_fast` 模式与场景氛围
+## 7. `read_only_fast` 模式与轻量场景查询
 
-`read_only_fast` 是专为场景氛围设计的零成本查询模式。它跳过 Planner 和 Reasoner，直接从当日 canon 日志中读取最新事实并检查有效期。
+`read_only_fast` 是一个零成本的轻量当前场景查询模式。它跳过 Planner 和 Reasoner，直接从当日 canon 日志中读取最新事实并检查有效期。
+它可以被显式需要当前场景快照的下游能力使用，但不再是 `timeline-skill` 的默认每轮路由。
 
 ### 消费流程
 
-1. 先检查当前会话中是否已有 `timeline_resolve` 结果，且 `consumption.scene.estimated_duration_minutes` 未过期——如果是，直接复用
+1. 如果当前会话中已经有仍未过期的 `timeline_resolve` 结果，可以直接复用其中的 `consumption.scene`
 2. 如果当前会话没有可复用结果，调用 `timeline_resolve(mode=read_only_fast)`
-3. 如果返回 `read_only_fast_hit`，使用 `consumption.scene` 的场景信息影响语气和节奏
-4. 如果返回 `empty_window`（防抖 30 分钟），在该窗口内视为无场景状态，不再重复调用
+3. 如果返回 `read_only_fast_hit`，使用 `consumption.scene` 作为当前场景快照
+4. 如果返回 `empty_window`（防抖 30 分钟），在该窗口内视为暂无可复用的当前场景，不再重复调用
 
 ### 跨 channel 一致性
 
-由于 canon 日志（`memory/YYYY-MM-DD.md`）是 workspace 级共享文件，某个 channel 通过 `allow_generate` 写入的事实，其他 channel 可以通过 `read_only_fast` 读取到，从而实现跨 channel 的场景感知一致性。
+由于 canon 日志（`memory/YYYY-MM-DD.md`）是 workspace 级共享文件，某个 channel 通过 `allow_generate` 写入的事实，其他 channel 可以通过 `read_only_fast` 读取到，从而实现跨 channel 的当前场景一致性。
 
 ### `estimated_duration_minutes` 来源优先级
 

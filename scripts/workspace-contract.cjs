@@ -9,7 +9,7 @@ const LEGACY_SOUL_SECTION_TITLE_V2 = '## Temporal Awareness And Recall';
 const templatesDir = path.resolve(__dirname, '..', 'templates');
 
 const CURRENT_SOUL_MARKERS = [
-  'Enter the timeline skill at the start of every turn to handle these scenarios:',
+  'Enter the timeline-skill skill at the start of every turn to check whether either of these applies:',
 ];
 
 function normalizeRootName(rootName) {
@@ -43,7 +43,8 @@ function detectSoulContract(content) {
     || content.includes(LEGACY_SOUL_SECTION_TITLE_V2)
     || content.includes('Only Timeline results are the final factual basis')
     || content.includes('只有 Timeline 返回的结果')
-    || content.includes('You must not bypass the timeline skill by directly reading files under');
+    || content.includes('You must not bypass the timeline skill by directly reading files under')
+    || content.includes('You must not bypass the timeline-skill skill by directly reading files under');
 }
 
 function detectCurrentSoulContract(content) {

@@ -126,7 +126,7 @@ It will:
 
 - build the latest `dist/`
 - sync into `~/.openclaw/extensions/stella-timeline-plugin`
-- refresh `~/.openclaw/workspace/skills/timeline`
+- refresh `~/.openclaw/workspace/skills/timeline-skill`
 - rerun workspace setup so `SOUL.md` stays upgraded
 - tighten permissions so OpenClaw does not reject the plugin for being too broadly writable
 

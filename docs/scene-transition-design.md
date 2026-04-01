@@ -73,7 +73,7 @@ interface TimelineTransitionOutput {
 ```
 1. Time-reality question → references/time-reality.md
 2. Scene transition directive → references/scene-transition.md  ← 新增
-3. Scene ambience → 内联逻辑
+3. Otherwise exit without Timeline action
 ```
 
 #### 场景迁移触发条件
@@ -259,7 +259,7 @@ memory/2026-04-01.md  ← 细化动作（在酒店吃早餐，09:00，Parent_Eve
 src/tools/timeline_transition.ts        ← tool 入口 + input/output 定义
 src/core/transition_planner.ts          ← Transition Planner LLM 推理
 src/core/transition_planner_contract.ts ← TransitionPlan 数据结构
-skills/timeline/references/scene-transition.md ← Skill 路由指令文档
+skills/timeline-skill/references/scene-transition.md ← Skill 路由指令文档
 ```
 
 修改文件：
@@ -267,7 +267,7 @@ skills/timeline/references/scene-transition.md ← Skill 路由指令文档
 ```
 src/core/collect_sources.ts             ← 跨天回溯采集逻辑
 src/core/collect_timeline_request.ts    ← 注入回溯记忆
-skills/timeline/SKILL.md                ← Entry Point Selection 新增路径
+skills/timeline-skill/SKILL.md          ← Entry Point Selection 新增路径
 src/plugin_metadata.ts                  ← TOOL_NAMES 扩展
 index.ts / openclaw-sdk-compat.ts       ← 注册新 tool
 ```

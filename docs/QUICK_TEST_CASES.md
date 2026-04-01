@@ -358,7 +358,7 @@
 
 ---
 
-## T-Fast. read_only_fast 场景氛围
+## T-Fast. read_only_fast 极速当前场景查询
 
 ### T-Fast-1 fast 命中
 
@@ -392,7 +392,7 @@ Channel A 通过 `allow_generate` 写入一条 canon 事实，Channel B 通过 `
 
 `read_only_fast` 返回 `empty_window` 后，30 分钟内再次调用。
 
-- **预期**：应按 SOUL 指引直接复用上次的空状态结果，不再发起新调用
+- **预期**：显式依赖该模式的下游应复用上次的空状态结果，不再发起新调用
 
 ---
 

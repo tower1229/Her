@@ -1,6 +1,6 @@
 # Time-Reality Path
 
-Load this document when the timeline skill has identified the current turn as a time-reality question.
+Load this document when the `timeline-skill` skill has identified the current turn as a time-reality question.
 
 ## Scope
 

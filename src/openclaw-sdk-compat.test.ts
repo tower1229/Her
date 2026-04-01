@@ -22,7 +22,7 @@ describe('timeline plugin entry compatibility shape', () => {
 
     expect(manifest.id).toBe(timelinePluginEntry.id);
     expect(manifest.entry).toBe(pkg.main);
-    expect(manifest.skills).toEqual(['skills/timeline']);
+    expect(manifest.skills).toEqual(['skills/timeline-skill']);
     expect(pkg.openclaw.extensions).toEqual(['./dist/index.js']);
   });
 

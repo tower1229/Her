@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.7.0]
+
+- Skill rename: 将 bundled skill 从 `timeline` 更名为 `timeline-skill`，并同步更新 `openclaw.plugin.json`、`src/plugin_metadata.ts`、workspace sync 脚本、README 与兼容性测试中的路径和名称。
+- Scene ambience removal: 删除 `skills/timeline-skill/SKILL.md` 中“每轮获取 scene ambience”的默认路由，并同步更新 `templates/SOUL.fragment.md`、workspace contract 检测逻辑、相关集成测试与文档表述。
+
 ## [2.6.0] - 2026-03-31
 
 - **`timeline_transition` Tool**: 新增场景迁移工具，支持“去洗澡”、“搬家”、“换工作”等物理状态、位置或任务目标的变更。
