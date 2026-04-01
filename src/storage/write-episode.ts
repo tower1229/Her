@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { computeFingerprint } from '../lib/fingerprint';
+import { computeFingerprint, halfHourTimelineBucket } from '../lib/fingerprint';
 import { parseMemoryFile } from '../lib/parse-memory';
 import { WorldHooks } from '../lib/types';
 import { getHoliday } from '../lib/holidays';
@@ -21,6 +21,8 @@ export interface WriteEpisodeInput {
   parentEventProgress?: number;
   filePath: string;
   confidence?: number;
+  /** Existing episodes with these Event_Id values do not trigger same-half-hour-bucket CONFLICT (interrupt / micro-task follow-ups). */
+  sameBucketExemptEventIds?: string[];
 }
 
 export interface WriteResult {
@@ -41,12 +43,15 @@ function detectWriteConflict(
   timestamp: string,
   location: string,
   action: string,
+  sameBucketExemptEventIds?: string[],
 ): {
   outcome: 'noop_existing' | 'conflict' | 'clear';
   fingerprint: string;
   existingFingerprint?: string;
 } {
   const fingerprint = computeFingerprint(dateStr, location, action, timestamp);
+  const newTimeBucket = halfHourTimelineBucket(timestamp);
+  const exempt = new Set((sameBucketExemptEventIds ?? []).filter(Boolean));
   if (!fs.existsSync(filePath)) {
     return { outcome: 'clear', fingerprint };
   }
@@ -60,8 +65,11 @@ function detectWriteConflict(
       return { outcome: 'noop_existing', fingerprint, existingFingerprint };
     }
     const sameDate = existingDate === dateStr;
-    const sameTimeBucket = existingFingerprint.split('|')[3] === fingerprint.split('|')[3];
+    const sameTimeBucket = halfHourTimelineBucket(episode.timestamp) === newTimeBucket;
     if (sameDate && sameTimeBucket) {
+      if (episode.eventId && exempt.has(episode.eventId)) {
+        continue;
+      }
       return { outcome: 'conflict', fingerprint, existingFingerprint };
     }
   }
@@ -70,7 +78,21 @@ function detectWriteConflict(
 }
 
 export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResult> {
-  const { timestamp, location, action, emotionTags, appearance, internalMonologue, estimatedDurationMinutes, eventId, parentEventTag, parentEventPhase, parentEventProgress, filePath } = input;
+  const {
+    timestamp,
+    location,
+    action,
+    emotionTags,
+    appearance,
+    internalMonologue,
+    estimatedDurationMinutes,
+    eventId,
+    parentEventTag,
+    parentEventPhase,
+    parentEventProgress,
+    filePath,
+    sameBucketExemptEventIds,
+  } = input;
 
   if (!timestamp || !location || !action || !emotionTags || emotionTags.length === 0 || !appearance) {
     return {
@@ -114,7 +136,7 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       weekday,
       holiday_key: holidayKey,
     };
-    const conflictCheck = detectWriteConflict(filePath, dateStr, timestamp, location, action);
+    const conflictCheck = detectWriteConflict(filePath, dateStr, timestamp, location, action, sameBucketExemptEventIds);
     if (conflictCheck.outcome === 'noop_existing') {
       return {
         success: true,

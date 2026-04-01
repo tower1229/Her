@@ -1,7 +1,14 @@
-import { computeFingerprint, checkReadOnlyHit } from './fingerprint';
+import { computeFingerprint, checkReadOnlyHit, halfHourTimelineBucket } from './fingerprint';
 import { ParsedEpisode } from './types';
 
 describe('fingerprint', () => {
+  it('exposes halfHourTimelineBucket aligned with the last segment of computeFingerprint', () => {
+    const ts = '2026-03-22 14:35:00';
+    const fp = computeFingerprint('2026-03-22', '书房', '读书', ts);
+    const bucket = halfHourTimelineBucket(ts);
+    expect(fp.endsWith(`|${bucket}`)).toBe(true);
+  });
+
   it('should compute fingerprint string correctly', () => {
     const f1 = computeFingerprint('2026-03-22', '家里书房靠窗的桌子', '把最近的零碎念头整理进 Obsidian 的第二大脑', '2026-03-22 14:35:00');
     expect(f1).toBe('20260322|家里书房靠窗的桌子|把最近的零碎念头整理进obsidian的第二大脑|14:30');

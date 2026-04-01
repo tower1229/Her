@@ -38,6 +38,57 @@ export function formatTimestamp(parts: TimestampParts, includeOffset = true): st
   return includeOffset && parts.offset ? `${base}${parts.offset}` : base;
 }
 
+/** Convert an instant to civil time fields for a fixed numeric offset (e.g. +08:00) or UTC when offset omitted. */
+function toPartsAtInstant(d: Date, offset?: string): TimestampParts {
+  if (!offset || offset === 'Z') {
+    const base = {
+      year: d.getUTCFullYear(),
+      month: d.getUTCMonth() + 1,
+      day: d.getUTCDate(),
+      hour: d.getUTCHours(),
+      minute: d.getUTCMinutes(),
+      second: d.getUTCSeconds(),
+    };
+    return offset === 'Z' ? { ...base, offset: 'Z' } : base;
+  }
+  const m = offset.match(/^([+-])(\d{2}):(\d{2})$/);
+  if (!m) {
+    return toPartsAtInstant(d, undefined);
+  }
+  const sign = m[1] === '+' ? 1 : -1;
+  const offsetMin = sign * (parseInt(m[2], 10) * 60 + parseInt(m[3], 10));
+  const shifted = new Date(d.getTime() + offsetMin * 60_000);
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+    hour: shifted.getUTCHours(),
+    minute: shifted.getUTCMinutes(),
+    second: shifted.getUTCSeconds(),
+    offset,
+  };
+}
+
+/**
+ * Add minutes to a canonical timeline timestamp.
+ * Uses the offset embedded in the string (e.g. +08:00 or Z) as a fixed numeric offset, not an IANA timezone
+ * (no DST rules). Returns null if the input is not parseable.
+ */
+export function addMinutesToTimestampString(timestamp: string, deltaMinutes: number): string | null {
+  const parts = parseTimestampParts(timestamp);
+  if (!parts) return null;
+  const normOffset = parts.offset && parts.offset !== 'Z' ? parts.offset : undefined;
+  const iso =
+    normOffset != null
+      ? `${formatDate(parts)}T${formatTime(parts)}${normOffset}`
+      : `${formatDate(parts)}T${formatTime(parts)}Z`;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  d.setTime(d.getTime() + deltaMinutes * 60_000);
+  const out = toPartsAtInstant(d, parts.offset === 'Z' ? 'Z' : normOffset);
+  return formatTimestamp(out, true);
+}
+
 export function addHours(parts: TimestampParts, hoursToAdd: number): TimestampParts {
   const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second));
   date.setUTCHours(date.getUTCHours() + hoursToAdd);

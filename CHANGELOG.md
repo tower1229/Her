@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.4]
+
+- **`timeline_transition` / interrupt**：写入新片段时传入 `sameBucketExemptEventIds`，使被中断条目的 `Event_Id` 不再与同半小时桶冲突检测相撞；`insert_micro_task` 对父事件 `Event_Id` 同样豁免，避免宏观事件内插微任务被误拒。
+- **`timeline_transition`**：`expected_end_at` 改为通过 `addMinutesToTimestampString` 做墙钟进位（修复长 `estimated_duration_minutes` 导致非法 `minute`）；`canon_write` 透传 `error_code` / `error` / `recovery_hint`；`notes` 在写入失败时报告原因，成功时保留原摘要；interrupt 下补充无 `Event_Id` 或截断失败时的说明。
+- **`writeEpisode`**：新增可选入参 `sameBucketExemptEventIds`；冲突检测对豁免列表中的既有 `Event_Id` 跳过同桶冲突。
+- **清理**：导出 `halfHourTimelineBucket`，同桶判断不再解析指纹字符串；`addMinutesToTimestampString` 注明固定 offset 语义；`expected_end_at` 无法解析时在 `notes` 说明并回退 `started_at`；工具描述修正 canon 拼写。
+
 ## [2.8.3]
 
 - **timeline-skill / SOUL**：State transition 触发改为**意图优先**（与句式无关），明确与 time-reality、元讨论、纯假设的边界；`SOUL.fragment.md` 补充进入 skill 后的**顺序与引用执行**说明，减少“定义与执行脱节”导致的漏触发或误触发。跟进 OpenClaw 评审：**假设+指令**拆成独立正向规则（去掉嵌套 unless）；**主语模糊**时在 `SKILL.md` 增加逐步消解（含交给 `timeline_transition` 原句裁决）。

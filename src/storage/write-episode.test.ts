@@ -116,6 +116,30 @@ describe('writeEpisode', () => {
     expect(res.recovery_hint).toContain('Inspect the existing daily log entry');
   });
 
+  it('allows same-bucket write when the occupying episode Event_Id is exempt (interrupt follow-up)', async () => {
+    fs.writeFileSync(
+      tempFile,
+      `### [14:30:00] planning notes...\n\n- Timestamp: 2026-03-22 14:30:00\n- Location: study\n- Action: planning notes\n- Emotion_Tags: [focused]\n- Appearance: home clothes\n- Event_Id: evt-active-parent\n\n`,
+      'utf8',
+    );
+
+    const res = await writeEpisode({
+      timestamp: '2026-03-22T14:35:00+08:00',
+      location: 'cafe',
+      action: 'waiting for coffee',
+      emotionTags: ['calm'],
+      appearance: 'light jacket',
+      filePath: tempFile,
+      sameBucketExemptEventIds: ['evt-active-parent'],
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.outcome).toBe('appended');
+    const content = fs.readFileSync(tempFile, 'utf8');
+    expect(content).toContain('cafe');
+    expect(content).toContain('evt-active-parent');
+  });
+
   it('writes Estimated_Duration when provided', async () => {
     const res = await writeEpisode({
       timestamp: '2026-03-22T14:30:00+08:00',

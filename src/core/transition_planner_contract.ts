@@ -34,6 +34,9 @@ export interface TimelineTransitionOutput {
   canon_write?: {
     success: boolean;
     file_path: string;
+    error_code?: string;
+    error?: string;
+    recovery_hint?: string;
   };
   notes: string[];
 }

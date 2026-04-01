@@ -61,6 +61,9 @@ interface TimelineTransitionOutput {
   canon_write: {
     success: boolean;
     file_path: string;
+    error_code?: string;
+    error?: string;
+    recovery_hint?: string;
   };
   notes: string[];
 }
@@ -162,7 +165,9 @@ interface TransitionPlan {
 | `initial_phase.internalMonologue` | `internalMonologue` |
 | `estimated_duration_minutes` | `estimatedDurationMinutes` |
 | 自动生成 | `eventId`（由 writeEpisode 自动生成） |
-| 不设置 | `parentEventTag`（事件本身没有父事件） |
+| 不设置 | `parentEventTag`（事件本身没有父事件；`insert_micro_task` 时由运行期填入父 `Event_Id`） |
+| 运行期 `interrupt` | `sameBucketExemptEventIds`：被打断条目的 `Event_Id`，避免与同半小时桶的防重复逻辑误杀合法「截断后立即续写」 |
+| 运行期 `insert_micro_task` | `sameBucketExemptEventIds`：父宏观事件的 `Event_Id`（同上） |
 
 写入时将伴随着（3.3 节的打断处理等）。写入后，如果 `estimated_duration_minutes` 较长构成了宏观事件，后续的 `timeline_resolve` 会自动将其视为宏观背景并做瞬时细化。如果 duration 较短（如洗澡30分钟），则作为正常的普通记忆段落下潜，不会触发拆解细化。
 
