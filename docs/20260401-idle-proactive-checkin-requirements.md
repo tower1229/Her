@@ -60,8 +60,9 @@ OpenClaw 侧行为约束（平台既有契约）：
 
 ### 2.3 补偿机制的单一事实源（必须）
 
-- **状态文件是唯一事实源**。
-  补偿机制只依赖状态文件字段，不依赖 OpenClaw 内部事件缓冲或日志推断。
+- **`engagement_state.json` 是主动问候判定的运行态事实源**。
+- 补偿机制只依赖状态文件字段，不依赖 OpenClaw 内部事件缓冲或日志推断。
+- 静态策略源来自 OpenClaw config / plugin config；persona 来源来自 persona contract。
 
 ---
 
@@ -91,7 +92,7 @@ OpenClaw 侧行为约束（平台既有契约）：
 
 ### 4.1 功能开关
 
-- 默认：**关闭或开启需明确指定**（建议默认关闭，避免升级后意外外发；如果你希望默认开启，可在实施时明确写入默认值与迁移说明）
+- 默认：**关闭**（生产默认关闭；首次启用必须由 config 显式开启，迁移不得自动开启）
 - 开关来源：优先从 OpenClaw config / plugin config 读取（实现细节见第 10 节）
 
 ### 4.2 静默阈值（默认 7h）
@@ -174,6 +175,8 @@ hooks/
   "last_successful_proactive_message_id": null,
   "last_inbound_event_id": null,
   "last_outbound_event_id": null,
+  "recent_inbound_event_ids": [],
+  "recent_outbound_event_ids": [],
   "last_proactive_decision_token": null,
   "pending_proactive_send": false,
   "proactive_greeting_enabled": false,
@@ -200,8 +203,10 @@ hooks/
   - `task_update`
   - `cron`
 - `last_successful_proactive_message_id`：最近一次主动问候成功发送后的消息 id，用于审计与去重。
-- `last_inbound_event_id`：最近一次成功处理的入站事件 id，用于幂等去重。
-- `last_outbound_event_id`：最近一次成功处理的外发事件 id，用于幂等去重。
+- `last_inbound_event_id`：最近一次成功处理的入站事件 id，用于审计与快速定位。
+- `last_outbound_event_id`：最近一次成功处理的外发事件 id，用于审计与快速定位。
+- `recent_inbound_event_ids`：最近一小段时间内已处理的入站事件 id 集合（建议 ring buffer / 有界数组），用于幂等去重，避免仅靠 `last_inbound_event_id` 无法覆盖乱序重试。
+- `recent_outbound_event_ids`：最近一小段时间内已处理的外发事件 id 集合（建议 ring buffer / 有界数组），用于幂等去重，避免仅靠 `last_outbound_event_id` 无法覆盖乱序重试。
 - `last_proactive_decision_token`：最近一次允许发送主动问候时生成的决策 token，用于防重复发送。
 - `pending_proactive_send`：是否存在“已决策允许发送、但尚未完成成功回写”的主动问候发送流程。
 - `proactive_greeting_enabled`：功能开关（状态文件层面，可被 config 覆盖；实现时需定义优先级）。
@@ -234,9 +239,8 @@ hooks/
 
 #### 6.3.2 幂等要求（必须）
 
-所有入站 / 外发 hook 必须支持事件幂等处理：
-
 - 每个 `message_received` / `message_sent` 事件必须携带唯一 `event_id`。
+- 不得仅依赖 `last_inbound_event_id` / `last_outbound_event_id` 做幂等；生产版必须使用 `recent_*_event_ids`（或等价外部幂等存储）覆盖乱序重试与重复回放。
 - 若 `event_id` 已处理过，则不得重复推进状态。
 - 幂等命中时，允许直接返回 success/no-op。
 
@@ -271,7 +275,7 @@ hooks/
 Heartbeat 每次运行只做：
 
 - 读取 `memory/engagement_state.json`
-- 以原子方式写入 `last_heartbeat_checked_at = now`
+- 尝试记录 `last_heartbeat_checked_at = now`（原子写入；若因 revision 冲突失败，可放弃本次 heartbeat 时间戳写入，但不得影响主判定流程）
 - 计算静默时长并判断规则
 - 若允许发送，先生成 `decision_token` 并写入：
   - `last_proactive_decision_token = <token>`
@@ -306,7 +310,7 @@ Heartbeat 每次运行只做：
 
 - 第一次触发：`idle >= idle_threshold_hours`（默认 7h）
 - 连续 2 次主动问候未回复后：提高门槛到 `idle >= 72h`
-- 一旦用户回复（任意入站消息）：`unanswered_proactive_count = 0`，恢复基线（`idle_threshold_hours`）
+- 一旦用户出现**有效直接入站消息**：`unanswered_proactive_count = 0`，恢复基线（`idle_threshold_hours`）
 
 说明：
 
@@ -367,7 +371,8 @@ Heartbeat 每次运行只做：
 - `unanswered_proactive_count = 0`
 - 若用户表达“不想被主动联系/少联系/别太频繁”等，设置 `proactive_opt_out = true`
 - 若用户明确恢复接受主动联系（opt-in），设置 `proactive_opt_out = false`
-- 若存在 `pending_proactive_send = true`，且本次为用户有效直接回复，则允许在本次写入后将其清除（实现侧可在发送确认链路中统一清理）
+- 若存在 `pending_proactive_send = true`，`on_user_message` **不得作为正常路径的主清理方**。
+- 仅当实现侧明确判定该标记属于历史脏状态 / 超时残留时，才允许执行兜底清理，并必须记录原因到审计信息或 `last_error`。
 
 注意：
 
@@ -377,6 +382,8 @@ Heartbeat 每次运行只做：
 ### 10.2 Hook：外发消息发送结果（on_outbound_sent）
 
 触发来源：OpenClaw `message_sent`（或等价 hook），需要能拿到 `success`、`event_id`、发送内容/元数据、以及 reason。
+
+说明：`on_outbound_sent` 是 `pending_proactive_send` 的**主清理责任方**。
 
 职责（按 reason 分类）：
 
@@ -388,6 +395,7 @@ Heartbeat 每次运行只做：
   - `last_outbound_event_id = event_id`
   - `unanswered_proactive_count += 1`
   - `pending_proactive_send = false`
+  - `last_proactive_decision_token` 保留到下一次决策覆盖，用于审计与重复发送阻断
 - 否则（例如 cron / reminder / task_update）且发送成功：
   - `last_non_social_outbound_at = now`（UTC）
   - `last_outbound_reason = <reason>`
@@ -402,6 +410,15 @@ Heartbeat 每次运行只做：
   - 记录 `last_error`
 - 可记录额外诊断字段（如 `last_outbound_error`），但不是最小版硬要求。
 
+发送超时 / 无回调处理：
+
+- 若 `pending_proactive_send = true` 持续超过实现侧设定的超时时间（建议 10-30 分钟），可判定为“发送链路未完成”。
+- 超时清理不得直接视为发送成功；只能：
+  - 清除 `pending_proactive_send`
+  - 保留 `last_proactive_decision_token`
+  - 记录 `last_error`
+- 超时清理可由补偿层、独立 watchdog、或实现侧 supervisor 执行，但不得绕过正常发送结果回写逻辑。
+
 ---
 
 ## 11. 判定函数：shouldSendProactiveGreeting(state, now)
@@ -415,7 +432,21 @@ Heartbeat 每次运行只做：
 建议输出结构：
 
 ```ts
-type IdleCheckinDecision = { ok: true } | { ok: false; reason: string };
+type IdleCheckinDecision =
+  | {
+      ok: true;
+      reason_code: "allowed";
+      idle_hours: number;
+      local_time: string;
+      rule_snapshot: Record<string, unknown>;
+    }
+  | {
+      ok: false;
+      reason_code: string;
+      idle_hours: number;
+      local_time: string;
+      rule_snapshot: Record<string, unknown>;
+    };
 ```
 
 在 Heartbeat 中：
@@ -427,6 +458,7 @@ type IdleCheckinDecision = { ok: true } | { ok: false; reason: string };
 
 - 判定函数只返回“是否允许发送 + 原因码 + 快照摘要”，不得直接推进任何状态。
 - 重复发送保护必须在 heartbeat 执行层完成，而不是依赖纯函数副作用。
+- 建议将 `last_decision` 的最小结构固定为 `{ ts, ok, reason_code, idle_hours, local_time, rule_snapshot }`，避免不同实现者写入格式不一致。
 
 ---
 
@@ -453,6 +485,12 @@ type IdleCheckinDecision = { ok: true } | { ok: false; reason: string };
 - 若 `last_heartbeat_checked_at` 距当前时间超过 2h：允许触发一次补偿巡检。
 - 同一观察窗口内应限制补偿频率，避免补偿风暴。
 - 补偿失败应记录错误并可告警。
+
+### 12.4 补偿执行边界（必须明确）
+
+- 补偿层可由外部 watchdog、独立巡检任务、或实现侧 supervisor 承担。
+- 补偿层不得与 heartbeat 共享“无保护写路径”。
+- 补偿层只能触发“再做一次巡检”，不得直接伪造 `message_sent(success)` 或跳过正常发送链路。
 
 ---
 
@@ -510,7 +548,7 @@ type IdleCheckinDecision = { ok: true } | { ok: false; reason: string };
    - 明确“读 state → 判定 → 不发则 `HEARTBEAT_OK` → 发则生成 1 条问候”
 7. **补齐最小单测与手工用例**（第 15 节）
 
-### 14.2 发送防重与状态提交顺序（生产版必须）
+### 14.3 发送防重与状态提交顺序（生产版必须）
 
 建议顺序：
 
@@ -528,7 +566,7 @@ type IdleCheckinDecision = { ok: true } | { ok: false; reason: string };
 - 同一 `decision_token` 不得成功发送两次。
 - 若 heartbeat 重跑且发现 `pending_proactive_send = true`，默认不得再次发起新的主动问候发送。
 
-### 14.3 配置优先级（必须在实现时明确）
+### 14.4 配置优先级（必须在实现时明确）
 
 建议优先级（从高到低）：
 
@@ -551,7 +589,7 @@ type IdleCheckinDecision = { ok: true } | { ok: false; reason: string };
 - 24h 节流生效（不会 24h 内重复问候）
 - 6h 反打扰生效（刚发过 cron/提醒时不问候）
 - 连续 2 次问候未回复后，门槛提高到 72h
-- 任意入站消息会清零 `unanswered_proactive_count`
+- 有效直接入站消息会清零 `unanswered_proactive_count`
 - 用户 opt-out 后不再主动问候；opt-in 后恢复
 
 工程验收：
@@ -560,6 +598,7 @@ type IdleCheckinDecision = { ok: true } | { ok: false; reason: string };
 - 状态文件读写具备容错（文件缺失/字段缺失/JSON 损坏时使用默认值、备份或迁移策略恢复）
 - 状态更新具备原子写入与 revision 校验，避免并发覆盖
 - 入站 / 外发 hook 具备事件幂等处理
+- 幂等实现能够覆盖乱序重试与重复回放，不仅限于“最后一个 event_id”
 - 存在重复发送保护：同一 `decision_token` 不会成功发送两次
 - persona 缺失时具备明确退化策略
 - heartbeat 异常时可通过补偿巡检恢复检查能力
