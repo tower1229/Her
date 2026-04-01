@@ -12,9 +12,35 @@ import {
   materializePlugin,
 } from './src/openclaw-sdk-compat';
 import {
+  makeOpenClawTimelineBeforePromptBuildHook,
   makeOpenClawTimelineResolveToolFactory,
   makeOpenClawTimelineTransitionToolFactory
 } from './src/runtime/openclaw_timeline_runtime';
+
+function registerTimelineBeforePromptBuildHook(api: {
+  on?: (
+    hookName: string,
+    handler: (...args: unknown[]) => unknown,
+    options?: { priority?: number },
+  ) => void;
+  registerHook?: (
+    events: string | string[],
+    handler: (...args: unknown[]) => unknown,
+    options?: { name?: string; description?: string },
+  ) => void;
+}) {
+  const runtimeApi = api as any;
+  const beforePromptBuildHook =
+    makeOpenClawTimelineBeforePromptBuildHook(runtimeApi) as (...args: unknown[]) => unknown;
+  if (typeof api.on === 'function') {
+    api.on('before_prompt_build', beforePromptBuildHook, { priority: 0 });
+  } else if (typeof api.registerHook === 'function') {
+    api.registerHook('before_prompt_build', beforePromptBuildHook, {
+      name: `${TIMELINE_PLUGIN_ID}.before_prompt_build`,
+      description: 'Inject timeline prompt context before prompt build.',
+    });
+  }
+}
 
 export const timelinePluginEntry = definePluginEntry({
   id: TIMELINE_PLUGIN_ID,
@@ -23,6 +49,7 @@ export const timelinePluginEntry = definePluginEntry({
   register(api) {
     api.registerTool(makeTimelineToolRegistration());
     api.registerTool(makeTimelineTransitionToolRegistration());
+    registerTimelineBeforePromptBuildHook(api as any);
   },
 });
 
@@ -42,6 +69,11 @@ const openClawTimelinePlugin = {
     logger?: unknown;
     resolvePath?: (input: string) => string;
     registerTool: (tool: unknown, options?: { optional?: boolean }) => void;
+    on?: (
+      hookName: string,
+      handler: (...args: unknown[]) => unknown,
+      options?: { priority?: number },
+    ) => void;
     registerHook?: (
       events: string | string[],
       handler: (...args: unknown[]) => unknown,
@@ -51,6 +83,7 @@ const openClawTimelinePlugin = {
     const runtimeApi = api as any;
     api.registerTool(makeOpenClawTimelineResolveToolFactory(runtimeApi));
     api.registerTool(makeOpenClawTimelineTransitionToolFactory(runtimeApi));
+    registerTimelineBeforePromptBuildHook(api);
   },
 };
 

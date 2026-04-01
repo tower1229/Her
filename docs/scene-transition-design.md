@@ -61,6 +61,9 @@ interface TimelineTransitionOutput {
   canon_write: {
     success: boolean;
     file_path: string;
+    error_code?: string;
+    error?: string;
+    recovery_hint?: string;
   };
   notes: string[];
 }
@@ -73,7 +76,7 @@ interface TimelineTransitionOutput {
 ```
 1. Time-reality question → references/time-reality.md
 2. Scene transition directive → references/scene-transition.md  ← 新增
-3. Scene ambience → 内联逻辑
+3. Otherwise exit without Timeline action
 ```
 
 #### 场景迁移触发条件
@@ -162,7 +165,9 @@ interface TransitionPlan {
 | `initial_phase.internalMonologue` | `internalMonologue` |
 | `estimated_duration_minutes` | `estimatedDurationMinutes` |
 | 自动生成 | `eventId`（由 writeEpisode 自动生成） |
-| 不设置 | `parentEventTag`（事件本身没有父事件） |
+| 不设置 | `parentEventTag`（事件本身没有父事件；`insert_micro_task` 时由运行期填入父 `Event_Id`） |
+| 运行期 `interrupt` | `sameBucketExemptEventIds`：被打断条目的 `Event_Id`，避免与同半小时桶的防重复逻辑误杀合法「截断后立即续写」 |
+| 运行期 `insert_micro_task` | `sameBucketExemptEventIds`：父宏观事件的 `Event_Id`（同上） |
 
 写入时将伴随着（3.3 节的打断处理等）。写入后，如果 `estimated_duration_minutes` 较长构成了宏观事件，后续的 `timeline_resolve` 会自动将其视为宏观背景并做瞬时细化。如果 duration 较短（如洗澡30分钟），则作为正常的普通记忆段落下潜，不会触发拆解细化。
 
@@ -259,7 +264,7 @@ memory/2026-04-01.md  ← 细化动作（在酒店吃早餐，09:00，Parent_Eve
 src/tools/timeline_transition.ts        ← tool 入口 + input/output 定义
 src/core/transition_planner.ts          ← Transition Planner LLM 推理
 src/core/transition_planner_contract.ts ← TransitionPlan 数据结构
-skills/timeline/references/scene-transition.md ← Skill 路由指令文档
+skills/timeline-skill/references/scene-transition.md ← Skill 路由指令文档
 ```
 
 修改文件：
@@ -267,7 +272,7 @@ skills/timeline/references/scene-transition.md ← Skill 路由指令文档
 ```
 src/core/collect_sources.ts             ← 跨天回溯采集逻辑
 src/core/collect_timeline_request.ts    ← 注入回溯记忆
-skills/timeline/SKILL.md                ← Entry Point Selection 新增路径
+skills/timeline-skill/SKILL.md          ← Entry Point Selection 新增路径
 src/plugin_metadata.ts                  ← TOOL_NAMES 扩展
 index.ts / openclaw-sdk-compat.ts       ← 注册新 tool
 ```

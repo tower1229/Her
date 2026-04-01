@@ -2,7 +2,7 @@ import { TimelineTransitionInput, TimelineTransitionOutput, TransitionPlan } fro
 import { collectActiveFacts } from '../core/collect_active_facts';
 import { makeTraceId } from '../core/trace';
 import { truncateEpisodeDuration } from '../storage/write-episode';
-import { formatDate, parseTimestampParts, formatTimestamp } from '../lib/time-utils';
+import { formatDate, parseTimestampParts, addMinutesToTimestampString } from '../lib/time-utils';
 import { TimelineRuntimeDependencies } from './timeline_resolve';
 
 export interface TimelineTransitionDependencies extends TimelineRuntimeDependencies {
@@ -60,24 +60,29 @@ export async function timelineTransition(
       eventId,
     };
 
+    let sameBucketExemptEventIds: string[] | undefined;
+    let truncateOk = true;
+
     if (plan.interruption_handling === 'interrupt' && activeFacts.length > 0) {
-      // Find the most recently active fact
       const interruptedFact = activeFacts[0];
       const calendarDate = interruptedFact.calendar_date;
       const filePath = deps.memoryFilePath!(calendarDate);
       if (interruptedFact.event_id) {
-         await truncateEpisodeDuration(filePath, interruptedFact.event_id, generatedWriteInput.timestamp);
+        sameBucketExemptEventIds = [interruptedFact.event_id];
+        truncateOk = await truncateEpisodeDuration(filePath, interruptedFact.event_id, generatedWriteInput.timestamp);
+      } else {
+        truncateOk = false;
       }
-    }
-
-    if (plan.interruption_handling === 'insert_micro_task' && activeFacts.length > 0) {
-       // It continues the parent event
-       const parentEvent = activeFacts[0];
-       Object.assign(generatedWriteInput, {
-         parentEventTag: parentEvent.event_id,
-         parentEventPhase: 'micro_task',
-         parentEventProgress: Math.min(1.0, (parentEvent.elapsed_minutes || 0) / (parentEvent.estimated_duration_minutes || 1))
-       });
+    } else if (plan.interruption_handling === 'insert_micro_task' && activeFacts.length > 0) {
+      const parentEvent = activeFacts[0];
+      if (parentEvent.event_id) {
+        sameBucketExemptEventIds = [parentEvent.event_id];
+      }
+      Object.assign(generatedWriteInput, {
+        parentEventTag: parentEvent.event_id,
+        parentEventPhase: 'micro_task',
+        parentEventProgress: Math.min(1.0, (parentEvent.elapsed_minutes || 0) / (parentEvent.estimated_duration_minutes || 1)),
+      });
     }
 
     // Write the new transition episode
@@ -86,7 +91,36 @@ export async function timelineTransition(
     const writeResult = await deps.writeEpisode!({
       ...generatedWriteInput,
       filePath: deps.memoryFilePath!(writeDate),
+      sameBucketExemptEventIds,
     });
+
+    const computedEndAt = addMinutesToTimestampString(
+      generatedWriteInput.timestamp,
+      plan.estimated_duration_minutes,
+    );
+    const expectedEndAt = computedEndAt ?? generatedWriteInput.timestamp;
+
+    const notes: string[] = [];
+    if (!computedEndAt) {
+      notes.push('expected_end_at could not be computed from started_at; falling back to started_at.');
+    }
+    if (plan.interruption_handling === 'interrupt' && activeFacts.length > 0) {
+      if (!activeFacts[0].event_id) {
+        notes.push('Interrupt: active episode has no Event_Id; prior duration was not truncated.');
+      } else if (!truncateOk) {
+        notes.push('Interrupt: could not truncate the prior episode (check calendar file and timestamps).');
+      }
+    }
+    if (writeResult.success) {
+      notes.push(
+        plan.interruption_handling === 'interrupt'
+          ? 'Event interrupt execution recorded.'
+          : 'Event transition execution recorded.',
+      );
+    } else {
+      const detail = [writeResult.error_code, writeResult.error].filter(Boolean).join(': ') || 'unknown error';
+      notes.push(`Canon write failed: ${detail}`);
+    }
 
     return {
       ok: writeResult.success,
@@ -96,18 +130,18 @@ export async function timelineTransition(
         summary: plan.summary,
         estimated_duration_minutes: plan.estimated_duration_minutes,
         started_at: generatedWriteInput.timestamp,
-        expected_end_at: formatTimestamp({
-           ...writeParts,
-           minute: writeParts!.minute + plan.estimated_duration_minutes
-        } as any),
+        expected_end_at: expectedEndAt,
         requires_persona_update: plan.requires_persona_update,
-        persona_update_data: plan.persona_update_data
+        persona_update_data: plan.persona_update_data,
       },
       canon_write: {
         success: writeResult.success,
         file_path: deps.memoryFilePath!(writeDate),
+        ...(writeResult.error_code && { error_code: writeResult.error_code }),
+        ...(writeResult.error && { error: writeResult.error }),
+        ...(writeResult.recovery_hint && { recovery_hint: writeResult.recovery_hint }),
       },
-      notes: [plan.interruption_handling === 'interrupt' ? 'Event interrupt execution recorded.' : 'Event transition execution recorded.']
+      notes,
     };
 
   } catch (error: any) {
@@ -121,7 +155,7 @@ export async function timelineTransition(
 
 export const timelineTransitionToolSpec = {
   name: 'timeline_transition',
-  description: 'Plans and executes an arbitrary state transition or new task assignment (e.g. go take a shower, moving to another city, travel for 2 days). It handles interrupting current activities or inserting micro-tasks, updating the cannon appropriately. Also signals if the persona profile should be updated for long-lasting effects.',
+  description: 'Plans and executes an arbitrary state transition or new task assignment (e.g. go take a shower, moving to another city, travel for 2 days). It handles interrupting current activities or inserting micro-tasks, updating the canon appropriately. Also signals if the persona profile should be updated for long-lasting effects.',
   inputSchema: {
     type: 'object',
     properties: {

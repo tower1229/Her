@@ -9,6 +9,12 @@ export interface PluginToolResult {
   data?: unknown;
 }
 
+export interface PluginHookRegistration {
+  event: string;
+  priority?: number;
+  execute: (event: unknown, context: unknown) => Promise<unknown> | unknown;
+}
+
 export interface PluginToolRegistration {
   name: string;
   description: string;
@@ -19,6 +25,7 @@ export interface PluginToolRegistration {
 
 export interface PluginEntryApi {
   registerTool: (tool: PluginToolRegistration, options?: { optional?: boolean }) => void;
+  on?: (event: string, handler: PluginHookRegistration['execute'], options?: { priority?: number }) => void;
 }
 
 export interface PluginEntryDefinition {
@@ -33,6 +40,7 @@ export interface RegisteredPluginShape {
   name: string;
   description: string;
   tools: PluginToolRegistration[];
+  hooks: PluginHookRegistration[];
 }
 
 export function definePluginEntry(definition: PluginEntryDefinition): PluginEntryDefinition {
@@ -41,10 +49,18 @@ export function definePluginEntry(definition: PluginEntryDefinition): PluginEntr
 
 export function materializePlugin(definition: PluginEntryDefinition): RegisteredPluginShape {
   const tools: PluginToolRegistration[] = [];
+  const hooks: PluginHookRegistration[] = [];
 
   definition.register({
     registerTool(tool, options) {
       tools.push({ ...tool, optional: options?.optional });
+    },
+    on(event, handler, options) {
+      hooks.push({
+        event,
+        priority: options?.priority,
+        execute: handler,
+      });
     },
   });
 
@@ -53,6 +69,7 @@ export function materializePlugin(definition: PluginEntryDefinition): Registered
     name: definition.name,
     description: definition.description,
     tools,
+    hooks,
   };
 }
 

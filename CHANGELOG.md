@@ -1,5 +1,40 @@
 # Changelog
 
+## [2.8.4]
+
+- **`timeline_transition` / interrupt**：写入新片段时传入 `sameBucketExemptEventIds`，使被中断条目的 `Event_Id` 不再与同半小时桶冲突检测相撞；`insert_micro_task` 对父事件 `Event_Id` 同样豁免，避免宏观事件内插微任务被误拒。
+- **`timeline_transition`**：`expected_end_at` 改为通过 `addMinutesToTimestampString` 做墙钟进位（修复长 `estimated_duration_minutes` 导致非法 `minute`）；`canon_write` 透传 `error_code` / `error` / `recovery_hint`；`notes` 在写入失败时报告原因，成功时保留原摘要；interrupt 下补充无 `Event_Id` 或截断失败时的说明。
+- **`writeEpisode`**：新增可选入参 `sameBucketExemptEventIds`；冲突检测对豁免列表中的既有 `Event_Id` 跳过同桶冲突。
+- **清理**：导出 `halfHourTimelineBucket`，同桶判断不再解析指纹字符串；`addMinutesToTimestampString` 注明固定 offset 语义；`expected_end_at` 无法解析时在 `notes` 说明并回退 `started_at`；工具描述修正 canon 拼写。
+
+## [2.8.3]
+
+- **timeline-skill / SOUL**：State transition 触发改为**意图优先**（与句式无关），明确与 time-reality、元讨论、纯假设的边界；`SOUL.fragment.md` 补充进入 skill 后的**顺序与引用执行**说明，减少“定义与执行脱节”导致的漏触发或误触发。跟进 OpenClaw 评审：**假设+指令**拆成独立正向规则（去掉嵌套 unless）；**主语模糊**时在 `SKILL.md` 增加逐步消解（含交给 `timeline_transition` 原句裁决）。
+- **OpenClaw 跟进**：`SOUL.fragment.md` 将主语消解指向 `SKILL.md` 中真实标题 **Disambiguation rules (who acts when the subject is vague)**，避免“disambiguation rules”空头引用；新增 **Substantive ongoing task** 操作定义（持续占用身体或可叙述时间块 vs 瞬时动作，边界交给 `timeline_transition`），并在 SOUL 中交叉指向该小节。
+- **workspace-contract**：`scripts/workspace-contract.cjs` 的 `CURRENT_SOUL_MARKERS` 与新版 `SOUL.fragment.md` 对齐，避免模板被误判为 legacy。
+
+## [2.8.2]
+
+- **Timeline reasoner (OpenClaw subagent)**：`buildTimelineReasonerSystemPrompt` / `buildTimelineReasonerMessage` 现与 query planner 一致，在 **system 输出示例** 与 **user 消息** 中写入**字面量 `request_id`**，并明确要求 **仅输出裸 JSON**（禁止 markdown 围栏与前后说明），降低 `extractJsonObjectFromMessages` 报 `Timeline reasoner did not return a JSON object` 或 `mismatched request_id` 的概率。
+
+## [2.8.1]
+
+- **Persona extractor / OpenClaw subagent**: Legacy persona 抽取提示词现与 Timeline query planner 一致，在输出 JSON 中**要求回显 `request_id`**（与 `legacy_files.request_id` 相同），满足 `runJsonPrompt` → `tryExtractJsonObject` 的关联校验，避免误报 `Timeline persona extractor returned mismatched request_id` 并降级为 `empty_window`。
+- **`validateCandidatePersonaContractPayload`**: 顶层白名单新增可选 `request_id`（若存在须为非空字符串）；`normalizeCandidatePersonaContract` 仍不将 `request_id` 写入持久化合约。
+- **Cache**: `extractLegacyPersonaContract` 的 `VALIDATOR_VERSION` 升为 `2`，使既有 persona 合约磁盘缓存按 key 失效并可在下次抽取时写入合规载荷（可选、一次性刷新）。
+
+## [2.8.0]
+
+- Prompt timeline context: 新增 `before_prompt_build` prompt context 链路。Timeline 现在会在每轮生成前注入标准化的 `Timeline prompt context`，用于对话语气调制，并允许 `timeline-skill` 在 `active_instant` 场景下直接回答当前态问题。
+- Enhanced `read_only_fast`: `read_only_fast` 从“仅看当天最新事实”升级为“先看当天，再回溯最多 N 天仍在持续的 active fact”。跨日宏观事件和已细化 phase 现在都能被 fast path 命中，并继续透传 `event_id` / `parent_event_*`。
+- Runtime / config: 为 plugin manifest 与 runtime 新增 `enablePromptTimelineContext`、`promptTimelineLookbackDays`、`promptTimelineMacroThresholdMinutes`、`promptTimelineDirectCurrentStateAnswers` 配置；兼容层 `definePluginEntry/materializePlugin` 也新增 hook 注册模型。
+- Contracts / tests: 更新 `timeline-skill`、`time-reality` reference 与 `SOUL.fragment.md` 契约，明确只有 `active_instant` 可绕过完整 `timeline_resolve`。补充 `read_only_fast` lookback、prompt context 分类、`before_prompt_build` 注入与兼容层 hook 注册测试。
+
+## [2.7.0]
+
+- Skill rename: 将 bundled skill 从 `timeline` 更名为 `timeline-skill`，并同步更新 `openclaw.plugin.json`、`src/plugin_metadata.ts`、workspace sync 脚本、README 与兼容性测试中的路径和名称。
+- Scene ambience removal: 删除 `skills/timeline-skill/SKILL.md` 中“每轮获取 scene ambience”的默认路由，并同步更新 `templates/SOUL.fragment.md`、workspace contract 检测逻辑、相关集成测试与文档表述。
+
 ## [2.6.0] - 2026-03-31
 
 - **`timeline_transition` Tool**: 新增场景迁移工具，支持“去洗澡”、“搬家”、“换工作”等物理状态、位置或任务目标的变更。

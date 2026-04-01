@@ -37,5 +37,9 @@ describe('createLegacyPersonaExtractorRuntime', () => {
     expect(call.message).toContain('"identity": "She lives in Shanghai."');
     expect(call.message).not.toContain('"query"');
     expect(call.extraSystemPrompt).toContain('Do not use the user query');
+    expect(call.extraSystemPrompt).toContain('request_id');
+    expect(call.message).toContain(`"request_id": "${call.requestId}"`);
+    expect(call.message).toContain('legacy_files');
+    expect(call.message.split(call.requestId).length - 1).toBeGreaterThanOrEqual(2);
   });
 });

@@ -34,7 +34,7 @@ interface ExtractLegacyPersonaContractOptions {
 }
 
 const CONTRACT_VERSION = '1.0';
-const VALIDATOR_VERSION = '1';
+const VALIDATOR_VERSION = '2';
 
 function deriveLegacyAvailableSources(legacy: LegacyCoreFiles): PersonaAvailableSource[] {
   return [

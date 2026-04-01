@@ -1,6 +1,10 @@
 # State Transition Handling
 
-The user has explicitly asked or implied for you to change your ongoing physical activity, drop what you are doing, start a new task, travel to a new place, change jobs, or engage in a new micro-task. 
+You are on this path because the user's **intent** is that your **canon** should change: new ongoing physical activity, dropping or interrupting what you were doing, a new task, travel, a new place, a job change, or a concrete micro-task in the lived world. **Do not** hinge this on "imperative wording"—suggestions, invitations, and questions count the same if they mean "this should become our reality now."
+
+**Not** this path: the user is only asking what you are doing *now* (time-reality), discussing abstractly whether a line was an instruction, or spinning a hypothetical that **never** tells you to adopt a new scene in canon.
+
+**Still** this path when a hypothetical is **paired with a directive** in the same turn—the directive commits scene; the hypothetical is only setup. Example: "假如你已到家了，现在去洗个澡".
 
 To execute this, you must run the `timeline_transition` tool to plan and commit this transition into your active timeline logic.
 

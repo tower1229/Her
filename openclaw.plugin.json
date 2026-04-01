@@ -1,11 +1,11 @@
 {
   "id": "stella-timeline-plugin",
   "name": "Stella Timeline Plugin",
-  "version": "2.6.2",
+  "version": "2.8.4",
   "description": "OpenClaw timeline runtime with canonical timeline_resolve and timeline_transition, LLM-based temporal reasoning, and guarded append-only writes.",
   "entry": "dist/index.js",
   "skills": [
-    "skills/timeline"
+    "skills/timeline-skill"
   ],
   "tools": [
     "timeline_resolve",
@@ -26,6 +26,26 @@
       "canonicalMemoryRoot": {
         "type": "string",
         "description": "Root directory for canonical timeline daily logs. Relative paths are resolved from the workspace."
+      },
+      "enablePromptTimelineContext": {
+        "type": "boolean",
+        "default": true,
+        "description": "Whether to inject timeline prompt context through before_prompt_build."
+      },
+      "promptTimelineLookbackDays": {
+        "type": "integer",
+        "default": 7,
+        "description": "How many days read_only_fast and prompt timeline context may look back for still-active macro events."
+      },
+      "promptTimelineMacroThresholdMinutes": {
+        "type": "integer",
+        "default": 120,
+        "description": "Duration threshold above which an active fact is treated as macro background rather than an instantaneous scene."
+      },
+      "promptTimelineDirectCurrentStateAnswers": {
+        "type": "boolean",
+        "default": true,
+        "description": "Whether active_instant prompt context may authorize direct answers for current-state questions without a full timeline_resolve call."
       },
       "reasonerTimeoutMs": {
         "type": "integer",
