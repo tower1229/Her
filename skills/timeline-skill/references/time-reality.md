@@ -14,7 +14,7 @@ When the target time lacks an existing fact, Timeline decides whether to generat
 
 ## Hard Rules
 
-1. For time-reality questions, call `timeline_resolve` first and answer second.
+1. For time-reality questions, use authoritative injected timeline prompt context only when it is explicitly marked `active_instant` and the question is about the current state. Otherwise call `timeline_resolve` first and answer second.
 2. Do not answer "what are you doing now" or "what happened recently" from `SOUL.md`, `IDENTITY.md`, `MEMORY.md`, or `persona/PERSONA_PROFILE.md` alone.
 3. Do not bypass `timeline_resolve` by directly reading files under `memory/` to assemble an answer. Only Timeline results are the factual basis for time-reality questions.
 4. Do not rewrite the query into structured time parameters before the call.
@@ -55,9 +55,12 @@ Examples:
 
 Handling:
 
-- Call `timeline_resolve`
+- If the current turn already includes authoritative injected timeline prompt context with `status: active_instant` and `direct_current_state_answers_allowed: yes`, answer directly from that context.
+- Otherwise call `timeline_resolve`
 - Set `query` to the user's exact wording
 - Do not decide `now` yourself before calling
+
+Do not answer a concrete current-state question directly from injected context when the context is only `active_macro_background`, `empty_window`, or `degraded`.
 
 ### Scenario B: A Specific Past Time
 

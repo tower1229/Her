@@ -14,6 +14,7 @@ describe('timeline plugin entry compatibility shape', () => {
     expect(timelinePlugin.tools.map((tool) => tool.name)).toEqual(['timeline_resolve', 'timeline_transition']);
     expect(timelinePlugin.tools.find((tool) => tool.name === 'timeline_resolve')?.optional).toBeUndefined();
     expect(timelinePlugin.tools.find((tool) => tool.name === 'timeline_transition')?.optional).toBeUndefined();
+    expect(timelinePlugin.hooks.map((hook) => hook.event)).toContain('before_prompt_build');
   });
 
   it('keeps manifest, package, and runtime entry metadata aligned', () => {

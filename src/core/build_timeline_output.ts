@@ -323,8 +323,18 @@ export function buildReadOnlyFastOutput(input: {
   calendarDate: string;
   now: string;
   timezone: string;
+  sourceSummary?: string;
+  sourceNote?: string;
 }): TimelineResolveSuccessContract {
-  const { traceId, parsed, calendarDate, now, timezone } = input;
+  const {
+    traceId,
+    parsed,
+    calendarDate,
+    now,
+    timezone,
+    sourceSummary = 'read_only_fast hit from active canon fact.',
+    sourceNote = 'read_only_fast: reused an unexpired active canon fact without LLM reasoning.',
+  } = input;
   const fp = computeFingerprint(calendarDate, parsed.location, parsed.action, parsed.timestamp);
   const worldHooks = buildWorldHooks(parsed.timestamp);
   const episode = mapToEpisode(parsed, worldHooks, fp);
@@ -354,7 +364,7 @@ export function buildReadOnlyFastOutput(input: {
     time_interpretation: {
       normalized_kind: 'now',
       match_strategy: 'continuation',
-      summary: 'read_only_fast hit from canon daily log.',
+      summary: sourceSummary,
     },
     decision: {
       action: 'reuse_existing_fact',
@@ -368,7 +378,7 @@ export function buildReadOnlyFastOutput(input: {
     },
     estimated_duration_minutes: durationFromParsed,
     rationale: {
-      summary: 'read_only_fast: reused the latest unexpired canon fact without LLM reasoning.',
+      summary: sourceNote,
       hard_fact_basis: [],
       canon_basis: [`canon:${calendarDate}:fast`],
       persona_basis: [],
@@ -404,7 +414,7 @@ export function buildReadOnlyFastOutput(input: {
       },
       resolution: {
         mode: 'read_only_fast_hit',
-        notes: 'read_only_fast hit from canon daily log.',
+        notes: sourceSummary,
       },
       consumption: buildConsumptionView({
         preset: 'now',
@@ -419,11 +429,11 @@ export function buildReadOnlyFastOutput(input: {
       }),
       episodes: [episode],
     },
-    notes: ['read_only_fast: reused the latest unexpired canon fact.'],
+    notes: [sourceNote],
   };
 }
 
-const FAST_EMPTY_DEBOUNCE_MINUTES = 30;
+export const READ_ONLY_FAST_EMPTY_DEBOUNCE_MINUTES = 30;
 
 export function buildReadOnlyFastEmptyOutput(input: {
   traceId: string;
@@ -483,7 +493,7 @@ export function buildReadOnlyFastEmptyOutput(input: {
           appearance: '',
           time_of_day: '',
           summary: '',
-          estimated_duration_minutes: FAST_EMPTY_DEBOUNCE_MINUTES,
+          estimated_duration_minutes: READ_ONLY_FAST_EMPTY_DEBOUNCE_MINUTES,
         },
       },
       episodes: [],
@@ -491,4 +501,3 @@ export function buildReadOnlyFastEmptyOutput(input: {
     notes: ['read_only_fast: no unexpired canon fact found; debounce for 30 minutes.'],
   };
 }
-

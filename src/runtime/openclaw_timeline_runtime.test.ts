@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import {
+  makeOpenClawTimelineBeforePromptBuildHook,
   makeOpenClawTimelineResolveToolFactory,
   resetOpenClawPluginRuntimeModuleLoaderForTests,
   setOpenClawPluginRuntimeModuleLoaderForTests,
@@ -11,6 +12,21 @@ function formatLocalCalendarDate(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function formatLocalTimestamp(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  const offsetMinutes = -date.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  const absOffset = Math.abs(offsetMinutes);
+  const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
+  const offsetRemainder = String(absOffset % 60).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${sign}${offsetHours}:${offsetRemainder}`;
 }
 
 describe('openclaw timeline runtime factories', () => {
@@ -794,6 +810,151 @@ describe('openclaw timeline runtime factories', () => {
       sessionKey: 'telegram:chat-123',
       limit: 12,
     });
+  });
+
+  it('injects active_instant prompt context through before_prompt_build', async () => {
+    const now = new Date();
+    const today = formatLocalCalendarDate(now);
+    const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60_000);
+
+    fs.writeFileSync(
+      path.join(canonicalRoot, `${today}.md`),
+      [
+        '### [Prompt Context]',
+        `- Timestamp: ${formatLocalTimestamp(thirtyMinutesAgo).replace('T', ' ')}`,
+        '- Location: 家里书房',
+        '- Action: 继续整理刚才的工作笔记',
+        '- Emotion_Tags: [专注, 平静]',
+        '- Appearance: 宽松的家居服',
+        '- Estimated_Duration: 120',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const handler = makeOpenClawTimelineBeforePromptBuildHook({
+      workspaceDir: tmpDir,
+      pluginConfig: {
+        canonicalMemoryRoot: 'timeline-memory',
+      },
+      config: {},
+      runtime: {},
+      logger: {},
+    });
+
+    const result = await handler(
+      {
+        prompt: '你现在在干嘛',
+        messages: [{ role: 'user', bodyText: '你现在在干嘛' }],
+      },
+      {
+        workspaceDir: tmpDir,
+        sessionKey: 'session-main',
+      },
+    );
+
+    expect(result).toBeTruthy();
+    expect((result as any).prependSystemContext).toContain('Timeline prompt context may be injected');
+    expect((result as any).prependContext).toContain('status: active_instant');
+    expect((result as any).prependContext).toContain('direct_current_state_answers_allowed: yes');
+  });
+
+  it('injects active_macro_background prompt context from lookback facts', async () => {
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60_000);
+    const yesterdayDate = formatLocalCalendarDate(yesterday);
+    const yesterdayMorning = new Date(yesterday.getTime());
+    yesterdayMorning.setHours(8, 0, 0, 0);
+
+    fs.writeFileSync(
+      path.join(canonicalRoot, `${yesterdayDate}.md`),
+      [
+        '### [Prompt Context]',
+        `- Timestamp: ${formatLocalTimestamp(yesterdayMorning).replace('T', ' ')}`,
+        '- Location: 从上海搬去大理的路上',
+        '- Action: 整段搬家行程仍在持续',
+        '- Emotion_Tags: [专注]',
+        '- Appearance: 适合出行的休闲装',
+        '- Estimated_Duration: 2880',
+        '- Event_Id: evt-move-1',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const handler = makeOpenClawTimelineBeforePromptBuildHook({
+      workspaceDir: tmpDir,
+      pluginConfig: {
+        canonicalMemoryRoot: 'timeline-memory',
+        promptTimelineLookbackDays: 7,
+        promptTimelineMacroThresholdMinutes: 120,
+      },
+      config: {},
+      runtime: {},
+      logger: {},
+    });
+
+    const result = await handler(
+      {
+        prompt: '随便聊聊',
+        messages: [{ role: 'user', bodyText: '随便聊聊' }],
+      },
+      {
+        workspaceDir: tmpDir,
+        sessionKey: 'session-main',
+      },
+    );
+
+    expect(result).toBeTruthy();
+    expect((result as any).prependContext).toContain('status: active_macro_background');
+    expect((result as any).prependContext).toContain('current_state_resolution_required: yes');
+  });
+
+  it('returns no prompt mutation when prompt timeline context is disabled', async () => {
+    const handler = makeOpenClawTimelineBeforePromptBuildHook({
+      workspaceDir: tmpDir,
+      pluginConfig: {
+        canonicalMemoryRoot: 'timeline-memory',
+        enablePromptTimelineContext: false,
+      },
+      config: {},
+      runtime: {},
+      logger: {},
+    });
+
+    const result = await handler(
+      { prompt: '你好', messages: [] },
+      { workspaceDir: tmpDir, sessionKey: 'session-main' },
+    );
+
+    expect(result).toBeUndefined();
+  });
+
+  it('returns no prompt mutation when allowPromptInjection is disabled by policy', async () => {
+    const handler = makeOpenClawTimelineBeforePromptBuildHook({
+      workspaceDir: tmpDir,
+      pluginConfig: {
+        canonicalMemoryRoot: 'timeline-memory',
+      },
+      config: {
+        plugins: {
+          entries: {
+            'stella-timeline-plugin': {
+              hooks: {
+                allowPromptInjection: false,
+              },
+            },
+          },
+        },
+      },
+      runtime: {},
+      logger: {},
+    });
+
+    const result = await handler(
+      { prompt: '你好', messages: [] },
+      { workspaceDir: tmpDir, sessionKey: 'session-main' },
+    );
+
+    expect(result).toBeUndefined();
   });
 
 });

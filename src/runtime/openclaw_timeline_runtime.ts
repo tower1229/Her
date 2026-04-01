@@ -12,11 +12,19 @@ import { writeEpisode } from '../storage/write-episode';
 import {
   timelineResolve,
   timelineResolveToolSpec,
+  resolveReadOnlyFastSnapshot,
   TimelineRuntimeDependencies,
   TimelineResolveInput,
 } from '../tools/timeline_resolve';
 import { createLegacyPersonaExtractorRuntime } from './legacy_persona_extractor_runtime';
 import { loadTimelinePersonaContractFromWorkspace } from '../persona/load_persona_contract';
+import {
+  buildTimelinePromptContextFromFastSnapshot,
+  buildTimelinePromptContextText,
+  buildTimelinePromptSystemGuidance,
+  createDegradedTimelinePromptContext,
+} from './timeline_prompt_context';
+import { TIMELINE_PLUGIN_ID } from '../plugin_metadata';
 
 interface PluginLoggerLike {
   debug?: (message: string, meta?: Record<string, unknown>) => void;
@@ -66,6 +74,11 @@ interface PluginApiLike {
   workspaceDir?: string;
   logger?: PluginLoggerLike;
   resolvePath?: (input: string) => string;
+  on?: (
+    hookName: string,
+    handler: (event: unknown, ctx: PluginToolContextLike) => unknown,
+    options?: { priority?: number },
+  ) => void;
 }
 
 interface OpenClawPluginRuntimeModuleLike {
@@ -78,6 +91,10 @@ interface TimelinePluginRuntimeConfig {
   enableTrace: boolean;
   traceLogPath?: string;
   canonicalMemoryRoot: string;
+  enablePromptTimelineContext: boolean;
+  promptTimelineLookbackDays: number;
+  promptTimelineMacroThresholdMinutes: number;
+  promptTimelineDirectCurrentStateAnswers: boolean;
   reasonerTimeoutMs: number;
   reasonerSessionPrefix: string;
   reasonerMessageLimit: number;
@@ -118,11 +135,19 @@ function readInteger(value: unknown, fallback: number): number {
   return Number.isInteger(value) && Number(value) > 0 ? Number(value) : fallback;
 }
 
+function readNonNegativeInteger(value: unknown, fallback: number): number {
+  return Number.isInteger(value) && Number(value) >= 0 ? Number(value) : fallback;
+}
+
 function resolvePluginRuntimeConfig(pluginConfig?: Record<string, unknown>): TimelinePluginRuntimeConfig {
   return {
     enableTrace: readBoolean(pluginConfig?.enableTrace, true),
     traceLogPath: readString(pluginConfig?.traceLogPath),
     canonicalMemoryRoot: readString(pluginConfig?.canonicalMemoryRoot) || 'memory',
+    enablePromptTimelineContext: readBoolean(pluginConfig?.enablePromptTimelineContext, true),
+    promptTimelineLookbackDays: readNonNegativeInteger(pluginConfig?.promptTimelineLookbackDays, 7),
+    promptTimelineMacroThresholdMinutes: readInteger(pluginConfig?.promptTimelineMacroThresholdMinutes, 120),
+    promptTimelineDirectCurrentStateAnswers: readBoolean(pluginConfig?.promptTimelineDirectCurrentStateAnswers, true),
     reasonerTimeoutMs: readInteger(pluginConfig?.reasonerTimeoutMs, 90000),
     reasonerSessionPrefix: readString(pluginConfig?.reasonerSessionPrefix) || 'timeline-reasoner',
     reasonerMessageLimit: readInteger(pluginConfig?.reasonerMessageLimit, 24),
@@ -240,6 +265,17 @@ function resolveWorkspaceDir(pluginApi: PluginApiLike, toolContext: PluginToolCo
   if (pluginApi.workspaceDir) return pluginApi.workspaceDir;
   if (typeof pluginApi.resolvePath === 'function') return pluginApi.resolvePath('.');
   return process.cwd();
+}
+
+function isPromptInjectionAllowed(pluginApi: PluginApiLike): boolean {
+  const config = pluginApi.config as
+    | {
+        plugins?: {
+          entries?: Record<string, { hooks?: { allowPromptInjection?: boolean } }>;
+        };
+      }
+    | undefined;
+  return config?.plugins?.entries?.[TIMELINE_PLUGIN_ID]?.hooks?.allowPromptInjection !== false;
 }
 
 function resolveConfiguredPath(workspaceDir: string, configuredPath: string | undefined, fallbackRelativePath: string): string {
@@ -1239,6 +1275,7 @@ function createTimelineResolveDependencies(
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     }),
     writeEpisode,
+    readOnlyFastLookbackDays: runtimeConfig.promptTimelineLookbackDays,
     sessionsHistory: async () => {
       const sessionKey = toolContext.sessionKey;
       if (!sessionKey) return [];
@@ -1349,6 +1386,53 @@ function createTimelineResolveDependencies(
   };
 }
 
+type BeforePromptBuildEventLike = {
+  prompt: string;
+  messages: unknown[];
+};
+
+export function makeOpenClawTimelineBeforePromptBuildHook(pluginApi: PluginApiLike) {
+  return async (_event: BeforePromptBuildEventLike, hookContext: PluginToolContextLike) => {
+    const runtimeConfig = resolvePluginRuntimeConfig(pluginApi.pluginConfig);
+    if (!runtimeConfig.enablePromptTimelineContext) {
+      return undefined;
+    }
+    if (!isPromptInjectionAllowed(pluginApi)) {
+      return undefined;
+    }
+
+    const prependSystemContext = buildTimelinePromptSystemGuidance({
+      directCurrentStateAnswersAllowed: runtimeConfig.promptTimelineDirectCurrentStateAnswers,
+    });
+
+    try {
+      const deps = createTimelineResolveDependencies(pluginApi, hookContext);
+      const snapshot = await resolveReadOnlyFastSnapshot({
+        currentTime: deps.currentTime!,
+        memoryGet: deps.memoryGet!,
+        readOnlyFastLookbackDays: deps.readOnlyFastLookbackDays,
+      });
+      const promptContext = buildTimelinePromptContextFromFastSnapshot(snapshot, {
+        macroThresholdMinutes: runtimeConfig.promptTimelineMacroThresholdMinutes,
+        directCurrentStateAnswersAllowed: runtimeConfig.promptTimelineDirectCurrentStateAnswers,
+      });
+
+      return {
+        prependSystemContext,
+        prependContext: buildTimelinePromptContextText(promptContext),
+      };
+    } catch (error) {
+      pluginApi.logger?.debug?.('timeline before_prompt_build degraded', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return {
+        prependSystemContext,
+        prependContext: buildTimelinePromptContextText(createDegradedTimelinePromptContext('resolver_unavailable')),
+      };
+    }
+  };
+}
+
 export function makeOpenClawTimelineResolveToolFactory(pluginApi: PluginApiLike) {
   return (toolContext: PluginToolContextLike): AgentToolLike => ({
     name: timelineResolveToolSpec.name,
@@ -1376,4 +1460,3 @@ export function makeOpenClawTimelineTransitionToolFactory(pluginApi: PluginApiLi
     }
   });
 }
-

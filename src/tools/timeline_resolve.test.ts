@@ -589,6 +589,100 @@ describe('timelineResolve', () => {
       expect(result.result?.consumption?.scene?.estimated_duration_minutes).toBe(30);
     });
 
+    it('looks back across days for an unexpired macro event when today has no active fact', async () => {
+      setTimelineResolveDependencies({
+        currentTime: async () => ({ now: '2026-04-01T09:00:00+08:00', timezone: 'Asia/Shanghai' }),
+        sessionsHistory: async () => [],
+        readOnlyFastLookbackDays: 7,
+        memoryGet: async (calendarDate) => {
+          if (calendarDate === '2026-03-31') {
+            return `
+### [08:00:00] 搬家行程
+- Timestamp: 2026-03-31 08:00:00
+- Location: 从上海搬去大理的路上
+- Action: 整段搬家行程仍在持续
+- Emotion_Tags: [专注]
+- Appearance: 适合出行的休闲装
+- Estimated_Duration: 2880
+- Event_Id: evt-20260331-080000
+`;
+          }
+          return '';
+        },
+      });
+
+      const result = await timelineResolve({ query: 'now', mode: 'read_only_fast' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error('expected success');
+      expect(result.resolution_summary.mode).toBe('read_only_fast_hit');
+      expect(result.result?.window.calendar_date).toBe('2026-03-31');
+      expect(result.result?.consumption?.scene?.event_id).toBe('evt-20260331-080000');
+    });
+
+    it('looks back across days for an unexpired refined phase and preserves parent event fields', async () => {
+      setTimelineResolveDependencies({
+        currentTime: async () => ({ now: '2026-04-01T00:15:00+08:00', timezone: 'Asia/Shanghai' }),
+        sessionsHistory: async () => [],
+        readOnlyFastLookbackDays: 7,
+        memoryGet: async (calendarDate) => {
+          if (calendarDate === '2026-03-31') {
+            return `
+### [23:30:00] 夜间列车
+- Timestamp: 2026-03-31 23:30:00
+- Location: 夜间列车卧铺
+- Action: 在去大理的夜车上准备休息
+- Emotion_Tags: [疲惫, 期待]
+- Appearance: 宽松外套
+- Estimated_Duration: 90
+- Event_Id: evt-20260331-233000
+- Parent_Event: evt-20260331-080000
+- Parent_Event_Phase: overnight-transit
+- Parent_Event_Progress: 0.75
+`;
+          }
+          return '';
+        },
+      });
+
+      const result = await timelineResolve({ query: 'now', mode: 'read_only_fast' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error('expected success');
+      expect(result.resolution_summary.mode).toBe('read_only_fast_hit');
+      const scene = (result as any).result?.consumption?.scene;
+      expect(scene?.event_id).toBe('evt-20260331-233000');
+      expect(scene?.parent_event_tag).toBe('evt-20260331-080000');
+      expect(scene?.parent_event_phase).toBe('overnight-transit');
+      expect(scene?.parent_event_progress).toBe(0.75);
+    });
+
+    it('does not reuse expired macro events from lookback', async () => {
+      setTimelineResolveDependencies({
+        currentTime: async () => ({ now: '2026-04-03T09:00:00+08:00', timezone: 'Asia/Shanghai' }),
+        sessionsHistory: async () => [],
+        readOnlyFastLookbackDays: 7,
+        memoryGet: async (calendarDate) => {
+          if (calendarDate === '2026-03-31') {
+            return `
+### [08:00:00] 搬家行程
+- Timestamp: 2026-03-31 08:00:00
+- Location: 从上海搬去大理的路上
+- Action: 整段搬家行程仍在持续
+- Emotion_Tags: [专注]
+- Appearance: 适合出行的休闲装
+- Estimated_Duration: 1440
+- Event_Id: evt-20260331-080000
+`;
+          }
+          return '';
+        },
+      });
+
+      const result = await timelineResolve({ query: 'now', mode: 'read_only_fast' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error('expected success');
+      expect(result.resolution_summary.mode).toBe('empty_window');
+    });
+
     it('uses defaultDurationForActivityMode when canon has no Estimated_Duration', async () => {
       setTimelineResolveDependencies({
         currentTime: async () => ({ now: '2026-03-22T15:00:00+08:00', timezone: 'Asia/Shanghai' }),

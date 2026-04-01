@@ -20,6 +20,14 @@ Evaluate the current turn in this order:
 
 Do not mention `timeline_resolve` or `timeline_transition` to the user. Speak naturally.
 
+### Injected Timeline Prompt Context
+
+The current turn may already include injected timeline prompt context from `before_prompt_build`.
+
+- If a **current-state** question is being asked and the injected context is marked `active_instant` with `direct_current_state_answers_allowed: yes`, you may answer directly from that context without calling `timeline_resolve`.
+- If the injected context is `active_macro_background`, `empty_window`, or `degraded`, a concrete current-state question still requires `timeline_resolve`.
+- Past recall, reflective recall, and continuity-judgment questions still require `timeline_resolve` even when injected context exists.
+
 ### Time-Reality Trigger
 
 The request is a time-reality question if answering it truthfully requires any of these moves:
