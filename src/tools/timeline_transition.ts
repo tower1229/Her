@@ -4,6 +4,8 @@ import { makeTraceId } from '../core/trace';
 import { truncateEpisodeDuration } from '../storage/write-episode';
 import { formatDate, parseTimestampParts, addMinutesToTimestampString } from '../lib/time-utils';
 import { TimelineRuntimeDependencies } from './timeline_resolve';
+import { buildTransitionTrace, TimelineTransitionTrace } from '../core/trace';
+import { appendTraceLog } from '../storage/trace_log';
 
 export interface TimelineTransitionDependencies extends TimelineRuntimeDependencies {
   planTransition?: (
@@ -12,6 +14,35 @@ export interface TimelineTransitionDependencies extends TimelineRuntimeDependenc
     persona: any,
     activeFacts: any[]
   ) => Promise<TransitionPlan>;
+}
+
+function persistTransitionTraceIfConfigured(
+  output: TimelineTransitionOutput,
+  input: TimelineTransitionInput,
+  deps: TimelineTransitionDependencies,
+): boolean {
+  if (!deps.traceLogPath || !output.trace) return false;
+
+  try {
+    appendTraceLog(
+      {
+        trace_id: output.trace_id,
+        event: 'timeline_transition',
+        ts: new Date().toISOString(),
+        payload: {
+          ok: output.ok,
+          directive: input.directive,
+          notes: output.notes,
+          trace: output.trace,
+        },
+      },
+      deps.traceLogPath,
+    );
+  } catch {
+    return false;
+  }
+
+  return true;
 }
 
 export async function timelineTransition(
@@ -122,7 +153,7 @@ export async function timelineTransition(
       notes.push(`Canon write failed: ${detail}`);
     }
 
-    return {
+    const result: TimelineTransitionOutput = {
       ok: writeResult.success,
       trace_id: traceId,
       transition: {
@@ -144,12 +175,33 @@ export async function timelineTransition(
       notes,
     };
 
+    result.trace = buildTransitionTrace({
+      directive: input.directive,
+      active_facts_found: activeFacts.length,
+      interruption_handling: plan.interruption_handling,
+      interrupted_event_id: activeFacts[0]?.event_id,
+      truncate_ok: truncateOk,
+      requires_persona_update: plan.requires_persona_update,
+      write: {
+        success: writeResult.success,
+        file_path: writeResult.success ? deps.memoryFilePath!(writeDate) : undefined,
+        error_code: writeResult.error_code,
+        error: writeResult.error,
+      },
+      notes: result.notes,
+    }, traceId);
+
+    persistTransitionTraceIfConfigured(result, input, deps);
+    return result;
+
   } catch (error: any) {
-    return {
+    const output: TimelineTransitionOutput = {
       ok: false,
       trace_id: traceId,
       notes: [`Transition failed: ${error.message}`]
     };
+    persistTransitionTraceIfConfigured(output, input, deps);
+    return output;
   }
 }
 

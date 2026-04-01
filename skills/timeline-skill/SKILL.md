@@ -56,6 +56,8 @@ When uncertain, prefer the episodic reading.
 
 Use path 2 when the primary communicative goal is to **move your committed timeline**—not when the user only wants a **read** of the current anchor.
 
+**IMPORTANT**: If a turn contains a directive or proposal for a new activity, location, or task, it MUST use Path 2, even if an `active_instant` prompt context is already available. Do not let "knowing what you are doing now" prevent you from transitioning to what was just requested.
+
 **Counts as a state transition** (illustrative):
 
 - New location, travel, or joint movement: "let's go for a walk", "陪我出去走走", "come over here"

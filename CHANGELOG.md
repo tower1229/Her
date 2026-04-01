@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.8.5]
+
+- **`timeline_transition` / 路由优先级**：升级状态切换（State Transition）优先级。在 `SKILL.md` 与 `SOUL.fragment.md` 中明确要求：当命中 Path 2 (状态变更) 时，AGENT 应忽略既有的 `active_instant` 上下文，优先执行跳转工具。解决了“活跃上下文阻塞场景迁移”的逻辑冲突。
+- **可观测性 (Trace Log)**：为 `timeline_transition` 增加了持久化追踪日志。详细的推理路径（包括冲突检测、打断逻辑、微任务插入决定）现在会被自动记录到 `logs/transition-trace.log`（若存在该目录），极大提升了复杂迁移场景的调试效率。
+- **自定义世界律动 (World Rhythm)**：重构了合理性校验引擎以支持 `world_rhythm_constraints`。插件现在能够根据 Persona Profile 中定义的非标准作息时间（如熬夜型）动态调整睡眠与活动窗口，不再强制套用全局 21:00-09:00 的默认睡眠模型。
+- **鲁棒性修复**：修复了 `write-episode.ts` 中 `truncateEpisodeDuration` 在处理跨日长耗时事件时的时长计算缺陷；修正了 `Estimated_Duration` 在打断场景下的进位溢出风险。
+- **Workspace 同步工具**：更新了 `scripts/workspace-contract.cjs` 的 `CURRENT_SOUL_MARKERS`，支持自动检测并引导旧版工作区升级到最新的状态跳转优先级逻辑。
+
 ## [2.8.4]
 
 - **`timeline_transition` / interrupt**：写入新片段时传入 `sameBucketExemptEventIds`，使被中断条目的 `Event_Id` 不再与同半小时桶冲突检测相撞；`insert_micro_task` 对父事件 `Event_Id` 同样豁免，避免宏观事件内插微任务被误拒。

@@ -260,28 +260,25 @@ export async function truncateEpisodeDuration(
       if (ep.eventId === eventId && ep.estimatedDurationMinutes) {
         const epTimeParts = parseTimestampParts(ep.timestamp);
         const interruptParts = parseTimestampParts(interruptionTimeISO);
+        
+        let diffMins = -1;
         if (epTimeParts && interruptParts && epTimeParts.year === interruptParts.year && epTimeParts.month === interruptParts.month && epTimeParts.day === interruptParts.day) {
            const startMinutes = epTimeParts.hour * 60 + epTimeParts.minute;
            const endMinutes = interruptParts.hour * 60 + interruptParts.minute;
-           const diff = endMinutes - startMinutes;
-           if (diff > 0 && diff < ep.estimatedDurationMinutes) {
-              ep.estimatedDurationMinutes = diff;
-              found = true;
-           } else if (diff <= 0) {
-              ep.estimatedDurationMinutes = 1; // Minimum 1 min length
-              found = true;
-           }
+           diffMins = endMinutes - startMinutes;
         } else {
-           // Basic fallback if unparseable / multi-day
+           // Fallback for cross-day or complex formats
            const d1 = new Date(ep.timestamp.replace(' ', 'T')).getTime();
            const d2 = new Date(interruptionTimeISO.replace(' ', 'T')).getTime();
            if (!isNaN(d1) && !isNaN(d2)) {
-             const diffMins = Math.floor((d2 - d1) / 60000);
-             if (diffMins > 0 && diffMins < ep.estimatedDurationMinutes) {
-               ep.estimatedDurationMinutes = diffMins;
-               found = true;
-             }
+             diffMins = Math.floor((d2 - d1) / 60000);
            }
+        }
+
+        if (diffMins !== -1) {
+          const finalDuration = Math.max(1, Math.min(diffMins, ep.estimatedDurationMinutes));
+          ep.estimatedDurationMinutes = finalDuration;
+          found = true;
         }
       }
     }
