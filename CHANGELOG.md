@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.8.2]
+
+- **Timeline reasoner (OpenClaw subagent)**：`buildTimelineReasonerSystemPrompt` / `buildTimelineReasonerMessage` 现与 query planner 一致，在 **system 输出示例** 与 **user 消息** 中写入**字面量 `request_id`**，并明确要求 **仅输出裸 JSON**（禁止 markdown 围栏与前后说明），降低 `extractJsonObjectFromMessages` 报 `Timeline reasoner did not return a JSON object` 或 `mismatched request_id` 的概率。
+
+## [2.8.1]
+
+- **Persona extractor / OpenClaw subagent**: Legacy persona 抽取提示词现与 Timeline query planner 一致，在输出 JSON 中**要求回显 `request_id`**（与 `legacy_files.request_id` 相同），满足 `runJsonPrompt` → `tryExtractJsonObject` 的关联校验，避免误报 `Timeline persona extractor returned mismatched request_id` 并降级为 `empty_window`。
+- **`validateCandidatePersonaContractPayload`**: 顶层白名单新增可选 `request_id`（若存在须为非空字符串）；`normalizeCandidatePersonaContract` 仍不将 `request_id` 写入持久化合约。
+- **Cache**: `extractLegacyPersonaContract` 的 `VALIDATOR_VERSION` 升为 `2`，使既有 persona 合约磁盘缓存按 key 失效并可在下次抽取时写入合规载荷（可选、一次性刷新）。
+
 ## [2.8.0]
 
 - Prompt timeline context: 新增 `before_prompt_build` prompt context 链路。Timeline 现在会在每轮生成前注入标准化的 `Timeline prompt context`，用于对话语气调制，并允许 `timeline-skill` 在 `active_instant` 场景下直接回答当前态问题。

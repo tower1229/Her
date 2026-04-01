@@ -330,6 +330,8 @@ describe('openclaw timeline runtime factories', () => {
     expect(latestReasonerMessage).toContain('"home_city": "Shanghai"');
     expect(latestReasonerMessage).toContain('"temperament": "reflective"');
     expect(latestReasonerMessage).not.toContain('"home_city": "Beijing"');
+    expect(latestReasonerMessage).toContain('top-level request_id exactly:');
+    expect(latestReasonerMessage).toContain(JSON.stringify(latestReasonerRequestId));
   });
 
   it('recovers the matching planner and reasoner JSON from mixed assistant transcripts', async () => {

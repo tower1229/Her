@@ -118,7 +118,7 @@ describe('extractLegacyPersonaContract', () => {
       contractVersion: '1.0',
       extractorVersion: 'extractor-v1',
       modelId: 'mock-model',
-      validatorVersion: '1',
+      validatorVersion: '2',
     };
     const cacheKey = computePersonaContractCacheKey(descriptor);
     fs.writeFileSync(
@@ -131,7 +131,7 @@ describe('extractLegacyPersonaContract', () => {
           contract_version: '1.0',
           extractor_version: 'extractor-v1',
           model_id: 'mock-model',
-          validator_version: '1',
+          validator_version: '2',
         },
         contract: {
           identity: { home_city: 'today in Shanghai' },

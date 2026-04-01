@@ -577,11 +577,13 @@ function buildTimelineQueryPlannerMessage(input: TimelineResolveInput, anchor: {
   ].join('\n');
 }
 
-function buildTimelineReasonerSystemPrompt(): string {
+function buildTimelineReasonerSystemPrompt(requestId: string): string {
   const coreRules = [
     'You are the internal Timeline plugin time-semantics reasoner.',
     'Your only task is to use the collector fact bundle and output a JSON object that strictly matches TimelineReasonerOutput.',
-    'Do not call tools. Do not introduce pre-existing facts beyond the collector input. Do not output Markdown, explanations, or extra text.',
+    'Do not call tools. Do not introduce pre-existing facts beyond the collector input.',
+    'Output raw JSON only: one JSON object, no markdown fences, no prose before or after.',
+    `Top-level request_id in your output must be exactly this string (including punctuation): ${JSON.stringify(requestId)}`,
     'Priority A - Output validity and action legality:',
     '- request_type must be one of now, past_point, or past_range. continuity is not a separate request type.',
     '- Session hard facts and existing canon facts take priority over generation.',
@@ -661,7 +663,7 @@ function buildTimelineReasonerSystemPrompt(): string {
     'Output a JSON object matching TimelineReasonerOutput with this shape:',
     JSON.stringify({
       schema_version: '1.0',
-      request_id: 'echo collector.request_id',
+      request_id: requestId,
       request_type: 'now | past_point | past_range',
       time_interpretation: {
         normalized_kind: 'now | point | range',
@@ -1058,6 +1060,9 @@ function buildTimelineReasonerMessage(collector: TimelineCollectorOutput): strin
   return [
     'Perform structured time reasoning using only the collector JSON below.',
     '',
+    'Respond with exactly one JSON object (TimelineReasonerOutput). No markdown code fences, no commentary outside the JSON.',
+    `The object must include top-level request_id exactly: ${JSON.stringify(collector.request_id)}`,
+    '',
     'collector:',
     JSON.stringify(collector, null, 2),
   ].join('\n');
@@ -1078,7 +1083,7 @@ function createSubagentReasoner(
           const runResult = await subagentRuntime.run({
             sessionKey: reasonerSessionKey,
             message: buildTimelineReasonerMessage(collector),
-            extraSystemPrompt: buildTimelineReasonerSystemPrompt(),
+            extraSystemPrompt: buildTimelineReasonerSystemPrompt(collector.request_id),
             deliver: false,
             idempotencyKey: collector.request_id,
           });

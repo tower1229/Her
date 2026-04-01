@@ -7,7 +7,17 @@ export interface PersonaContractValidationResult {
 
 const TEMPORAL_PATTERN = /(?:\bnow\b|\bcurrently\b|\btoday\b|\byesterday\b|\blast night\b|\brecently\b|\bright now\b|现在|当前|今天|昨天|昨晚|最近|刚刚|上周|本周)/i;
 const STRONG_INFERENCE_PATTERN = /(?:always|never|必须|绝不|总是|永远)/i;
-const TOP_LEVEL_KEYS = new Set(['schema_version', 'identity', 'soul', 'memory', 'rhythm', 'appearance', 'scene', 'constraints']);
+const TOP_LEVEL_KEYS = new Set([
+  'schema_version',
+  'request_id',
+  'identity',
+  'soul',
+  'memory',
+  'rhythm',
+  'appearance',
+  'scene',
+  'constraints',
+]);
 const SECTION_KEYS: Record<string, Set<string>> = {
   identity: new Set(['home_city', 'home_country', 'home_timezone', 'living_style', 'base_environment', 'common_zones', 'routine_context']),
   soul: new Set(['temperament', 'emotional_style', 'social_style', 'cognitive_style', 'values']),
@@ -158,6 +168,12 @@ export function validateCandidatePersonaContractPayload(
 
   if (value.schema_version !== contractVersion) {
     issues.push(`Extractor output must include schema_version "${contractVersion}".`);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(value, 'request_id')) {
+    if (typeof value.request_id !== 'string' || !value.request_id.trim()) {
+      issues.push('Extractor output field "request_id" must be a non-empty string when present.');
+    }
   }
 
   for (const [sectionName, allowedKeys] of Object.entries(SECTION_KEYS)) {
