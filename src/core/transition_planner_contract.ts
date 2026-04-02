@@ -39,4 +39,5 @@ export interface TimelineTransitionOutput {
     recovery_hint?: string;
   };
   notes: string[];
+  trace?: any;
 }

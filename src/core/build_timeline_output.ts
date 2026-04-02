@@ -41,6 +41,9 @@ export function buildReasonerNotes(reasoned: TimelineReasonerOutput): string[] {
   if (interpretation) {
     notes.push(`Time interpretation: ${interpretation}`);
   }
+  if (reasoned.rationale.uncertainty) {
+    notes.push(`Raw error: ${reasoned.rationale.uncertainty}`);
+  }
   return notes;
 }
 

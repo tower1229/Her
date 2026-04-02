@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.8.7]
+
+- **连续状态迁移修复 (Consecutive Transition)**：修复了在同一个 30 分钟窗口内连续触发 `timeline_transition` 时，因半小时桶冲突（`CONFLICT_EXISTS`）导致写入失败的问题。现在会扫描目标时间桶内的所有既有记录 ID 并全量豁免，支持任意频次的快速状态切换。
+- **写入原子性保障 (Atomicity)**：重构了中断（interrupt）路径的执行顺序。旧事件的时长截断现在**仅在新记忆成功写入之后**才执行，彻底消除了"旧记忆被截短但新记忆写入失败"导致的数据腐败风险。
+- **截断精度统一 (Truncation Precision)**：将同日路径的截断计算从分钟级（丢弃秒数）升级为秒级精度，并统一使用 `Math.round` 四舍五入。两条计算路径（同日 / 跨日）现在行为完全一致，消除了高频操作中的"时间黑洞"。
+- **Trace 语义修正**：`interrupted_event_id` 字段现在仅在 `interruption_handling === 'interrupt'` 时填充，避免在微任务插入或普通迁移路径下产生误导性的调试信息。
+
+## [2.8.6]
+
+- **可观测性增强 (Observability)**：在 `timeline_resolve` 的降级路径中，将原始报错内容（Raw error）包含在返回结果的 `notes` 中。现在当 Subagent 发生解析错误或 Request ID 不匹配时，开发者可以更直观地从 JSON 日志中查看到具体的错误信息。
+- **构建输出优化**：修正了 `build_timeline_output.ts` 中 `buildReasonerNotes` 忽略 `uncertainty` 字段的问题，确保在降级过程中由于模型输出非法导致的推理中断不仅提供保底结果，还能保留现场证据。
+
+## [2.8.5]
+
+- **`timeline_transition` / 路由优先级**：升级状态切换（State Transition）优先级。在 `SKILL.md` 与 `SOUL.fragment.md` 中明确要求：当命中 Path 2 (状态变更) 时，AGENT 应忽略既有的 `active_instant` 上下文，优先执行跳转工具。解决了“活跃上下文阻塞场景迁移”的逻辑冲突。
+- **可观测性 (Trace Log)**：为 `timeline_transition` 增加了持久化追踪日志。详细的推理路径（包括冲突检测、打断逻辑、微任务插入决定）现在会被自动记录到 `logs/transition-trace.log`（若存在该目录），极大提升了复杂迁移场景的调试效率。
+- **自定义世界律动 (World Rhythm)**：重构了合理性校验引擎以支持 `world_rhythm_constraints`。插件现在能够根据 Persona Profile 中定义的非标准作息时间（如熬夜型）动态调整睡眠与活动窗口，不再强制套用全局 21:00-09:00 的默认睡眠模型。
+- **鲁棒性修复**：修复了 `write-episode.ts` 中 `truncateEpisodeDuration` 在处理跨日长耗时事件时的时长计算缺陷；修正了 `Estimated_Duration` 在打断场景下的进位溢出风险。
+- **Workspace 同步工具**：更新了 `scripts/workspace-contract.cjs` 的 `CURRENT_SOUL_MARKERS`，支持自动检测并引导旧版工作区升级到最新的状态跳转优先级逻辑。
+
 ## [2.8.4]
 
 - **`timeline_transition` / interrupt**：写入新片段时传入 `sameBucketExemptEventIds`，使被中断条目的 `Event_Id` 不再与同半小时桶冲突检测相撞；`insert_micro_task` 对父事件 `Event_Id` 同样豁免，避免宏观事件内插微任务被误拒。

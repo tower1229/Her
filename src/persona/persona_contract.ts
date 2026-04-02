@@ -54,6 +54,8 @@ export interface PersonaContractV1 {
     should: string[];
     avoid: string[];
   };
+  /** Custom worldly rhythm constraints that override the system defaults for this persona. */
+  world_rhythm_constraints?: Record<string, { start: string; end: string } | { ranges: { start: string; end: string }[] }>;
 }
 
 export interface TimelinePersonaContext {

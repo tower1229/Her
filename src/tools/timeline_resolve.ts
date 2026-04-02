@@ -328,6 +328,24 @@ function persistTraceIfConfigured(
   if (!deps.traceLogPath) return false;
 
   try {
+    let traceError = null;
+    if (!output.ok) {
+      traceError = output.error;
+    } else if (output.trace) {
+      if (output.trace.decision.error_code) {
+        traceError = {
+          code: output.trace.decision.error_code,
+          message: output.trace.fingerprint.reason || 'Reasoner or guard policy violation',
+        };
+      } else if (output.trace.write.error) {
+        traceError = {
+          code: output.trace.write.error_code || 'WRITE_FAILED',
+          message: output.trace.write.error,
+          outcome: output.trace.write.outcome,
+        };
+      }
+    }
+
     appendTraceLog(
       {
         trace_id: output.trace_id,
@@ -336,7 +354,7 @@ function persistTraceIfConfigured(
         payload: {
           ok: output.ok,
           requested_range: requestedRange,
-          error: output.ok ? null : output.error,
+          error: traceError,
           resolution_mode: output.resolution_summary.mode,
           notes: output.notes,
           trace: output.trace ?? null,

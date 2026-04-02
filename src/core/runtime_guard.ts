@@ -171,7 +171,10 @@ export function validateTimelineReasonerOutput(
         block_reason: 'reasoner generated a new fact without explaining persona-consistent generation',
       };
     }
-    const worldRhythmCheck = validateGeneratedWorldRhythm(reasoner.generated_fact);
+    const worldRhythmCheck = validateGeneratedWorldRhythm(
+      reasoner.generated_fact,
+      collector.persona_context.contract.world_rhythm_constraints,
+    );
     if (!worldRhythmCheck.ok) {
       return {
         ok: false,
