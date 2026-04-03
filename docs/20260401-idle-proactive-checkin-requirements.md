@@ -10,8 +10,8 @@
 
 本功能由三部分构成：
 
-1. **消息事件 hook（输入/输出）**：在 OpenClaw 的 `message_received` / `message_sent` 时更新状态文件（唯一事实源）
-2. **Heartbeat 巡检（触发器）**：OpenClaw 定期运行 Heartbeat，读取 `HEARTBEAT.md` + 状态文件，决定“发 / 不发”
+1. **消息事件 hook（输入/输出）**：由 `stella-timeline-plugin` 在运行时注册 OpenClaw hook；入站以 `message:preprocessed` 作为“有效直接消息”的权威来源，出站以受控 heartbeat session 的 `message:sent` 回写状态文件（唯一事实源）
+2. **Heartbeat 巡检（触发器）**：OpenClaw 定期运行专用 Heartbeat，读取 `HEARTBEAT.md` + 状态文件，决定“发 / 不发”
 3. **问候生成（persona 驱动）**：当且仅当规则允许时，生成 1 条符合 persona 气质、低压力的问候并发送
 
 核心原则：
@@ -33,6 +33,7 @@ OpenClaw 侧行为约束（平台既有契约）：
 
 - **入站消息（Inbound）**：来自用户的**有效直接消息**，按**混合统计**口径处理（不区分 channel / account / conversation）。
 - 只要任意渠道在阈值间隔内有**有效直接消息**，就视为“未静默到阈值”。
+- 本口径默认建立在**单一人类用户 / 单一陪伴对象工作区**前提上；若同一 workspace 面向多个真实用户，必须改为按联系人维度拆分状态文件，本设计不直接适用。
 
 #### 2.1.1 计入口径（必须）
 
@@ -41,6 +42,12 @@ OpenClaw 侧行为约束（平台既有契约）：
 - 用户主动发送的文本消息
 - 用户主动发送的语音/图片/附件，并伴随可视为“直接触达”的消息事件
 - 用户在任意 channel/account/conversation 中发起的自然语言输入
+
+实现约束（生产版必须）：
+
+- `message:preprocessed` 是“是否算有效直接消息”的**权威事件源**
+- `message:received` 只可用于早期审计、粗粒度到达记录或兜底，不得单独承担语音转写、富媒体判定、opt-out/opt-in 识别
+- 若富媒体消息在 `message:preprocessed` 后仍无法形成可解释的直接触达文本/转写，则默认不计入 `last_user_message_at`
 
 不计入 `last_user_message_at` 的事件：
 
@@ -55,8 +62,9 @@ OpenClaw 侧行为约束（平台既有契约）：
 ### 2.2 “问候消息（social outbound）”与“其他外发（non-social outbound）”
 
 - **问候消息**：本需求下的“主动问候”外发。
-- **其他外发**：主要指 **cron 定时任务** 或系统任务产生的外发消息（例如提醒、通知、任务反馈）。
+- **其他外发**：主要指**受控自动化外发**，例如由专用 session / agent 承载的 cron 提醒、任务通知、系统反馈。
 - 两者必须分别记录，以实现“反打扰节流”（例如 6h 内刚发过 cron 通知则不再问候）。
+- 普通用户会话中的自然回复不依赖本字段做分类；它们本身已经意味着用户并未处于“静默超过阈值”的状态。
 
 ### 2.3 补偿机制的单一事实源（必须）
 
@@ -120,7 +128,7 @@ Heartbeat 的 `every` 是**巡检频率**，不是“问候频率”。本功能
 ### 4.4 节流与反打扰（默认值）
 
 - `minHoursBetweenCheckins`：默认 **24h**
-- `minHoursSinceNonSocialOutbound`：默认 **6h**
+- `minHoursSinceNonSocialOutbound`：默认 **6h**，但在 v1 中仅作为保留配置项；要安全生效，必须先为其他自动化外发建立显式 session 分类表
 
 ### 4.5 未回复惩罚（默认值）
 
@@ -141,17 +149,20 @@ src/
   engagement/
     should_send_proactive_greeting.ts
     engagement_state.ts
-hooks/
-  on_user_message.ts
-  on_outbound_sent.ts
+    engagement_hooks.ts
+  runtime/
+    openclaw_timeline_runtime.ts
 ```
 
 说明：
 
 - `HEARTBEAT.md`：OpenClaw Heartbeat 的任务说明入口（平台约定文件名）。
 - `memory/engagement_state.json`：主动问候状态文件（唯一事实源）。
-- `hooks/*`：接入 OpenClaw 的 message hook 事件，更新状态文件。
+- `src/engagement/engagement_hooks.ts`：主动问候相关的 hook 处理器，供插件注册。
+- `src/runtime/openclaw_timeline_runtime.ts`：在插件运行时通过 `api.on(...)` / `api.registerHook(...)` 注册 typed hooks 与 internal hooks。
 - `src/engagement/*`：纯逻辑与状态读写封装，便于单测。
+- 对于本仓库，**默认实现路径是原生插件运行时注册 hooks，而不是 workspace `hooks/` 目录**。
+- 仅当实现侧明确选择“纯 workspace hook 包”方案时，才需要单独维护 `hooks/` 目录；该方案不是本需求的推荐实现。
 
 ---
 
@@ -173,10 +184,10 @@ hooks/
   "last_non_social_outbound_at": null,
   "last_outbound_reason": null,
   "last_successful_proactive_message_id": null,
-  "last_inbound_event_id": null,
-  "last_outbound_event_id": null,
-  "recent_inbound_event_ids": [],
-  "recent_outbound_event_ids": [],
+  "last_inbound_dedupe_key": null,
+  "last_outbound_dedupe_key": null,
+  "recent_inbound_dedupe_keys": [],
+  "recent_outbound_dedupe_keys": [],
   "last_proactive_decision_token": null,
   "pending_proactive_send": false,
   "proactive_greeting_enabled": false,
@@ -196,17 +207,17 @@ hooks/
 - `user_timezone`：仅用于白天时段判定与展示；若无效或缺失，使用实现侧默认时区并记录 warning。
 - `last_user_message_at`：最近一次**有效直接入站消息**时间（混合统计口径）。
 - `last_proactive_checkin_at`：最近一次主动问候发送成功时间。
-- `last_non_social_outbound_at`：最近一次非问候类外发消息发送成功时间（主要 cron / system task）。
+- `last_non_social_outbound_at`：为后续“其他受控自动化外发”预留的时间戳字段。主动问候 v1 不会主动写入它，也不依赖它做判定。
 - `last_outbound_reason`：最近一次外发原因。建议枚举：
   - `proactive_greeting`
   - `reminder`
   - `task_update`
   - `cron`
 - `last_successful_proactive_message_id`：最近一次主动问候成功发送后的消息 id，用于审计与去重。
-- `last_inbound_event_id`：最近一次成功处理的入站事件 id，用于审计与快速定位。
-- `last_outbound_event_id`：最近一次成功处理的外发事件 id，用于审计与快速定位。
-- `recent_inbound_event_ids`：最近一小段时间内已处理的入站事件 id 集合（建议 ring buffer / 有界数组），用于幂等去重，避免仅靠 `last_inbound_event_id` 无法覆盖乱序重试。
-- `recent_outbound_event_ids`：最近一小段时间内已处理的外发事件 id 集合（建议 ring buffer / 有界数组），用于幂等去重，避免仅靠 `last_outbound_event_id` 无法覆盖乱序重试。
+- `last_inbound_dedupe_key`：最近一次成功处理的入站去重键，用于审计与快速定位。
+- `last_outbound_dedupe_key`：最近一次成功处理的外发去重键，用于审计与快速定位。
+- `recent_inbound_dedupe_keys`：最近一小段时间内已处理的入站去重键集合（建议 ring buffer / 有界数组），用于幂等去重，避免仅靠 `last_inbound_dedupe_key` 无法覆盖乱序重试。
+- `recent_outbound_dedupe_keys`：最近一小段时间内已处理的外发去重键集合（建议 ring buffer / 有界数组），用于幂等去重，避免仅靠 `last_outbound_dedupe_key` 无法覆盖乱序重试。
 - `last_proactive_decision_token`：最近一次允许发送主动问候时生成的决策 token，用于防重复发送。
 - `pending_proactive_send`：是否存在“已决策允许发送、但尚未完成成功回写”的主动问候发送流程。
 - `proactive_greeting_enabled`：功能开关（状态文件层面，可被 config 覆盖；实现时需定义优先级）。
@@ -231,7 +242,7 @@ hooks/
 
 #### 6.3.1 原子写入与并发控制
 
-由于 `message_received`、`message_sent`、heartbeat、补偿巡检都可能更新同一状态文件，生产版必须满足：
+由于 `message:preprocessed`、`message:sent`、heartbeat、补偿巡检都可能更新同一状态文件，生产版必须满足：
 
 - **原子写入**：建议先写临时文件，再通过 rename 替换正式文件。
 - **乐观锁 / revision 校验**：写入时校验 `state_revision`；若 revision 已变化，则重读后重试。
@@ -239,9 +250,10 @@ hooks/
 
 #### 6.3.2 幂等要求（必须）
 
-- 每个 `message_received` / `message_sent` 事件必须携带唯一 `event_id`。
-- 不得仅依赖 `last_inbound_event_id` / `last_outbound_event_id` 做幂等；生产版必须使用 `recent_*_event_ids`（或等价外部幂等存储）覆盖乱序重试与重复回放。
-- 若 `event_id` 已处理过，则不得重复推进状态。
+- 每个入站 / 外发 hook 事件都必须生成唯一 `dedupe_key`。
+- `dedupe_key` 优先使用平台文档化的 `messageId`；若 `messageId` 缺失，则必须回退为实现侧稳定组合键（建议由 `channelId + conversationId + from/to + timestamp + normalized content` 组成，并做 hash）。
+- 不得仅依赖 `last_inbound_dedupe_key` / `last_outbound_dedupe_key` 做幂等；生产版必须使用 `recent_*_dedupe_keys`（或等价外部幂等存储）覆盖乱序重试与重复回放。
+- 若 `dedupe_key` 已处理过，则不得重复推进状态。
 - 幂等命中时，允许直接返回 success/no-op。
 
 #### 6.3.3 损坏恢复与 schema 迁移
@@ -269,6 +281,10 @@ hooks/
 推荐：
 
 - `every: 30m`（对 7h 阈值足够；误差上限可控）
+- `target: "last"`（必须显式配置；OpenClaw 默认不是自动回到最近联系人）
+- `session: "proactive-greeting"`（建议显式独立 session 名，避免与其他 heartbeat / cron 共用分类面）
+- `isolatedSession: true`（建议开启，避免消费完整主会话历史，同时给主动问候一个可识别的专用 session）
+- `lightContext: true`（建议开启，降低 token 成本）
 
 ### 7.2 Heartbeat 目标与作用
 
@@ -281,6 +297,12 @@ Heartbeat 每次运行只做：
   - `last_proactive_decision_token = <token>`
   - `pending_proactive_send = true`
 - 满足条件则发送问候，否则返回 `HEARTBEAT_OK`
+
+生产版实现约束：
+
+- 必须显式设置 `target: "last"` 或明确的 `target + to + accountId`；仅配置 `every` 不足以形成对外投递
+- 若使用本需求推荐路径，Heartbeat 应运行在**专用 session** 中，以便 `message:sent` 回调能够按 `event.sessionKey` 将其稳定分类为 `proactive_greeting`
+- 若工作区还存在其他 heartbeat 任务，不得与主动问候复用同一 heartbeat session
 
 ### 7.3 `HEARTBEAT.md` 行为契约（建议模板）
 
@@ -302,9 +324,8 @@ Heartbeat 每次运行只做：
 3. `idle_hours >= idle_threshold_hours`（默认 7h）
 4. 当前本地时间在 `09:00 - 21:30`（以 `user_timezone` 判定）
 5. `last_proactive_checkin_at` 为空或距离现在 `>= 24h`
-6. `last_non_social_outbound_at` 为空或距离现在 `>= 6h`
-7. `proactive_opt_out == false`
-8. 若 `unanswered_proactive_count >= 2`，则要求 `idle_hours >= 72`（可配置则在实现时补齐配置项）
+6. `proactive_opt_out == false`
+7. 若 `unanswered_proactive_count >= 2`，则要求 `idle_hours >= 72`（可配置则在实现时补齐配置项）
 
 ### 8.2 未回复惩罚（最小版）
 
@@ -361,13 +382,15 @@ Heartbeat 每次运行只做：
 
 ### 10.1 Hook：用户入站消息（on_user_message）
 
-触发来源：OpenClaw `message_received`（或等价 hook）。
+权威触发来源：OpenClaw internal hook `message:preprocessed`。
+
+可选辅助来源：OpenClaw typed hook `message_received`，仅用于早期审计或粗粒度到达记录，不作为“有效直接消息”事实源。
 
 职责：
 
-- 先做事件幂等校验；若 `event_id` 已处理过，则 no-op
+- 先做事件幂等校验；若 `dedupe_key` 已处理过，则 no-op
 - `last_user_message_at = now`（UTC）
-- `last_inbound_event_id = event_id`
+- `last_inbound_dedupe_key = dedupe_key`
 - `unanswered_proactive_count = 0`
 - 若用户表达“不想被主动联系/少联系/别太频繁”等，设置 `proactive_opt_out = true`
 - 若用户明确恢复接受主动联系（opt-in），设置 `proactive_opt_out = false`
@@ -378,28 +401,38 @@ Heartbeat 每次运行只做：
 
 - 由于口径为“混合统计”，该 hook 不需要按 channel/account 分桶；任何**有效直接入站**都更新同一份状态。
 - reaction / typing / system message 等不计入本 hook 的有效入站。
+- 语音 / 图片 / 附件是否计入，以 `message:preprocessed` 暴露的 `bodyForAgent` / `transcript` / 富媒体理解结果为准，而不是 `message_received` 的早期原始载荷。
 
 ### 10.2 Hook：外发消息发送结果（on_outbound_sent）
 
-触发来源：OpenClaw `message_sent`（或等价 hook），需要能拿到 `success`、`event_id`、发送内容/元数据、以及 reason。
+权威触发来源：OpenClaw internal hook `message:sent`。
+
+选择 `message:sent` 而非 typed `message_sent` 的原因：
+
+- `message:sent` 事件对象带 `sessionKey`，可以把外发稳定归类到某个受控 session
+- typed `message_sent` 文档化字段不包含 `reason` / `sessionKey`，不足以承担本需求的分类职责
+
+分类规则（生产版必须显式实现）：
+
+- 若 `event.sessionKey` 命中专用 proactive heartbeat session，且当前存在 `pending_proactive_send = true`，则该次外发归类为 `proactive_greeting`
+- v1 **不实现** reminder / task_update / cron 的通用 session 分类表；其他 session 默认只允许写调试审计，不得推进节流时间戳
 
 说明：`on_outbound_sent` 是 `pending_proactive_send` 的**主清理责任方**。
 
-职责（按 reason 分类）：
+职责（按受控分类结果处理）：
 
-- 先做事件幂等校验；若 `event_id` 已处理过，则 no-op
-- 若本次外发 `reason == proactive_greeting` 且发送成功：
+- 先做事件幂等校验；若 `dedupe_key` 已处理过，则 no-op
+- 若本次外发被归类为 `proactive_greeting` 且发送成功：
   - `last_proactive_checkin_at = now`（UTC）
   - `last_outbound_reason = "proactive_greeting"`
   - `last_successful_proactive_message_id = <message_id>`
-  - `last_outbound_event_id = event_id`
+  - `last_outbound_dedupe_key = dedupe_key`
   - `unanswered_proactive_count += 1`
   - `pending_proactive_send = false`
   - `last_proactive_decision_token` 保留到下一次决策覆盖，用于审计与重复发送阻断
-- 否则（例如 cron / reminder / task_update）且发送成功：
-  - `last_non_social_outbound_at = now`（UTC）
-  - `last_outbound_reason = <reason>`
-  - `last_outbound_event_id = event_id`
+- 否则：
+  - 允许记审计日志 / debug 信息
+  - 但不得推进 `last_non_social_outbound_at`
 
 失败处理：
 
@@ -490,7 +523,7 @@ type IdleCheckinDecision =
 
 - 补偿层可由外部 watchdog、独立巡检任务、或实现侧 supervisor 承担。
 - 补偿层不得与 heartbeat 共享“无保护写路径”。
-- 补偿层只能触发“再做一次巡检”，不得直接伪造 `message_sent(success)` 或跳过正常发送链路。
+- 补偿层只能触发“再做一次巡检”，不得直接伪造 `message:sent(success)` 或跳过正常发送链路。
 
 ---
 
@@ -530,8 +563,9 @@ type IdleCheckinDecision =
 
 ### 14.1 接入点选择（建议）
 
-- Heartbeat：使用 OpenClaw 原生 `HEARTBEAT.md` + heartbeat 配置（`every: 30m`）
-- 入站/外发：使用 OpenClaw 的 `message_received` / `message_sent` hook 更新状态文件
+- Heartbeat：使用 OpenClaw 原生 `HEARTBEAT.md` + heartbeat 配置，且显式设置 `target: "last"`、`session: "proactive-greeting"`、`isolatedSession: true`、`lightContext: true`
+- 入站：使用 internal hook `message:preprocessed` 作为事实源；typed `message_received` 只做可选辅助
+- 外发：使用 internal hook `message:sent` 按 `sessionKey` 做受控分类，不再依赖不存在的 `reason` 字段
 - Persona：复用 Timeline 已有 persona contract 加载逻辑（避免重复造轮子）
 
 ### 14.2 具体实现步骤（建议按顺序）
@@ -542,8 +576,8 @@ type IdleCheckinDecision =
    - 支持缺失文件/缺失字段 → 用默认值补齐并写回
 3. **实现纯函数判定**：`shouldSendProactiveGreeting(state, now, config)`（第 11 节）
    - 输出 `{ok:false, reason}` 以便写入 `last_decision`
-4. **接入入站 hook**：`message_received` → 更新 `last_user_message_at`、清零未回复计数、处理 opt-out/opt-in（第 10.1 节）
-5. **接入外发 hook**：`message_sent` → 在成功时更新 `last_proactive_checkin_at` / `last_non_social_outbound_at`（第 10.2 节）
+4. **接入入站 hook**：`message:preprocessed` → 更新 `last_user_message_at`、清零未回复计数、处理 opt-out/opt-in（第 10.1 节）
+5. **接入外发 hook**：`message:sent` → 按 `sessionKey` 做受控分类，并在成功时更新 `last_proactive_checkin_at`（第 10.2 节）
 6. **编写 `HEARTBEAT.md`**
    - 明确“读 state → 判定 → 不发则 `HEARTBEAT_OK` → 发则生成 1 条问候”
 7. **补齐最小单测与手工用例**（第 15 节）
@@ -557,8 +591,8 @@ type IdleCheckinDecision =
 3. 以原子写入方式提交：
    - `last_proactive_decision_token = <token>`
    - `pending_proactive_send = true`
-4. 执行消息发送
-5. 在 `message_sent(success)` 中回写成功状态
+4. 在专用 proactive heartbeat session 中执行消息发送（需显式 `target: "last"` 或明确的 `target + to + accountId`）
+5. 在 `message:sent(success)` 中按 `event.sessionKey` 回写成功状态
 6. 若发送失败：清除 `pending_proactive_send`，记录 `last_error`
 
 要求：
@@ -587,7 +621,7 @@ type IdleCheckinDecision =
 - 功能开关开启后：静默 ≥ `idle_threshold_hours`（默认 7h）+ 白天时段满足条件时，会发送 1 条问候
 - 未满足任一条件时，heartbeat 输出严格为 `HEARTBEAT_OK`
 - 24h 节流生效（不会 24h 内重复问候）
-- 6h 反打扰生效（刚发过 cron/提醒时不问候）
+- 6h 反打扰生效（刚发过**受控** cron/提醒外发时不问候）
 - 连续 2 次问候未回复后，门槛提高到 72h
 - 有效直接入站消息会清零 `unanswered_proactive_count`
 - 用户 opt-out 后不再主动问候；opt-in 后恢复
@@ -598,7 +632,8 @@ type IdleCheckinDecision =
 - 状态文件读写具备容错（文件缺失/字段缺失/JSON 损坏时使用默认值、备份或迁移策略恢复）
 - 状态更新具备原子写入与 revision 校验，避免并发覆盖
 - 入站 / 外发 hook 具备事件幂等处理
-- 幂等实现能够覆盖乱序重试与重复回放，不仅限于“最后一个 event_id”
+- 幂等实现能够覆盖乱序重试与重复回放，不仅限于“最后一个 dedupe_key”
 - 存在重复发送保护：同一 `decision_token` 不会成功发送两次
 - persona 缺失时具备明确退化策略
 - heartbeat 异常时可通过补偿巡检恢复检查能力
+- Heartbeat 配置显式声明投递目标；不会出现“heartbeat 运行了但默认不外发”的假上线

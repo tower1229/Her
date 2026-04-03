@@ -13,6 +13,8 @@ import {
 } from './src/openclaw-sdk-compat';
 import {
   makeOpenClawTimelineBeforePromptBuildHook,
+  makeOpenClawTimelineMessagePreprocessedHook,
+  makeOpenClawTimelineMessageSentHook,
   makeOpenClawTimelineResolveToolFactory,
   makeOpenClawTimelineTransitionToolFactory
 } from './src/runtime/openclaw_timeline_runtime';
@@ -42,6 +44,32 @@ function registerTimelineBeforePromptBuildHook(api: {
   }
 }
 
+function registerTimelineEngagementHooks(api: {
+  registerHook?: (
+    events: string | string[],
+    handler: (...args: unknown[]) => unknown,
+    options?: { name?: string; description?: string },
+  ) => void;
+  pluginConfig?: Record<string, unknown>;
+  config?: unknown;
+  runtime?: unknown;
+  workspaceDir?: string;
+  logger?: unknown;
+}) {
+  if (typeof api.registerHook !== 'function') {
+    return;
+  }
+  const runtimeApi = api as any;
+  api.registerHook('message:preprocessed', makeOpenClawTimelineMessagePreprocessedHook(runtimeApi), {
+    name: `${TIMELINE_PLUGIN_ID}.message_preprocessed`,
+    description: 'Maintain proactive engagement state from enriched inbound messages.',
+  });
+  api.registerHook('message:sent', makeOpenClawTimelineMessageSentHook(runtimeApi), {
+    name: `${TIMELINE_PLUGIN_ID}.message_sent`,
+    description: 'Maintain proactive engagement state from outbound delivery results.',
+  });
+}
+
 export const timelinePluginEntry = definePluginEntry({
   id: TIMELINE_PLUGIN_ID,
   name: TIMELINE_PLUGIN_NAME,
@@ -50,6 +78,7 @@ export const timelinePluginEntry = definePluginEntry({
     api.registerTool(makeTimelineToolRegistration());
     api.registerTool(makeTimelineTransitionToolRegistration());
     registerTimelineBeforePromptBuildHook(api as any);
+    registerTimelineEngagementHooks(api as any);
   },
 });
 
@@ -84,6 +113,7 @@ const openClawTimelinePlugin = {
     api.registerTool(makeOpenClawTimelineResolveToolFactory(runtimeApi));
     api.registerTool(makeOpenClawTimelineTransitionToolFactory(runtimeApi));
     registerTimelineBeforePromptBuildHook(api);
+    registerTimelineEngagementHooks(api as any);
   },
 };
 

@@ -28,6 +28,8 @@ describe('timeline plugin entry compatibility shape', () => {
     expect(timelinePlugin.tools.find((tool) => tool.name === 'timeline_resolve')?.optional).toBeUndefined();
     expect(timelinePlugin.tools.find((tool) => tool.name === 'timeline_transition')?.optional).toBeUndefined();
     expect(timelinePlugin.hooks.map((hook) => hook.event)).toContain('before_prompt_build');
+    expect(timelinePlugin.hooks.map((hook) => hook.event)).toContain('message:preprocessed');
+    expect(timelinePlugin.hooks.map((hook) => hook.event)).toContain('message:sent');
   });
 
   it('materialized before_prompt_build hook uses the runtime prompt-context pipeline rather than static guidance only', async () => {
