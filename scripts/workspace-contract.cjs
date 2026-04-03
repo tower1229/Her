@@ -4,6 +4,7 @@ const path = require('node:path');
 const DEFAULT_CANONICAL_ROOT_NAME = 'memory';
 const AGENTS_SECTION_TITLE = '## Timeline Daily Log Contract';
 const SOUL_SECTION_TITLE = '## Timeline';
+const HEARTBEAT_SECTION_TITLE = '## Proactive Greeting Heartbeat';
 const LEGACY_SOUL_SECTION_TITLE_V1 = '## 时间感知与回忆';
 const LEGACY_SOUL_SECTION_TITLE_V2 = '## Temporal Awareness And Recall';
 const templatesDir = path.resolve(__dirname, '..', 'templates');
@@ -29,6 +30,11 @@ function buildAgentsContract() {
 
 function buildSoulContract() {
   return readTemplate('SOUL.fragment.md');
+}
+
+function buildHeartbeatContract(rootName = DEFAULT_CANONICAL_ROOT_NAME) {
+  const normalizedRoot = normalizeRootName(rootName);
+  return readTemplate('HEARTBEAT.fragment.md').replaceAll('{{CANONICAL_ROOT_NAME}}', normalizedRoot);
 }
 
 function detectAgentsContract(content) {
@@ -62,18 +68,27 @@ function resolveCanonicalRootPath(workspaceDir, rootName = DEFAULT_CANONICAL_ROO
   return path.resolve(workspaceDir, normalized);
 }
 
+function detectHeartbeatContract(content) {
+  return content.includes(HEARTBEAT_SECTION_TITLE)
+    || content.includes('This heartbeat is dedicated to proactive greeting only.')
+    || content.includes('If nothing should be sent, reply exactly `HEARTBEAT_OK`.');
+}
+
 module.exports = {
   DEFAULT_CANONICAL_ROOT_NAME,
   AGENTS_SECTION_TITLE,
   SOUL_SECTION_TITLE,
+  HEARTBEAT_SECTION_TITLE,
   LEGACY_SOUL_SECTION_TITLE_V1,
   LEGACY_SOUL_SECTION_TITLE_V2,
   normalizeRootName,
   buildAgentsContract,
   buildSoulContract,
+  buildHeartbeatContract,
   detectAgentsContract,
   detectSoulContract,
   detectCurrentSoulContract,
   detectLegacySoulContract,
+  detectHeartbeatContract,
   resolveCanonicalRootPath,
 };

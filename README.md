@@ -91,6 +91,15 @@ Recommended:
 npm exec --package=stella-timeline-plugin openclaw-timeline-setup -- --workspace ~/.openclaw/workspace
 ```
 
+When the target workspace matches your OpenClaw workspace, this command now does the full wiring by default:
+
+- updates `AGENTS.md` and `SOUL.md`
+- creates `HEARTBEAT.md`
+- ensures `memory/`
+- patches `~/.openclaw/openclaw.json` so heartbeat and `proactiveGreeting` are enabled
+
+If you only want workspace files without touching `openclaw.json`, pass `--no-configure-openclaw`.
+
 If you prefer to edit by hand, copy:
 
 - `templates/AGENTS.fragment.md` → `AGENTS.md`
@@ -99,6 +108,36 @@ If you prefer to edit by hand, copy:
 Then ensure your canonical daily-log directory exists. The default is `memory/`.
 
 If you already have `persona/PERSONA_PROFILE.md`, place it under the workspace root `persona/` directory. Timeline will prefer it automatically. Legacy extraction cache files live under `.timeline-cache/persona-contract/`.
+
+For proactive greeting v1 on a non-default workspace, heartbeat bootstrap is still opt-in. Run:
+
+```bash
+npm run setup:workspace -- --with-heartbeat
+```
+
+Or copy:
+
+- `templates/HEARTBEAT.fragment.md` → `HEARTBEAT.md`
+
+Then add explicit OpenClaw heartbeat config. On the default OpenClaw workspace, `openclaw-timeline-setup` now patches `openclaw.json` for you; otherwise configure:
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "heartbeat": {
+        "every": "30m",
+        "target": "last",
+        "session": "proactive-greeting",
+        "isolatedSession": true,
+        "lightContext": true
+      }
+    }
+  }
+}
+```
+
+When you want workspace validation to enforce the proactive heartbeat bootstrap too, run `npm run doctor:workspace -- --require-heartbeat`.
 
 ### 3. Start chatting
 

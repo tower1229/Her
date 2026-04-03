@@ -1,7 +1,7 @@
 {
   "id": "stella-timeline-plugin",
   "name": "Stella Timeline Plugin",
-  "version": "2.8.7",
+  "version": "2.8.9",
   "description": "OpenClaw timeline runtime with canonical timeline_resolve and timeline_transition, LLM-based temporal reasoning, and guarded append-only writes.",
   "entry": "dist/index.js",
   "skills": [
@@ -71,6 +71,58 @@
         "type": "integer",
         "default": 6,
         "description": "Maximum number of results requested when the collector calls OpenClaw memory_search."
+      },
+      "proactiveGreeting": {
+        "type": "object",
+        "description": "Configuration for the proactive greeting engagement loop.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false,
+            "description": "Enable the proactive greeting flow."
+          },
+          "idleThresholdHours": {
+            "type": "integer",
+            "default": 7,
+            "description": "Minimum idle time before a proactive greeting may be considered."
+          },
+          "minHoursBetweenCheckins": {
+            "type": "integer",
+            "default": 24,
+            "description": "Hard throttle between successful proactive greetings."
+          },
+          "minHoursSinceNonSocialOutbound": {
+            "type": "integer",
+            "default": 6,
+            "description": "Reserved for future controlled non-social outbound throttles; ignored by proactive greeting v1."
+          },
+          "unansweredPenaltyThreshold": {
+            "type": "integer",
+            "default": 2,
+            "description": "How many unanswered proactive greetings trigger the elevated idle threshold."
+          },
+          "unansweredPenaltyIdleHours": {
+            "type": "integer",
+            "default": 72,
+            "description": "Idle threshold after the unanswered penalty activates."
+          },
+          "sessionKey": {
+            "type": "string",
+            "default": "proactive-greeting",
+            "description": "Dedicated heartbeat session key used for proactive greeting delivery."
+          },
+          "pendingSendTimeoutMinutes": {
+            "type": "integer",
+            "default": 20,
+            "description": "How long a pending proactive send may remain open before it is cleared as stale."
+          },
+          "singleUserGuard": {
+            "type": "boolean",
+            "default": true,
+            "description": "Block proactive greeting sends when the workspace appears to serve multiple contacts."
+          }
+        },
+        "additionalProperties": false
       }
     },
     "additionalProperties": false

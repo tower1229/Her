@@ -25,6 +25,11 @@ import {
   createDegradedTimelinePromptContext,
 } from './timeline_prompt_context';
 import { TIMELINE_PLUGIN_ID } from '../plugin_metadata';
+import {
+  handlePreprocessedInbound,
+  handleSentOutbound,
+  prepareProactiveGreetingHeartbeatContext,
+} from '../engagement/engagement_hooks';
 
 interface PluginLoggerLike {
   debug?: (message: string, meta?: Record<string, unknown>) => void;
@@ -38,6 +43,7 @@ interface PluginToolContextLike {
   workspaceDir?: string;
   agentId?: string;
   sessionKey?: string;
+  trigger?: string;
 }
 
 interface AgentToolLike {
@@ -1397,13 +1403,21 @@ type BeforePromptBuildEventLike = {
 };
 
 export function makeOpenClawTimelineBeforePromptBuildHook(pluginApi: PluginApiLike) {
-  return async (_event: BeforePromptBuildEventLike, hookContext: PluginToolContextLike) => {
+  return async (event: BeforePromptBuildEventLike, hookContext: PluginToolContextLike) => {
     const runtimeConfig = resolvePluginRuntimeConfig(pluginApi.pluginConfig);
-    if (!runtimeConfig.enablePromptTimelineContext) {
-      return undefined;
-    }
-    if (!isPromptInjectionAllowed(pluginApi)) {
-      return undefined;
+    const heartbeatPreflight = await prepareProactiveGreetingHeartbeatContext(
+      event,
+      hookContext as any,
+      {
+        workspaceDir: hookContext.workspaceDir || pluginApi.workspaceDir || process.cwd(),
+        pluginConfig: pluginApi.pluginConfig,
+        config: pluginApi.config,
+        logger: pluginApi.logger,
+      },
+    );
+
+    if (!runtimeConfig.enablePromptTimelineContext || !isPromptInjectionAllowed(pluginApi)) {
+      return heartbeatPreflight;
     }
 
     const prependSystemContext = buildTimelinePromptSystemGuidance({
@@ -1424,7 +1438,10 @@ export function makeOpenClawTimelineBeforePromptBuildHook(pluginApi: PluginApiLi
 
       return {
         prependSystemContext,
-        prependContext: buildTimelinePromptContextText(promptContext),
+        prependContext: [
+          heartbeatPreflight?.prependContext,
+          buildTimelinePromptContextText(promptContext),
+        ].filter(Boolean).join('\n\n'),
       };
     } catch (error) {
       pluginApi.logger?.debug?.('timeline before_prompt_build degraded', {
@@ -1432,9 +1449,36 @@ export function makeOpenClawTimelineBeforePromptBuildHook(pluginApi: PluginApiLi
       });
       return {
         prependSystemContext,
-        prependContext: buildTimelinePromptContextText(createDegradedTimelinePromptContext('resolver_unavailable')),
+        prependContext: [
+          heartbeatPreflight?.prependContext,
+          buildTimelinePromptContextText(createDegradedTimelinePromptContext('resolver_unavailable')),
+        ].filter(Boolean).join('\n\n'),
       };
     }
+  };
+}
+
+export function makeOpenClawTimelineMessagePreprocessedHook(pluginApi: PluginApiLike) {
+  return async (event: unknown) => {
+    const workspaceDir = pluginApi.workspaceDir || process.cwd();
+    await handlePreprocessedInbound(event as any, {
+      workspaceDir,
+      pluginConfig: pluginApi.pluginConfig,
+      config: pluginApi.config,
+      logger: pluginApi.logger,
+    });
+  };
+}
+
+export function makeOpenClawTimelineMessageSentHook(pluginApi: PluginApiLike) {
+  return async (event: unknown) => {
+    const workspaceDir = pluginApi.workspaceDir || process.cwd();
+    await handleSentOutbound(event as any, {
+      workspaceDir,
+      pluginConfig: pluginApi.pluginConfig,
+      config: pluginApi.config,
+      logger: pluginApi.logger,
+    });
   };
 }
 

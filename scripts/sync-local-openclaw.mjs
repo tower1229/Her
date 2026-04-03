@@ -221,7 +221,7 @@ function main() {
 
   copyTree(repoRoot, options.extensionDir);
   syncWorkspaceSkill(options.extensionDir, workspaceSkillDir);
-  run(process.execPath, ['scripts/setup-openclaw-workspace.mjs', '--workspace', options.workspaceDir]);
+  run(process.execPath, ['scripts/setup-openclaw-workspace.mjs', '--workspace', options.workspaceDir, '--with-heartbeat']);
   updateInstallMetadata(options.configPath, options.extensionDir, version);
   applySafePermissions(options.extensionDir, 0o700);
   applySafePermissions(workspaceSkillDir, 0o700);

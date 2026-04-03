@@ -13,6 +13,7 @@ export interface PluginHookRegistration {
   event: string;
   priority?: number;
   execute: (event: unknown, context: unknown) => Promise<unknown> | unknown;
+  source?: 'typed' | 'internal';
 }
 
 export interface PluginToolRegistration {
@@ -26,6 +27,11 @@ export interface PluginToolRegistration {
 export interface PluginEntryApi {
   registerTool: (tool: PluginToolRegistration, options?: { optional?: boolean }) => void;
   on?: (event: string, handler: PluginHookRegistration['execute'], options?: { priority?: number }) => void;
+  registerHook?: (
+    events: string | string[],
+    handler: PluginHookRegistration['execute'],
+    options?: { name?: string; description?: string },
+  ) => void;
 }
 
 export interface PluginEntryDefinition {
@@ -60,7 +66,17 @@ export function materializePlugin(definition: PluginEntryDefinition): Registered
         event,
         priority: options?.priority,
         execute: handler,
+        source: 'typed',
       });
+    },
+    registerHook(events, handler) {
+      for (const event of Array.isArray(events) ? events : [events]) {
+        hooks.push({
+          event,
+          execute: handler,
+          source: 'internal',
+        });
+      }
     },
   });
 

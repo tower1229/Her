@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { createDefaultEngagementState, resolveEngagementStatePath } from '../engagement/engagement_state';
 import {
   makeOpenClawTimelineBeforePromptBuildHook,
   makeOpenClawTimelineResolveToolFactory,
@@ -858,6 +859,65 @@ describe('openclaw timeline runtime factories', () => {
     expect((result as any).prependSystemContext).toContain('Timeline prompt context may be injected');
     expect((result as any).prependContext).toContain('status: active_instant');
     expect((result as any).prependContext).toContain('direct_current_state_answers_allowed: yes');
+  });
+
+  it('uses explicit heartbeat trigger metadata instead of prompt text heuristics for proactive preflight', async () => {
+    const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60_000);
+    const state = {
+      ...createDefaultEngagementState(),
+      user_timezone: 'UTC',
+      last_user_message_at: eightHoursAgo.toISOString(),
+      proactive_greeting_enabled: true,
+      contact_scope_status: 'single' as const,
+    };
+    fs.writeFileSync(
+      resolveEngagementStatePath(tmpDir, 'timeline-memory'),
+      `${JSON.stringify(state, null, 2)}\n`,
+      'utf8',
+    );
+
+    const handler = makeOpenClawTimelineBeforePromptBuildHook({
+      workspaceDir: tmpDir,
+      pluginConfig: {
+        canonicalMemoryRoot: 'timeline-memory',
+        enablePromptTimelineContext: false,
+        proactiveGreeting: {
+          enabled: true,
+          sessionKey: 'proactive-greeting',
+        },
+      },
+      config: {
+        agents: {
+          defaults: {
+            userTimezone: 'UTC',
+            heartbeat: {
+              activeHours: {
+                start: '00:00',
+                end: '24:00',
+                timezone: 'UTC',
+              },
+            },
+          },
+        },
+      },
+      runtime: {},
+      logger: {},
+    });
+
+    const result = await handler(
+      {
+        prompt: 'plain background tick',
+        messages: [],
+      },
+      {
+        workspaceDir: tmpDir,
+        sessionKey: 'proactive-greeting',
+        trigger: 'heartbeat',
+      },
+    );
+
+    expect(result).toBeTruthy();
+    expect((result as any).prependContext).toContain('Proactive greeting preflight: send is allowed');
   });
 
   it('injects active_macro_background prompt context from lookback facts', async () => {
