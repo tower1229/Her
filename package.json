@@ -50,10 +50,10 @@
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
-    "@types/node": "^20.x",
-    "jest": "^29.x",
+    "@types/node": "^25.x",
+    "jest": "^30.x",
     "ts-jest": "^29.x",
-    "typescript": "^5.x"
+    "typescript": "^6.x"
   },
   "main": "dist/index.js",
   "files": [
