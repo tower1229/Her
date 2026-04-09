@@ -4,6 +4,7 @@ import { formatDate, parseTimestampParts, TimestampParts, dayOfWeek } from '../l
 import { ActivityMode } from '../lib/timeline_semantics';
 import { ResolvedWindow } from './resolve_window';
 import { TimelineGeneratedDraft } from './timeline_reasoner_contract';
+import { PersonaContractV1 } from '../persona/persona_contract';
 
 export type WorldTimeBand =
   | 'late_night'
@@ -300,7 +301,36 @@ function worldModesFromActivityMode(activityMode: ActivityMode): WorldRhythmMode
   }
 }
 
-export function validateGeneratedWorldRhythm(draft: TimelineGeneratedDraft): WorldRhythmValidationResult {
+export type WorldRhythmConstraints = PersonaContractV1['world_rhythm_constraints'];
+
+const DEFAULT_WORLD_RHYTHM_CONSTRAINTS: NonNullable<WorldRhythmConstraints> = {
+  breakfast: { start: '05:00', end: '10:30' },
+  lunch: { start: '11:00', end: '15:00' },
+  dinner: { start: '16:00', end: '22:30' },
+  sleep: { start: '21:00', end: '09:00' },
+  work_or_study: { start: '05:00', end: '03:00' },
+  nightlife: { start: '18:00', end: '06:00' },
+};
+
+function isWithinRhythmWindow(hour: number, minute: number, constraint: { start: string; end: string } | { ranges: { start: string; end: string }[] }): boolean {
+  const currentTotal = hour * 60 + minute;
+  const ranges = 'ranges' in constraint ? constraint.ranges : [constraint];
+
+  return ranges.some((range) => {
+    const [startH, startM] = range.start.split(':').map(Number);
+    const [endH, endM] = range.end.split(':').map(Number);
+    const startTotal = startH * 60 + startM;
+    const endTotal = endH * 60 + endM;
+
+    if (startTotal <= endTotal) {
+      return currentTotal >= startTotal && currentTotal <= endTotal;
+    }
+    // Wraps around midnight (e.g., 22:00 to 08:00)
+    return currentTotal >= startTotal || currentTotal <= endTotal;
+  });
+}
+
+export function validateGeneratedWorldRhythm(draft: TimelineGeneratedDraft, customConstraints?: WorldRhythmConstraints): WorldRhythmValidationResult {
   if (!draft.timestamp) {
     return { ok: true, matched_modes: [], issues: [] };
   }
@@ -324,26 +354,31 @@ export function validateGeneratedWorldRhythm(draft: TimelineGeneratedDraft): Wor
     return { ok: true, matched_modes: [], issues: [] };
   }
 
-  const hour = hourFromTimestamp(draft.timestamp);
+  const parts = parseTimestampParts(draft.timestamp);
+  const hour = parts?.hour ?? null;
+  const minute = parts?.minute ?? 0;
   const issues: string[] = [];
+  const constraints = { ...DEFAULT_WORLD_RHYTHM_CONSTRAINTS, ...customConstraints };
 
-  if (matchedModes.includes('breakfast') && (hour === null || hour < 5 || hour > 10)) {
-    issues.push('Breakfast-like activity falls outside a plausible breakfast window.');
-  }
-  if (matchedModes.includes('lunch') && (hour === null || hour < 10 || hour > 15)) {
-    issues.push('Lunch-like activity falls outside a plausible lunch window.');
-  }
-  if (matchedModes.includes('dinner') && (hour === null || hour < 16 || hour > 22)) {
-    issues.push('Dinner-like activity falls outside a plausible dinner window.');
-  }
-  if (matchedModes.includes('sleep') && (hour === null || (hour >= 8 && hour < 21))) {
-    issues.push('Sleeping activity falls outside a plausible main sleep window.');
-  }
-  if (matchedModes.includes('work_or_study') && hour !== null && hour <= 4) {
-    issues.push('Work or study activity is implausibly late for a normal real-world routine.');
-  }
-  if (matchedModes.includes('nightlife') && hour !== null && hour < 18) {
-    issues.push('Nightlife activity falls outside a plausible nightlife window.');
+  if (hour !== null) {
+    if (matchedModes.includes('breakfast') && !isWithinRhythmWindow(hour, minute, constraints.breakfast)) {
+      issues.push(`Breakfast-like activity falls outside the plausible window (${JSON.stringify(constraints.breakfast)}).`);
+    }
+    if (matchedModes.includes('lunch') && !isWithinRhythmWindow(hour, minute, constraints.lunch)) {
+      issues.push(`Lunch-like activity falls outside the plausible window (${JSON.stringify(constraints.lunch)}).`);
+    }
+    if (matchedModes.includes('dinner') && !isWithinRhythmWindow(hour, minute, constraints.dinner)) {
+      issues.push(`Dinner-like activity falls outside the plausible window (${JSON.stringify(constraints.dinner)}).`);
+    }
+    if (matchedModes.includes('sleep') && !isWithinRhythmWindow(hour, minute, constraints.sleep)) {
+      issues.push(`Sleeping activity falls outside the plausible window (${JSON.stringify(constraints.sleep)}).`);
+    }
+    if (matchedModes.includes('work_or_study') && !isWithinRhythmWindow(hour, minute, constraints.work_or_study)) {
+      issues.push(`Work or study activity falls outside the plausible window (${JSON.stringify(constraints.work_or_study)}).`);
+    }
+    if (matchedModes.includes('nightlife') && !isWithinRhythmWindow(hour, minute, constraints.nightlife)) {
+      issues.push(`Nightlife activity falls outside the plausible window (${JSON.stringify(constraints.nightlife)}).`);
+    }
   }
 
   return {

@@ -26,16 +26,17 @@ Timeline 是 OpenClaw 的时间现实层。
 
 ```mermaid
 flowchart TD
-    User["用户问题"]
+    User["用户问题 / 指令"]
     Persona["loadTimelinePersonaContractFromWorkspace()"]
-    Planner["LLM Query Planner"]
+    Planner["LLM Query / Transition Planner"]
     Window["resolveWindow()"]
-    Sources["collectSources()"]
+    Sources["collectSources() / collectActiveFacts()"]
     Collector["buildTimelineCollectorOutput()"]
-    Reasoner["LLM Reasoner"]
+    Reasoner["LLM Reasoner / Transition Planner"]
     Guard["validateTimelineReasonerOutput()"]
-    Writer["executeGeneratedWrite()"]
-    Output["TimelineResolveSuccessOutput / FailureOutput"]
+    Writer["executeGeneratedWrite() / truncateEpisodeDuration()"]
+    Output["TimelineResolveSuccessOutput / TransitionOutput"]
+    PersonaSubagent["Persona Skill Update Call"]
 
     User --> Planner
     Persona --> Sources
@@ -47,11 +48,35 @@ flowchart TD
     Guard --> Writer
     Guard --> Output
     Writer --> Output
+    Output -.->|requires_persona_update| PersonaSubagent
 ```
 
 ---
 
-## 3. Persona Ingestion 层
+## 3. 核心流程分支
+
+### 3.1 状态查询流程 (timeline_resolve)
+标准的 T-Reality 和场景获取流程。参考第 2 节。
+
+### 3.2 场景迁移流程 (timeline_transition)
+处理用户发出的物理状态变更指令。
+
+```mermaid
+flowchart TD
+    D["User Directive"] --> P["Transition Planner (Subagent)"]
+    P --> |Interrupt| T["truncateEpisodeDuration()"]
+    P --> |Insert| W["writeEpisode()\n(Parent Tracking)"]
+    P --> |Reject| R["Return Rejection Reason"]
+    T --> W
+    W --> Signal["requires_persona_update?"]
+    Signal --> |Yes| PS["Subagent: 调用 persona skill 更新"]
+    PS --> End["Done"]
+    Signal --> |No| End
+```
+
+---
+
+## 4. Persona Ingestion 层
 
 Timeline 内部只承认一种 persona 真相：`PersonaContractV1`。
 

@@ -41,10 +41,47 @@ function makeCollector(): TimelineCollectorOutput {
 }
 
 describe('reasonWithPolicy', () => {
-  it('recovers invalid reuse when candidate list is empty', async () => {
+  it('pre-injects no_reuse_allowed and succeeds on first call when candidate list is empty', async () => {
     const collector = makeCollector();
+    const reasonTimeline = jest.fn(async (incoming: TimelineCollectorOutput) => ({
+      schema_version: '1.0' as const,
+      request_id: incoming.request_id,
+      request_type: 'past_range' as const,
+      decision: {
+        action: 'return_empty' as const,
+        should_write_canon: false,
+      },
+      continuity: { judged: true, is_continuing: false },
+      rationale: {
+        summary: 'no reusable facts',
+        hard_fact_basis: [],
+        canon_basis: [],
+        persona_basis: [],
+        constraint_basis: [],
+      },
+    }));
+
+    const result = await reasonWithPolicy({
+      collector,
+      mode: 'allow_generate',
+      reasonTimeline,
+    });
+
+    expect(reasonTimeline).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining({ recovery_hint: 'no_reuse_allowed' }),
+      }),
+    );
+    expect(result.guard.ok).toBe(true);
+    expect(result.guard.outcome).toBe('return_empty');
+  });
+
+  it('recovers via retry when LLM ignores pre-injected no_reuse_allowed hint', async () => {
+    const collector = makeCollector();
+    let callCount = 0;
     const reasonTimeline = jest.fn(async (incoming: TimelineCollectorOutput) => {
-      if (!incoming.request.recovery_hint) {
+      callCount += 1;
+      if (callCount === 1) {
         return {
           schema_version: '1.0' as const,
           request_id: incoming.request_id,
@@ -56,7 +93,7 @@ describe('reasonWithPolicy', () => {
           },
           continuity: { judged: true, is_continuing: false },
           rationale: {
-            summary: 'attempted reuse',
+            summary: 'attempted reuse despite hint',
             hard_fact_basis: [],
             canon_basis: [],
             persona_basis: [],
@@ -74,7 +111,7 @@ describe('reasonWithPolicy', () => {
         },
         continuity: { judged: true, is_continuing: false },
         rationale: {
-          summary: 'no reusable facts',
+          summary: 'recovered on retry',
           hard_fact_basis: [],
           canon_basis: [],
           persona_basis: [],
@@ -89,53 +126,31 @@ describe('reasonWithPolicy', () => {
       reasonTimeline,
     });
 
-    expect(reasonTimeline).toHaveBeenCalled();
+    expect(reasonTimeline).toHaveBeenCalledTimes(3);
     expect(result.guard.ok).toBe(true);
     expect(result.guard.outcome).toBe('return_empty');
   });
 
   it('throws when guard-recovery retry still fails validation', async () => {
     const collector = makeCollector();
-    const reasonTimeline = jest.fn(async (incoming: TimelineCollectorOutput) => {
-      if (!incoming.request.recovery_hint) {
-        return {
-          schema_version: '1.0' as const,
-          request_id: incoming.request_id,
-          request_type: 'past_range' as const,
-          decision: {
-            action: 'reuse_existing_fact' as const,
-            selected_fact_id: 'canon:2099-01-01:0',
-            should_write_canon: false,
-          },
-          continuity: { judged: true, is_continuing: false },
-          rationale: {
-            summary: 'attempted reuse',
-            hard_fact_basis: [],
-            canon_basis: [],
-            persona_basis: [],
-            constraint_basis: [],
-          },
-        };
-      }
-      return {
-        schema_version: '1.0' as const,
-        request_id: incoming.request_id,
-        request_type: 'past_range' as const,
-        decision: {
-          action: 'reuse_existing_fact' as const,
-          selected_fact_id: 'canon:2099-01-01:0',
-          should_write_canon: false,
-        },
-        continuity: { judged: true, is_continuing: false },
-        rationale: {
-          summary: 'still invalid',
-          hard_fact_basis: [],
-          canon_basis: [],
-          persona_basis: [],
-          constraint_basis: [],
-        },
-      };
-    });
+    const reasonTimeline = jest.fn(async (incoming: TimelineCollectorOutput) => ({
+      schema_version: '1.0' as const,
+      request_id: incoming.request_id,
+      request_type: 'past_range' as const,
+      decision: {
+        action: 'reuse_existing_fact' as const,
+        selected_fact_id: 'canon:2099-01-01:0',
+        should_write_canon: false,
+      },
+      continuity: { judged: true, is_continuing: false },
+      rationale: {
+        summary: 'still invalid',
+        hard_fact_basis: [],
+        canon_basis: [],
+        persona_basis: [],
+        constraint_basis: [],
+      },
+    }));
 
     await expect(
       reasonWithPolicy({
@@ -148,8 +163,10 @@ describe('reasonWithPolicy', () => {
 
   it('throws when guard-recovery retry returns null', async () => {
     const collector = makeCollector();
+    let callCount = 0;
     const reasonTimeline = jest.fn(async (incoming: TimelineCollectorOutput) => {
-      if (!incoming.request.recovery_hint) {
+      callCount += 1;
+      if (callCount === 1) {
         return {
           schema_version: '1.0' as const,
           request_id: incoming.request_id,
@@ -161,7 +178,7 @@ describe('reasonWithPolicy', () => {
           },
           continuity: { judged: true, is_continuing: false },
           rationale: {
-            summary: 'attempted reuse',
+            summary: 'attempted reuse despite hint',
             hard_fact_basis: [],
             canon_basis: [],
             persona_basis: [],

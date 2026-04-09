@@ -12,7 +12,12 @@ import {
   buildForgetfulnessNotes,
   buildGeneratedOutput,
   buildReadOnlyHitOutput,
+  buildReadOnlyFastOutput,
+  buildReadOnlyFastEmptyOutput,
 } from '../core/build_timeline_output';
+import { defaultDurationForActivityMode } from '../core/build_consumption_view';
+import { parseMemoryFile } from '../lib/parse-memory';
+import { ParsedEpisode } from '../lib/types';
 import { executeGeneratedWrite, classifyWriteFailure } from '../core/execute_write';
 import { reasonWithPolicy } from '../core/reason_with_policy';
 import { formatDate, parseTimestampParts } from '../lib/time-utils';
@@ -21,8 +26,10 @@ import { writeEpisode, WriteEpisodeInput, WriteResult } from '../storage/write-e
 import { resolveWindow, TimelineQueryPlan } from '../core/resolve_window';
 import { loadTimelinePersonaContractFromWorkspace } from '../persona/load_persona_contract';
 import { LegacyPersonaContractExtractor } from '../persona/extract_legacy_persona_contract';
+import { collectActiveFacts } from '../core/collect_active_facts';
+import { CollectedTimelineFact } from '../core/timeline_reasoner_contract';
 
-export type TimelineResolveMode = 'read_only' | 'allow_generate';
+export type TimelineResolveMode = 'read_only' | 'allow_generate' | 'read_only_fast';
 
 export type TimelineResolveErrorCode =
   | 'INVALID_INPUT'
@@ -70,6 +77,7 @@ export interface TimelineRuntimeDependencies extends TimelineSourceDependencies 
   memoryFilePath?: (calendarDate: string) => string;
   canonicalRootName?: string;
   traceLogPath?: string;
+  readOnlyFastLookbackDays?: number;
   extractLegacyPersonaContract?: LegacyPersonaContractExtractor;
   personaCacheDirName?: string;
   personaExtractionMaxAttempts?: number;
@@ -92,6 +100,7 @@ function createDefaultDependencies(
     memoryFilePath: (calendarDate: string) => `memory/${calendarDate}.md`,
     canonicalRootName: 'memory',
     traceLogPath: path.join(process.cwd(), '.timeline-cache', 'stella-timeline-plugin-trace.log'),
+    readOnlyFastLookbackDays: 7,
     personaCacheDirName: '.timeline-cache/persona-contract',
     personaExtractionMaxAttempts: 3,
   };
@@ -193,6 +202,123 @@ function calendarDateFromTimestamp(timestamp: string): string {
   return formatDate(parts);
 }
 
+function isParsedEpisodeActiveAt(episode: ParsedEpisode, anchorIso: string): boolean {
+  const episodeMs = new Date(episode.timestamp.replace(' ', 'T')).getTime();
+  const anchorMs = new Date(anchorIso).getTime();
+  if (Number.isNaN(episodeMs) || Number.isNaN(anchorMs)) return false;
+  const elapsedMinutes = (anchorMs - episodeMs) / 60_000;
+  if (elapsedMinutes < 0) return false;
+  const duration = episode.estimatedDurationMinutes ?? defaultDurationForActivityMode(undefined);
+  return elapsedMinutes < duration;
+}
+
+function selectLatestUnexpiredParsedEpisode(episodes: ParsedEpisode[], anchorIso: string): ParsedEpisode | undefined {
+  for (let index = episodes.length - 1; index >= 0; index -= 1) {
+    const episode = episodes[index];
+    if (isParsedEpisodeActiveAt(episode, anchorIso)) {
+      return episode;
+    }
+  }
+  return undefined;
+}
+
+function mapCollectedFactToParsedEpisode(fact: CollectedTimelineFact): ParsedEpisode {
+  return {
+    timestamp: fact.timestamp,
+    location: fact.location,
+    action: fact.action,
+    emotionTags: fact.emotion_tags,
+    appearance: fact.appearance,
+    internalMonologue: fact.internal_monologue,
+    parseLevel: fact.parse_level,
+    confidence: fact.confidence,
+    estimatedDurationMinutes: fact.estimated_duration_minutes,
+    eventId: fact.event_id,
+    parentEventTag: fact.parent_event_tag,
+    parentEventPhase: fact.parent_event_phase,
+    parentEventProgress: fact.parent_event_progress,
+  };
+}
+
+export type TimelineReadOnlyFastSnapshot =
+  | {
+      status: 'hit';
+      source: 'same_day_fast_hit' | 'lookback_active_fact';
+      now: string;
+      timezone: string;
+      calendarDate: string;
+      parsed: ParsedEpisode;
+    }
+  | {
+      status: 'empty';
+      now: string;
+      timezone: string;
+      calendarDate: string;
+    };
+
+export async function resolveReadOnlyFastSnapshot(
+  deps: Pick<TimelineRuntimeDependencies, 'currentTime' | 'memoryGet' | 'readOnlyFastLookbackDays'>,
+): Promise<TimelineReadOnlyFastSnapshot> {
+  const currentTime = await deps.currentTime();
+  const timezone = currentTime.timezone;
+  const nowISO = currentTime.now;
+  const calendarDate = formatDate(parseTimestampParts(nowISO)!);
+  const stubInput: TimelineResolveInput = { query: 'now', mode: 'read_only_fast' };
+  const stubWindow = {
+    start: nowISO,
+    end: nowISO,
+    calendar_dates: [calendarDate],
+    query_range: 'now' as const,
+    semantic_target: 'now',
+    collection_scope: 'today_so_far',
+    timezone,
+  };
+
+  const todayRaw = await deps.memoryGet(calendarDate, stubWindow as any, stubInput);
+  const todayEpisodes = parseMemoryFile(todayRaw);
+  const currentDayHit = selectLatestUnexpiredParsedEpisode(todayEpisodes, nowISO);
+  if (currentDayHit) {
+    return {
+      status: 'hit',
+      source: 'same_day_fast_hit',
+      now: nowISO,
+      timezone,
+      calendarDate,
+      parsed: currentDayHit,
+    };
+  }
+
+  const lookbackDays = Number.isInteger(deps.readOnlyFastLookbackDays)
+    ? Math.max(0, Number(deps.readOnlyFastLookbackDays))
+    : 7;
+
+  if (lookbackDays > 1) {
+    const activeFacts = await collectActiveFacts(
+      (candidateDate) => deps.memoryGet(candidateDate, stubWindow as any, stubInput),
+      nowISO,
+      lookbackDays,
+    );
+    const lookbackHit = activeFacts.find((fact) => fact.calendar_date !== calendarDate);
+    if (lookbackHit) {
+      return {
+        status: 'hit',
+        source: 'lookback_active_fact',
+        now: nowISO,
+        timezone,
+        calendarDate: lookbackHit.calendar_date,
+        parsed: mapCollectedFactToParsedEpisode(lookbackHit),
+      };
+    }
+  }
+
+  return {
+    status: 'empty',
+    now: nowISO,
+    timezone,
+    calendarDate,
+  };
+}
+
 function persistTraceIfConfigured(
   output: TimelineResolveOutput,
   input: TimelineResolveInput,
@@ -202,6 +328,24 @@ function persistTraceIfConfigured(
   if (!deps.traceLogPath) return false;
 
   try {
+    let traceError = null;
+    if (!output.ok) {
+      traceError = output.error;
+    } else if (output.trace) {
+      if (output.trace.decision.error_code) {
+        traceError = {
+          code: output.trace.decision.error_code,
+          message: output.trace.fingerprint.reason || 'Reasoner or guard policy violation',
+        };
+      } else if (output.trace.write.error) {
+        traceError = {
+          code: output.trace.write.error_code || 'WRITE_FAILED',
+          message: output.trace.write.error,
+          outcome: output.trace.write.outcome,
+        };
+      }
+    }
+
     appendTraceLog(
       {
         trace_id: output.trace_id,
@@ -210,7 +354,7 @@ function persistTraceIfConfigured(
         payload: {
           ok: output.ok,
           requested_range: requestedRange,
-          error: output.ok ? null : output.error,
+          error: traceError,
           resolution_mode: output.resolution_summary.mode,
           notes: output.notes,
           trace: output.trace ?? null,
@@ -349,7 +493,35 @@ export async function timelineResolve(
   let timezone = '';
 
   try {
+    const effectiveMode = normalizeMode(input.mode);
+
+    if (effectiveMode === 'read_only_fast') {
+      const traceId = makeTraceId();
+      const snapshot = await resolveReadOnlyFastSnapshot(deps);
+      timezone = snapshot.timezone;
+
+      if (snapshot.status === 'hit') {
+        const successOutput = buildReadOnlyFastOutput({
+          traceId,
+          parsed: snapshot.parsed,
+          calendarDate: snapshot.calendarDate,
+          now: snapshot.now,
+          timezone: snapshot.timezone,
+        });
+        return { ...successOutput } as TimelineResolveSuccessOutput;
+      }
+
+      const emptyOutput = buildReadOnlyFastEmptyOutput({
+        traceId,
+        now: snapshot.now,
+        timezone: snapshot.timezone,
+        calendarDate: snapshot.calendarDate,
+      });
+      return { ...emptyOutput } as TimelineResolveSuccessOutput;
+    }
+
     validateTimelineResolveInput(input);
+    const pipelineMode = normalizeMode(input.mode) as 'read_only' | 'allow_generate';
     const traceId = makeTraceId();
 
     const currentTime = await deps.currentTime();
@@ -368,7 +540,7 @@ export async function timelineResolve(
     }
     const reasonResult = await reasonWithPolicy({
       collector,
-      mode: normalizeMode(input.mode),
+      mode: pipelineMode,
       reasonTimeline: deps.reasonTimeline,
     });
     let reasoned = reasonResult.reasoned;
@@ -432,6 +604,7 @@ export async function timelineResolve(
           collector,
           generatedFact: guard.generated_fact,
           generationReason: guard.generated_fact.reason || reasoned.rationale.summary || 'llm-guided semantic timeline synthesis',
+          estimatedDurationMinutesOverride: reasoned.estimated_duration_minutes,
           deps: {
             memoryFilePath: deps.memoryFilePath,
             canonicalRootName: deps.canonicalRootName,
@@ -497,7 +670,7 @@ export async function timelineResolve(
         window,
         collector,
         reasoned,
-        notesOverride: normalizeMode(input.mode) === 'allow_generate'
+        notesOverride: pipelineMode === 'allow_generate'
           ? buildForgetfulnessNotes(reasoned, window)
           : undefined,
       });

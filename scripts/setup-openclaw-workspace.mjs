@@ -1,24 +1,43 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import {
   buildAgentsContract,
+  buildHeartbeatContract,
   buildSoulContract,
   detectAgentsContract,
+  detectHeartbeatContract,
   detectCurrentSoulContract,
   detectLegacySoulContract,
   detectSoulContract,
-  LEGACY_SOUL_SECTION_TITLE,
+  LEGACY_SOUL_SECTION_TITLE_V1,
+  LEGACY_SOUL_SECTION_TITLE_V2,
   normalizeRootName,
   resolveCanonicalRootPath,
   SOUL_SECTION_TITLE,
 } from './workspace-contract.mjs';
+
+const TIMELINE_PLUGIN_ID = 'stella-timeline-plugin';
+const PROACTIVE_SESSION_KEY = 'proactive-greeting';
+const ENGAGEMENT_STATE_SCHEMA_VERSION = '1.0';
+
+function defaultOpenClawHome() {
+  const envHome = process.env.OPENCLAW_HOME;
+  if (typeof envHome === 'string' && envHome.trim()) {
+    return path.resolve(envHome);
+  }
+  return path.join(os.homedir(), '.openclaw');
+}
 
 function parseArgs(argv) {
   const options = {
     workspace: path.resolve(process.cwd()),
     canonicalRootName: 'memory',
     createMemoryRoot: true,
+    withHeartbeat: null,
+    configureOpenClaw: null,
+    openClawConfigPath: null,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -35,6 +54,26 @@ function parseArgs(argv) {
       options.createMemoryRoot = false;
       continue;
     }
+    if (arg === '--with-heartbeat') {
+      options.withHeartbeat = true;
+      continue;
+    }
+    if (arg === '--no-heartbeat') {
+      options.withHeartbeat = false;
+      continue;
+    }
+    if (arg === '--configure-openclaw') {
+      options.configureOpenClaw = true;
+      continue;
+    }
+    if (arg === '--no-configure-openclaw') {
+      options.configureOpenClaw = false;
+      continue;
+    }
+    if (arg === '--openclaw-config') {
+      options.openClawConfigPath = path.resolve(argv[++i] || '');
+      continue;
+    }
     if (arg === '--help' || arg === '-h') {
       printHelp();
       process.exit(0);
@@ -47,9 +86,10 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log([
-    'Usage: openclaw-timeline-setup [--workspace <dir>] [--canonical-root-name <name>] [--no-create-memory-root]',
+    'Usage: openclaw-timeline-setup [--workspace <dir>] [--canonical-root-name <name>] [--no-create-memory-root] [--with-heartbeat|--no-heartbeat] [--configure-openclaw|--no-configure-openclaw] [--openclaw-config <path>]',
     '',
     'Idempotently appends the required Timeline contract blocks to AGENTS.md and SOUL.md.',
+    'When the target workspace matches your OpenClaw workspace, setup also enables proactive greeting in openclaw.json by default.',
   ].join('\n'));
 }
 
@@ -96,7 +136,7 @@ function mergeSoulSection(existingContent, sectionContent) {
   if (detectLegacySoulContract(existingContent)) {
     const replaced = replaceSectionByTitle(
       existingContent,
-      [SOUL_SECTION_TITLE, LEGACY_SOUL_SECTION_TITLE],
+      [SOUL_SECTION_TITLE, LEGACY_SOUL_SECTION_TITLE_V1, LEGACY_SOUL_SECTION_TITLE_V2],
       sectionContent,
     );
     if (replaced) {
@@ -116,14 +156,131 @@ function writeFile(filePath, content) {
   fs.writeFileSync(filePath, content, 'utf8');
 }
 
+function readJsonFile(filePath) {
+  if (!fs.existsSync(filePath)) return null;
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function readString(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function createJsonSnapshot(value) {
+  return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function normalizePath(value) {
+  return path.resolve(value);
+}
+
+function defaultUserTimezone(config) {
+  const root = (config ?? {});
+  const agents = (root.agents ?? {});
+  const defaults = (agents.defaults ?? {});
+  return readString(defaults.userTimezone)
+    || Intl.DateTimeFormat().resolvedOptions().timeZone
+    || 'UTC';
+}
+
+function buildInitialEngagementState(config) {
+  return {
+    schema_version: ENGAGEMENT_STATE_SCHEMA_VERSION,
+    state_revision: 0,
+    user_timezone: defaultUserTimezone(config),
+    last_user_message_at: null,
+    last_proactive_checkin_at: null,
+    last_non_social_outbound_at: null,
+    last_outbound_reason: null,
+    last_successful_proactive_message_id: null,
+    last_inbound_dedupe_key: null,
+    last_outbound_dedupe_key: null,
+    recent_inbound_dedupe_keys: [],
+    recent_outbound_dedupe_keys: [],
+    last_proactive_decision_token: null,
+    pending_proactive_send: false,
+    pending_proactive_send_started_at: null,
+    proactive_greeting_enabled: true,
+    idle_threshold_hours: 7,
+    proactive_opt_out: false,
+    unanswered_proactive_count: 0,
+    last_heartbeat_checked_at: null,
+    last_decision: null,
+    last_error: null,
+    primary_contact_fingerprint: null,
+    contact_scope_status: 'unknown',
+  };
+}
+
+function ensureJsonFile(filePath, payload) {
+  if (fs.existsSync(filePath)) {
+    return false;
+  }
+  writeFile(filePath, createJsonSnapshot(payload));
+  return true;
+}
+
+function shouldConfigureOpenClaw(options, config, fallbackWorkspacePath) {
+  if (typeof options.configureOpenClaw === 'boolean') {
+    return options.configureOpenClaw;
+  }
+  const workspace = normalizePath(options.workspace);
+  if (workspace === fallbackWorkspacePath) {
+    return true;
+  }
+  const configuredWorkspace = readString(
+    ((config?.agents ?? {}).defaults ?? {}).workspace,
+  );
+  return configuredWorkspace ? workspace === normalizePath(configuredWorkspace) : false;
+}
+
+function patchOpenClawConfig(config, workspace) {
+  const next = JSON.parse(JSON.stringify(config ?? {}));
+  next.agents ??= {};
+  next.agents.defaults ??= {};
+  next.agents.defaults.workspace = workspace;
+  next.agents.defaults.heartbeat = {
+    ...(next.agents.defaults.heartbeat ?? {}),
+    every: '30m',
+    target: 'last',
+    session: PROACTIVE_SESSION_KEY,
+    isolatedSession: true,
+    lightContext: true,
+  };
+  next.plugins ??= {};
+  next.plugins.entries ??= {};
+  next.plugins.entries[TIMELINE_PLUGIN_ID] ??= { enabled: true, config: {} };
+  next.plugins.entries[TIMELINE_PLUGIN_ID].enabled = true;
+  next.plugins.entries[TIMELINE_PLUGIN_ID].config ??= {};
+  next.plugins.entries[TIMELINE_PLUGIN_ID].config.proactiveGreeting = {
+    ...(next.plugins.entries[TIMELINE_PLUGIN_ID].config.proactiveGreeting ?? {}),
+    enabled: true,
+    sessionKey: PROACTIVE_SESSION_KEY,
+    singleUserGuard: true,
+  };
+  return next;
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
+  const openClawHome = defaultOpenClawHome();
+  const defaultWorkspacePath = normalizePath(path.join(openClawHome, 'workspace'));
+  const openClawConfigPath = options.openClawConfigPath
+    ? normalizePath(options.openClawConfigPath)
+    : normalizePath(path.join(openClawHome, 'openclaw.json'));
+  const existingConfig = readJsonFile(openClawConfigPath);
+  const configureOpenClaw = shouldConfigureOpenClaw(options, existingConfig, defaultWorkspacePath);
+  const writeHeartbeat = typeof options.withHeartbeat === 'boolean'
+    ? options.withHeartbeat
+    : configureOpenClaw;
   const agentsPath = path.join(options.workspace, 'AGENTS.md');
   const soulPath = path.join(options.workspace, 'SOUL.md');
+  const heartbeatPath = path.join(options.workspace, 'HEARTBEAT.md');
   const canonicalRootPath = resolveCanonicalRootPath(options.workspace, options.canonicalRootName);
+  const engagementStatePath = path.join(canonicalRootPath, 'engagement_state.json');
 
   const agentsContent = readTextFile(agentsPath);
   const soulContent = readTextFile(soulPath);
+  const heartbeatContent = writeHeartbeat ? readTextFile(heartbeatPath) : '';
 
   const agentsResult = mergeSection(
     agentsContent,
@@ -134,18 +291,58 @@ function main() {
     soulContent,
     buildSoulContract(),
   );
+  const heartbeatResult = writeHeartbeat
+    ? mergeSection(
+      heartbeatContent,
+      buildHeartbeatContract(options.canonicalRootName),
+      detectHeartbeatContract,
+    )
+    : null;
 
   writeFile(agentsPath, agentsResult.content);
   writeFile(soulPath, soulResult.content);
+  if (heartbeatResult) {
+    writeFile(heartbeatPath, heartbeatResult.content);
+  }
 
   if (options.createMemoryRoot) {
     fs.mkdirSync(canonicalRootPath, { recursive: true });
   }
 
+  let finalConfig = existingConfig;
+  let configResult = `skipped OpenClaw config wiring ${openClawConfigPath}`;
+  if (configureOpenClaw) {
+    if (!existingConfig) {
+      configResult = `skipped OpenClaw config wiring ${openClawConfigPath} (file not found)`;
+    } else {
+      const patchedConfig = patchOpenClawConfig(existingConfig, normalizePath(options.workspace));
+      finalConfig = patchedConfig;
+      const before = createJsonSnapshot(existingConfig);
+      const after = createJsonSnapshot(patchedConfig);
+      if (before !== after) {
+        writeFile(openClawConfigPath, after);
+        configResult = `updated OpenClaw config ${openClawConfigPath}`;
+      } else {
+        configResult = `kept OpenClaw config ${openClawConfigPath}`;
+      }
+    }
+  }
+
+  const engagementStateResult = writeHeartbeat
+    ? `${ensureJsonFile(engagementStatePath, buildInitialEngagementState(finalConfig))
+      ? 'initialized'
+      : 'kept'} ${engagementStatePath}`
+    : `skipped proactive engagement state ${engagementStatePath}`;
+
   const updates = [
     `${agentsResult.changed ? 'updated' : 'kept'} ${agentsPath}`,
     `${soulResult.status === 'upgraded-legacy' ? 'upgraded' : soulResult.changed ? 'updated' : 'kept'} ${soulPath}`,
+    heartbeatResult
+      ? `${heartbeatResult.changed ? 'updated' : 'kept'} ${heartbeatPath}`
+      : `skipped optional heartbeat contract ${heartbeatPath}`,
     `${options.createMemoryRoot ? 'ensured' : 'skipped'} ${canonicalRootPath}`,
+    engagementStateResult,
+    configResult,
   ];
 
   console.log(updates.join('\n'));

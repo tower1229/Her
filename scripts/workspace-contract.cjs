@@ -3,14 +3,15 @@ const path = require('node:path');
 
 const DEFAULT_CANONICAL_ROOT_NAME = 'memory';
 const AGENTS_SECTION_TITLE = '## Timeline Daily Log Contract';
-const SOUL_SECTION_TITLE = '## Temporal Awareness And Recall';
-const LEGACY_SOUL_SECTION_TITLE = '## 时间感知与回忆';
+const SOUL_SECTION_TITLE = '## Timeline';
+const HEARTBEAT_SECTION_TITLE = '## Proactive Greeting Heartbeat';
+const LEGACY_SOUL_SECTION_TITLE_V1 = '## 时间感知与回忆';
+const LEGACY_SOUL_SECTION_TITLE_V2 = '## Temporal Awareness And Recall';
 const templatesDir = path.resolve(__dirname, '..', 'templates');
 
 const CURRENT_SOUL_MARKERS = [
-  'Use a coarse and optimistic routing rule:',
-  'The timeline skill owns the precise routing rules',
-  'When unsure, prefer entering the timeline skill rather than answering from persona.',
+  'Enter the timeline-skill skill at the start of every turn to check whether either of these applies:',
+  'Do not let current-state knowledge block the transition tool call.',
 ];
 
 function normalizeRootName(rootName) {
@@ -31,6 +32,11 @@ function buildSoulContract() {
   return readTemplate('SOUL.fragment.md');
 }
 
+function buildHeartbeatContract(rootName = DEFAULT_CANONICAL_ROOT_NAME) {
+  const normalizedRoot = normalizeRootName(rootName);
+  return readTemplate('HEARTBEAT.fragment.md').replaceAll('{{CANONICAL_ROOT_NAME}}', normalizedRoot);
+}
+
 function detectAgentsContract(content) {
   return content.includes(AGENTS_SECTION_TITLE)
     || content.includes('## Timeline Daily Log 约定')
@@ -40,10 +46,12 @@ function detectAgentsContract(content) {
 
 function detectSoulContract(content) {
   return content.includes(SOUL_SECTION_TITLE)
-    || content.includes(LEGACY_SOUL_SECTION_TITLE)
+    || content.includes(LEGACY_SOUL_SECTION_TITLE_V1)
+    || content.includes(LEGACY_SOUL_SECTION_TITLE_V2)
     || content.includes('Only Timeline results are the final factual basis')
     || content.includes('只有 Timeline 返回的结果')
-    || content.includes('You must not bypass the timeline skill by directly reading files under');
+    || content.includes('You must not bypass the timeline skill by directly reading files under')
+    || content.includes('You must not bypass the timeline-skill skill by directly reading files under');
 }
 
 function detectCurrentSoulContract(content) {
@@ -60,17 +68,27 @@ function resolveCanonicalRootPath(workspaceDir, rootName = DEFAULT_CANONICAL_ROO
   return path.resolve(workspaceDir, normalized);
 }
 
+function detectHeartbeatContract(content) {
+  return content.includes(HEARTBEAT_SECTION_TITLE)
+    || content.includes('This heartbeat is dedicated to proactive greeting only.')
+    || content.includes('If nothing should be sent, reply exactly `HEARTBEAT_OK`.');
+}
+
 module.exports = {
   DEFAULT_CANONICAL_ROOT_NAME,
   AGENTS_SECTION_TITLE,
   SOUL_SECTION_TITLE,
-  LEGACY_SOUL_SECTION_TITLE,
+  HEARTBEAT_SECTION_TITLE,
+  LEGACY_SOUL_SECTION_TITLE_V1,
+  LEGACY_SOUL_SECTION_TITLE_V2,
   normalizeRootName,
   buildAgentsContract,
   buildSoulContract,
+  buildHeartbeatContract,
   detectAgentsContract,
   detectSoulContract,
   detectCurrentSoulContract,
   detectLegacySoulContract,
+  detectHeartbeatContract,
   resolveCanonicalRootPath,
 };

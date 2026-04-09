@@ -12,6 +12,7 @@ interface ConsumptionInput {
   reasoned: TimelineReasonerOutput;
   episode?: Episode;
   sourceType: 'canon' | 'generated' | 'none';
+  eventId?: string;
 }
 
 function buildEmptyFactSummary(input: ConsumptionInput): string | undefined {
@@ -118,6 +119,56 @@ function deriveLightingHint(timeOfDay: string): string | undefined {
   return undefined;
 }
 
+export function defaultDurationForActivityMode(mode: string | undefined): number {
+  switch (mode) {
+    case 'sleep': return 420;
+    case 'meal': return 45;
+    case 'bath': return 30;
+    case 'exercise': return 60;
+    case 'work_or_study': return 120;
+    case 'commute': return 40;
+    case 'transition': return 15;
+    case 'rest': return 30;
+    case 'social': return 90;
+    case 'shopping': return 60;
+    case 'leisure': return 60;
+    case 'domestic': return 60;
+    case 'errands': return 45;
+    default: return 60;
+  }
+}
+
+function deriveEstimatedDurationMinutes(input: ConsumptionInput): number | undefined {
+  if (input.reasoned.estimated_duration_minutes != null) {
+    return input.reasoned.estimated_duration_minutes;
+  }
+  const fromSemantics = input.reasoned.generated_fact?.sceneSemantics?.estimatedDurationMinutes;
+  if (fromSemantics != null) {
+    return fromSemantics;
+  }
+  const activityMode = deriveActivityMode(input);
+  if (activityMode) {
+    return defaultDurationForActivityMode(activityMode);
+  }
+  return undefined;
+}
+
+function deriveEventId(input: ConsumptionInput): string | undefined {
+  return input.eventId;
+}
+
+function deriveParentEventTag(input: ConsumptionInput): string | undefined {
+  return input.reasoned.generated_fact?.sceneSemantics?.parentEventTag;
+}
+
+function deriveParentEventPhase(input: ConsumptionInput): string | undefined {
+  return input.reasoned.generated_fact?.sceneSemantics?.parentEventPhase;
+}
+
+function deriveParentEventProgress(input: ConsumptionInput): number | undefined {
+  return input.reasoned.generated_fact?.sceneSemantics?.parentEventProgress;
+}
+
 function deriveFramingHint(episode: Episode): string | undefined {
   const combined = [
     episode.state_snapshot.scene.location_label,
@@ -222,6 +273,11 @@ export function buildConsumptionView(input: ConsumptionInput): TimelineConsumpti
     location_props: deriveLocationProps(input.episode),
     lighting_hint: deriveLightingHint(input.episode.state_snapshot.scene.time_of_day),
     framing_hint: deriveFramingHint(input.episode),
+    estimated_duration_minutes: deriveEstimatedDurationMinutes(input),
+    event_id: deriveEventId(input),
+    parent_event_tag: deriveParentEventTag(input),
+    parent_event_phase: deriveParentEventPhase(input),
+    parent_event_progress: deriveParentEventProgress(input),
   };
 
   const selfieReady: NonNullable<TimelineConsumptionView['selfie_ready']> = {

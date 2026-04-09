@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { writeEpisode } from './write-episode';
+import { writeEpisode, truncateEpisodeDuration } from './write-episode';
 import { getHoliday } from '../lib/holidays';
 
 jest.mock('../lib/holidays');
@@ -116,6 +116,132 @@ describe('writeEpisode', () => {
     expect(res.recovery_hint).toContain('Inspect the existing daily log entry');
   });
 
+  it('allows same-bucket write when the occupying episode Event_Id is exempt (interrupt follow-up)', async () => {
+    fs.writeFileSync(
+      tempFile,
+      `### [14:30:00] planning notes...\n\n- Timestamp: 2026-03-22 14:30:00\n- Location: study\n- Action: planning notes\n- Emotion_Tags: [focused]\n- Appearance: home clothes\n- Event_Id: evt-active-parent\n\n`,
+      'utf8',
+    );
+
+    const res = await writeEpisode({
+      timestamp: '2026-03-22T14:35:00+08:00',
+      location: 'cafe',
+      action: 'waiting for coffee',
+      emotionTags: ['calm'],
+      appearance: 'light jacket',
+      filePath: tempFile,
+      sameBucketExemptEventIds: ['evt-active-parent'],
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.outcome).toBe('appended');
+    const content = fs.readFileSync(tempFile, 'utf8');
+    expect(content).toContain('cafe');
+    expect(content).toContain('evt-active-parent');
+  });
+
+  it('writes Estimated_Duration when provided', async () => {
+    const res = await writeEpisode({
+      timestamp: '2026-03-22T14:30:00+08:00',
+      location: 'bedroom',
+      action: 'reading',
+      emotionTags: ['calm'],
+      appearance: 'pajamas',
+      estimatedDurationMinutes: 90,
+      filePath: tempFile,
+    });
+
+    expect(res.success).toBe(true);
+    const content = fs.readFileSync(tempFile, 'utf8');
+    expect(content).toContain('- Estimated_Duration: 90');
+  });
+
+  it('omits Estimated_Duration when not provided', async () => {
+    const res = await writeEpisode({
+      timestamp: '2026-03-22T14:30:00+08:00',
+      location: 'bedroom',
+      action: 'reading',
+      emotionTags: ['calm'],
+      appearance: 'pajamas',
+      filePath: tempFile,
+    });
+
+    expect(res.success).toBe(true);
+    const content = fs.readFileSync(tempFile, 'utf8');
+    expect(content).not.toContain('Estimated_Duration');
+  });
+
+  it('auto-generates Event_Id from timestamp', async () => {
+    const res = await writeEpisode({
+      timestamp: '2026-03-24T09:30:00+08:00',
+      location: 'Home study',
+      action: 'Reviewing tasks',
+      emotionTags: ['calm'],
+      appearance: 'light home top',
+      filePath: tempFile,
+    });
+
+    expect(res.success).toBe(true);
+    const content = fs.readFileSync(tempFile, 'utf8');
+    expect(content).toContain('- Event_Id: evt-20260324-093000');
+  });
+
+  it('uses provided eventId instead of auto-generating', async () => {
+    const res = await writeEpisode({
+      timestamp: '2026-03-24T09:30:00+08:00',
+      location: 'Home study',
+      action: 'Reviewing tasks',
+      emotionTags: ['calm'],
+      appearance: 'light home top',
+      eventId: 'evt-custom-id',
+      filePath: tempFile,
+    });
+
+    expect(res.success).toBe(true);
+    const content = fs.readFileSync(tempFile, 'utf8');
+    expect(content).toContain('- Event_Id: evt-custom-id');
+  });
+
+  it('writes Parent_Event fields referencing event_id', async () => {
+    const res = await writeEpisode({
+      timestamp: '2026-03-31T08:00:00+08:00',
+      location: '北京旧居',
+      action: '打包行李',
+      emotionTags: ['期待', '忙碌'],
+      appearance: '宽松T恤和运动裤',
+      estimatedDurationMinutes: 720,
+      parentEventTag: 'evt-20260331-060000',
+      parentEventPhase: 'packing',
+      parentEventProgress: 0.1,
+      filePath: tempFile,
+    });
+
+    expect(res.success).toBe(true);
+    const content = fs.readFileSync(tempFile, 'utf8');
+    expect(content).toContain('- Event_Id: evt-20260331-080000');
+    expect(content).toContain('- Parent_Event: evt-20260331-060000');
+    expect(content).toContain('- Parent_Event_Phase: packing');
+    expect(content).toContain('- Parent_Event_Progress: 0.1');
+  });
+
+  it('omits Parent_Event fields when not provided but still writes Event_Id', async () => {
+    const res = await writeEpisode({
+      timestamp: '2026-03-22T14:30:00+08:00',
+      location: 'bedroom',
+      action: 'reading a book',
+      emotionTags: ['calm'],
+      appearance: 'pajamas',
+      filePath: tempFile,
+    });
+
+    expect(res.success).toBe(true);
+    const content = fs.readFileSync(tempFile, 'utf8');
+    expect(content).toContain('- Event_Id: evt-20260322-143000');
+    expect(content).not.toContain('Parent_Event:');
+    expect(content).not.toContain('Parent_Event_Phase');
+    expect(content).not.toContain('Parent_Event_Progress');
+  });
+
   it('keeps chronological order when a past-time episode is written after a later one', async () => {
     // Write the later episode first
     await writeEpisode({
@@ -146,5 +272,130 @@ describe('writeEpisode', () => {
     expect(idx0730).toBeGreaterThanOrEqual(0);
     expect(idx1047).toBeGreaterThanOrEqual(0);
     expect(idx0730).toBeLessThan(idx1047);
+  });
+});
+
+describe('truncateEpisodeDuration', () => {
+  const tempFile = path.join(__dirname, 'mock_truncate.md');
+
+  beforeEach(() => {
+    if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+  });
+
+  afterAll(() => {
+    if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+  });
+
+  it('truncates an episode duration when interrupted mid-way', async () => {
+    // Write an episode that lasts 120 minutes starting at 10:00
+    fs.writeFileSync(
+      tempFile,
+      [
+        '### [10:00:00]',
+        '',
+        '- Timestamp: 2026-03-24 10:00:00+08:00',
+        '- Location: 书房',
+        '- Action: 看书',
+        '- Emotion_Tags: [专注]',
+        '- Appearance: 家居服',
+        '- Estimated_Duration: 120',
+        '- Event_Id: evt-20260324-100000',
+        '',
+      ].join('\n') + '\n',
+      'utf8',
+    );
+
+    // Interrupt at 10:45 → should truncate to 45 minutes
+    const result = await truncateEpisodeDuration(
+      tempFile,
+      'evt-20260324-100000',
+      '2026-03-24 10:45:00+08:00',
+    );
+
+    expect(result).toBe(true);
+    const content = fs.readFileSync(tempFile, 'utf8');
+    expect(content).toContain('- Estimated_Duration: 45');
+    expect(content).not.toContain('- Estimated_Duration: 120');
+  });
+
+  it('returns false when file does not exist', async () => {
+    const result = await truncateEpisodeDuration(
+      path.join(__dirname, 'nonexistent.md'),
+      'evt-xxx',
+      '2026-03-24T10:00:00+08:00',
+    );
+    expect(result).toBe(false);
+  });
+
+  it('returns false when event id is not found in file', async () => {
+    fs.writeFileSync(
+      tempFile,
+      [
+        '### [10:00:00]',
+        '',
+        '- Timestamp: 2026-03-24 10:00:00+08:00',
+        '- Location: 书房',
+        '- Action: 看书',
+        '- Emotion_Tags: [专注]',
+        '- Appearance: 家居服',
+        '- Estimated_Duration: 120',
+        '- Event_Id: evt-20260324-100000',
+        '',
+      ].join('\n') + '\n',
+      'utf8',
+    );
+
+    const result = await truncateEpisodeDuration(
+      tempFile,
+      'evt-nonexistent',
+      '2026-03-24T10:45:00+08:00',
+    );
+    expect(result).toBe(false);
+  });
+
+  it('preserves other episodes when truncating one', async () => {
+    fs.writeFileSync(
+      tempFile,
+      [
+        '### [09:00:00]',
+        '',
+        '- Timestamp: 2026-03-24 09:00:00+08:00',
+        '- Location: 厨房',
+        '- Action: 做早餐',
+        '- Emotion_Tags: [平静]',
+        '- Appearance: 家居服',
+        '- Estimated_Duration: 30',
+        '- Event_Id: evt-20260324-090000',
+        '',
+        '### [10:00:00]',
+        '',
+        '- Timestamp: 2026-03-24 10:00:00+08:00',
+        '- Location: 书房',
+        '- Action: 看书',
+        '- Emotion_Tags: [专注]',
+        '- Appearance: 家居服',
+        '- Estimated_Duration: 120',
+        '- Event_Id: evt-20260324-100000',
+        '',
+      ].join('\n') + '\n',
+      'utf8',
+    );
+
+    const result = await truncateEpisodeDuration(
+      tempFile,
+      'evt-20260324-100000',
+      '2026-03-24 10:30:00+08:00',
+    );
+
+    expect(result).toBe(true);
+    const content = fs.readFileSync(tempFile, 'utf8');
+    // The breakfast episode should be untouched
+    expect(content).toContain('- Estimated_Duration: 30');
+    // The reading episode should be truncated to 30 min
+    expect(content).toContain('- Estimated_Duration: 30');
+    expect(content).not.toContain('- Estimated_Duration: 120');
+    // Both episodes should still exist
+    expect(content).toContain('evt-20260324-090000');
+    expect(content).toContain('evt-20260324-100000');
   });
 });

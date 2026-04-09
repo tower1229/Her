@@ -8,3 +8,4 @@ test-out.txt
 memory/
 .env
 .env.*
+.DS_Store

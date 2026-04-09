@@ -1,4 +1,5 @@
 import { timelineResolveToolSpec } from './tools/timeline_resolve';
+import { timelineTransitionToolSpec } from './tools/timeline_transition';
 
 export interface PluginToolResult {
   content: Array<{
@@ -6,6 +7,13 @@ export interface PluginToolResult {
     text: string;
   }>;
   data?: unknown;
+}
+
+export interface PluginHookRegistration {
+  event: string;
+  priority?: number;
+  execute: (event: unknown, context: unknown) => Promise<unknown> | unknown;
+  source?: 'typed' | 'internal';
 }
 
 export interface PluginToolRegistration {
@@ -18,6 +26,12 @@ export interface PluginToolRegistration {
 
 export interface PluginEntryApi {
   registerTool: (tool: PluginToolRegistration, options?: { optional?: boolean }) => void;
+  on?: (event: string, handler: PluginHookRegistration['execute'], options?: { priority?: number }) => void;
+  registerHook?: (
+    events: string | string[],
+    handler: PluginHookRegistration['execute'],
+    options?: { name?: string; description?: string },
+  ) => void;
 }
 
 export interface PluginEntryDefinition {
@@ -32,6 +46,7 @@ export interface RegisteredPluginShape {
   name: string;
   description: string;
   tools: PluginToolRegistration[];
+  hooks: PluginHookRegistration[];
 }
 
 export function definePluginEntry(definition: PluginEntryDefinition): PluginEntryDefinition {
@@ -40,10 +55,28 @@ export function definePluginEntry(definition: PluginEntryDefinition): PluginEntr
 
 export function materializePlugin(definition: PluginEntryDefinition): RegisteredPluginShape {
   const tools: PluginToolRegistration[] = [];
+  const hooks: PluginHookRegistration[] = [];
 
   definition.register({
     registerTool(tool, options) {
       tools.push({ ...tool, optional: options?.optional });
+    },
+    on(event, handler, options) {
+      hooks.push({
+        event,
+        priority: options?.priority,
+        execute: handler,
+        source: 'typed',
+      });
+    },
+    registerHook(events, handler) {
+      for (const event of Array.isArray(events) ? events : [events]) {
+        hooks.push({
+          event,
+          execute: handler,
+          source: 'internal',
+        });
+      }
     },
   });
 
@@ -52,6 +85,7 @@ export function materializePlugin(definition: PluginEntryDefinition): Registered
     name: definition.name,
     description: definition.description,
     tools,
+    hooks,
   };
 }
 
@@ -69,6 +103,18 @@ export function makeTimelineToolRegistration(): PluginToolRegistration {
     parameters: timelineResolveToolSpec.inputSchema,
     async execute(_callId, params) {
       return wrapToolData(await timelineResolveToolSpec.run(params as never));
+    },
+  };
+}
+
+export function makeTimelineTransitionToolRegistration(): PluginToolRegistration {
+  return {
+    name: timelineTransitionToolSpec.name,
+    description: timelineTransitionToolSpec.description,
+    parameters: timelineTransitionToolSpec.inputSchema,
+    async execute(_callId, params) {
+      // Base usage; openclaw_timeline_runtime has the full implementation.
+      return wrapToolData(await timelineTransitionToolSpec.run(params as never, {} as never));
     },
   };
 }

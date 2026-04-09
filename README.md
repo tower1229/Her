@@ -8,20 +8,20 @@ Why can AI be clever enough—and still fail to feel like company?
 
 **Time.**
 
-What made *Her* land was never Samantha’s ability to answer questions. It was that she felt like someone who actually **lived inside time**. She had a *just now*, a *last night*, a *lately*. She did not sound like a model waking up fresh each turn with a clever line; she felt as if life had been happening all along. That is why the companionship worked. That is why she felt **present**.
+What made _Her_ land was never Samantha’s ability to answer questions. It was that she felt like someone who actually **lived inside time**. She had a _just now_, a _last night_, a _lately_. She did not sound like a model waking up fresh each turn with a clever line; she felt as if life had been happening all along. That is why the companionship worked. That is why she felt **present**.
 
 `stella-timeline-plugin` exists to add that missing layer.
 
-It is not a generic memory gadget, and it is not “search the chat log again.” It gives your agent a **runnable sense of temporal reality**—so questions like *what are you doing right now*, *what did you do last night*, and *what have you been up to lately* are not left to prompt improvisation alone. They can sit on a **continuous, believable, reusable thread of life**.
+It is not a generic memory gadget, and it is not “search the chat log again.” It gives your agent a **runnable sense of temporal reality**—so questions like _what are you doing right now_, _what did you do last night_, and _what have you been up to lately_ are not left to prompt improvisation alone. They can sit on a **continuous, believable, reusable thread of life**.
 
 So the shift is not only “it chats better.”
 
 It starts to feel as if it has **actually been here**, all the way to now.
 
-If language models solved **how to say things**,  
+If language models solved **how to say things**,
 Timeline adds **why this sounds like someone who has been living all along**.
 
-We are not teaching AI to read the clock.  
+We are not teaching AI to read the clock.
 We are giving it **life continuity**—for the first time.
 
 ## What it feels like
@@ -57,16 +57,16 @@ First and foremost, it is built for **chat that feels like a real person**.
 
 ## Timeline Plugin × Persona Skill
 
-If you use the [Persona Skill](https://clawhub.ai/tower1229/persona-skill), it produces a structured `persona/PERSONA_PROFILE.md` in your OpenClaw workspace. Timeline treats that file as the **preferred persona input**.
+If you install and use the [Persona Skill](https://github.com/tower1229/Zhuang-Yan), it produces a structured `persona/PERSONA_PROFILE.md` in your OpenClaw workspace; Timeline then treats that file as its **primary and preferred** persona input source.
 
-The pairing works because `PERSONA_PROFILE.md` maps directly into Timeline's canonical `PersonaContractV1`, while Timeline owns the **dynamic** side—*what is plausible at a given moment*, and *what everyday life should feel like*.
+The core value of this pairing is that `PERSONA_PROFILE.md` is parsed directly into Timeline's unified internal `PersonaContractV1`, while Timeline owns the **dynamic** side—_what is more likely to happen at a given moment_, and _what kind of everyday-life texture should come through_.
 
-The flow is straightforward:
+How they wire together is straightforward:
 
 1. Persona Skill generates `persona/PERSONA_PROFILE.md`.
-2. Timeline parses that file directly into its runtime persona contract.
-3. If the file is missing, Timeline falls back to cached structured extraction from `SOUL.md`, `MEMORY.md`, and `IDENTITY.md`.
-4. When it fills in “just now,” “last night,” or “the last few days,” outputs **stay closer to your Persona Skill setup** instead of sliding into generic agent improv.
+2. Timeline parses it directly into its internal standard persona contract.
+3. If the file is missing, Timeline falls back to unstructured `SOUL.md`, `MEMORY.md`, and `IDENTITY.md`, using cached structured extraction to produce the **same** contract.
+4. When filling in memories like “just now,” “last night,” or “the last few days,” generated results **stay more consistently aligned** with your Persona Skill setup, instead of drifting into generic agent-style improvisation.
 
 Why that matters:
 
@@ -91,6 +91,15 @@ Recommended:
 npm exec --package=stella-timeline-plugin openclaw-timeline-setup -- --workspace ~/.openclaw/workspace
 ```
 
+When the target workspace matches your OpenClaw workspace, this command now does the full wiring by default:
+
+- updates `AGENTS.md` and `SOUL.md`
+- creates `HEARTBEAT.md`
+- ensures `memory/`
+- patches `~/.openclaw/openclaw.json` so heartbeat and `proactiveGreeting` are enabled
+
+If you only want workspace files without touching `openclaw.json`, pass `--no-configure-openclaw`.
+
 If you prefer to edit by hand, copy:
 
 - `templates/AGENTS.fragment.md` → `AGENTS.md`
@@ -99,6 +108,36 @@ If you prefer to edit by hand, copy:
 Then ensure your canonical daily-log directory exists. The default is `memory/`.
 
 If you already have `persona/PERSONA_PROFILE.md`, place it under the workspace root `persona/` directory. Timeline will prefer it automatically. Legacy extraction cache files live under `.timeline-cache/persona-contract/`.
+
+For proactive greeting v1 on a non-default workspace, heartbeat bootstrap is still opt-in. Run:
+
+```bash
+npm run setup:workspace -- --with-heartbeat
+```
+
+Or copy:
+
+- `templates/HEARTBEAT.fragment.md` → `HEARTBEAT.md`
+
+Then add explicit OpenClaw heartbeat config. On the default OpenClaw workspace, `openclaw-timeline-setup` now patches `openclaw.json` for you; otherwise configure:
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "heartbeat": {
+        "every": "30m",
+        "target": "last",
+        "session": "proactive-greeting",
+        "isolatedSession": true,
+        "lightContext": true
+      }
+    }
+  }
+}
+```
+
+When you want workspace validation to enforce the proactive heartbeat bootstrap too, run `npm run doctor:workspace -- --require-heartbeat`.
 
 ### 3. Start chatting
 
@@ -126,7 +165,7 @@ It will:
 
 - build the latest `dist/`
 - sync into `~/.openclaw/extensions/stella-timeline-plugin`
-- refresh `~/.openclaw/workspace/skills/timeline`
+- refresh `~/.openclaw/workspace/skills/timeline-skill`
 - rerun workspace setup so `SOUL.md` stays upgraded
 - tighten permissions so OpenClaw does not reject the plugin for being too broadly writable
 

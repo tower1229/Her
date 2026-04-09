@@ -46,4 +46,33 @@ describe('persona_contract_validator', () => {
     expect(result.issues.join(' ')).toContain('schema_version');
     expect(result.issues.join(' ')).toContain('unknown field "identity.unsupported_field"');
   });
+
+  it('accepts extractor payloads with optional request_id matching subagent correlation', () => {
+    const result = validateCandidatePersonaContractPayload({
+      schema_version: '1.0',
+      request_id: 'timeline-persona-extract-1-1',
+      identity: { home_city: 'Shanghai' },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.issues).toEqual([]);
+  });
+
+  it('rejects non-string or blank request_id when present', () => {
+    const blank = validateCandidatePersonaContractPayload({
+      schema_version: '1.0',
+      request_id: '   ',
+      identity: { home_city: 'Shanghai' },
+    });
+    expect(blank.ok).toBe(false);
+    expect(blank.issues.join(' ')).toContain('request_id');
+
+    const numeric = validateCandidatePersonaContractPayload({
+      schema_version: '1.0',
+      request_id: 123 as unknown as string,
+      identity: { home_city: 'Shanghai' },
+    });
+    expect(numeric.ok).toBe(false);
+    expect(numeric.issues.join(' ')).toContain('request_id');
+  });
 });

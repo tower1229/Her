@@ -51,13 +51,14 @@ Timeline 为 OpenClaw 增加了一层专门的时间感知与回忆能力，让�
 - 让编织出来的记忆更符合普通现实生活的时间逻辑，而不是随机拼出来的片段
 - 让穿着这类小细节也更连贯，只有在运动、洗澡、睡觉、出门等自然场景下才发生合理变化
 - 只在合适的时候写入 timeline 记忆
-- 让长期稳定记忆和时间线记忆各归其位，不互相污染
+- 让对话具有场景化氛围，一个人在安静的书房度过下午，和在热闹的咖啡馆等朋友，说话的节奏和语气是不一样的。
+- 让长时间持续的事件不再空洞——搬家、旅行、出行这类跨越数小时甚至一整天的大事件，会在每次查询时被自动细化为当前时间点合理的瞬时阶段，而不是始终回答"还在搬家中"。
 
 它首先服务的，就是“像真人一样闲聊”这件事。
 
 ## Timeline Plugin × Persona Skill 联动玩法
 
-如果你安装并使用了 [persona skill](https://clawhub.ai/tower1229/persona-skill) ，其会在 OpenClaw 工作空间产出一份结构化的 `persona/PERSONA_PROFILE.md`，那么 Timeline 会把它当作优先且首选的人设输入源。
+如果你安装并使用了 [persona skill](https://github.com/tower1229/Zhuang-Yan) ，其会在 OpenClaw 工作空间产出一份结构化的 `persona/PERSONA_PROFILE.md`，那么 Timeline 会把它当作优先且首选的人设输入源。
 
 这组搭配的核心价值在于：`PERSONA_PROFILE.md` 会被直接解析成 Timeline 内部统一消费的 `PersonaContractV1`，而 Timeline 负责动态部分，也就是“在什么时间点，更可能发生什么、应该呈现出怎样的生活感”。
 
@@ -91,6 +92,15 @@ openclaw plugins enable stella-timeline-plugin
 npm exec --package=stella-timeline-plugin openclaw-timeline-setup -- --workspace ~/.openclaw/workspace
 ```
 
+当目标 workspace 就是你的 OpenClaw workspace 时，这条命令现在会默认完成整套接线：
+
+- 更新 `AGENTS.md` 和 `SOUL.md`
+- 创建 `HEARTBEAT.md`
+- 确保 `memory/` 存在
+- 自动补齐 `~/.openclaw/openclaw.json`，开启 heartbeat 和 `proactiveGreeting`
+
+如果你只想写 workspace 文件、不想改 `openclaw.json`，可以加 `--no-configure-openclaw`。
+
 如果你更喜欢手动编辑文件，也可以直接复制：
 
 - `templates/AGENTS.fragment.md` 到 `AGENTS.md`
@@ -99,6 +109,36 @@ npm exec --package=stella-timeline-plugin openclaw-timeline-setup -- --workspace
 然后确认 canonical daily-log 目录已经存在，默认是 `memory/`。
 
 如果你已经有 persona skill 产出的 `persona/PERSONA_PROFILE.md`，把它放在 workspace 根目录下的 `persona/` 文件夹中即可。Timeline 会优先使用它；只有在它不存在时，才会退回 legacy persona 文件提取路径。legacy 提取缓存位于 `.timeline-cache/persona-contract/`。
+
+如果你要在非默认 workspace 上启用主动问候 v1，heartbeat bootstrap 仍然是显式 opt-in 的。先执行：
+
+```bash
+npm run setup:workspace -- --with-heartbeat
+```
+
+或者手动复制：
+
+- `templates/HEARTBEAT.fragment.md` 到 `HEARTBEAT.md`
+
+然后再在 OpenClaw 配置里显式开启 heartbeat。对于默认 OpenClaw workspace，`openclaw-timeline-setup` 现在会自动补这段配置；其他 workspace 仍需手动配置：
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "heartbeat": {
+        "every": "30m",
+        "target": "last",
+        "session": "proactive-greeting",
+        "isolatedSession": true,
+        "lightContext": true
+      }
+    }
+  }
+}
+```
+
+如果你还希望 workspace 自检把主动问候 heartbeat bootstrap 也当成硬要求，可以执行 `npm run doctor:workspace -- --require-heartbeat`。
 
 ### 3. 直接开始聊天
 
@@ -127,7 +167,7 @@ npm run sync:local-openclaw
 
 - 构建最新 `dist/`
 - 同步到 `~/.openclaw/extensions/stella-timeline-plugin`
-- 刷新 `~/.openclaw/workspace/skills/timeline`
+- 刷新 `~/.openclaw/workspace/skills/timeline-skill`
 - 运行 workspace setup 升级 `SOUL.md`
 - 收紧插件与 skill 目录权限，避免因为权限过宽被 OpenClaw 拒绝加载
 

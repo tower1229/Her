@@ -744,4 +744,73 @@ describe('timelineResolve generation path', () => {
     expect(result.result?.consumption?.fact.source_type).toBe('generated');
   });
 
+  it('threads estimated_duration_minutes from generated_fact to consumption and canon', async () => {
+    fs.mkdirSync(path.dirname(tmpFile), { recursive: true });
+    process.chdir(tmpDir);
+    setTimelineResolveDependencies({
+      currentTime: async () => ({ now: '2026-03-22T12:30:00+08:00', timezone: 'Asia/Shanghai' }),
+      sessionsHistory: async () => ['user: 你在干嘛'],
+      memoryGet: async () => '',
+      reasonTimeline: async (collector) => ({
+        schema_version: '1.0',
+        request_id: collector.request_id,
+        request_type: 'now',
+        time_interpretation: {
+          normalized_kind: 'now',
+          match_strategy: 'generated',
+          summary: 'Current moment, generated a meal scene.',
+        },
+        decision: {
+          action: 'generate_new_fact',
+          should_write_canon: true,
+        },
+        continuity: {
+          judged: true,
+          is_continuing: false,
+          reason: 'new lunch scene',
+        },
+        estimated_duration_minutes: 45,
+        rationale: {
+          summary: 'Generated a lunch scene.',
+          hard_fact_basis: [],
+          canon_basis: [],
+          persona_basis: [],
+          constraint_basis: [],
+        },
+        generated_fact: {
+          location: '家里餐桌',
+          action: '吃午饭',
+          emotionTags: ['满足'],
+          appearance: '家居服',
+          internalMonologue: '午饭做得不错。',
+          confidence: 0.8,
+          sceneSemantics: {
+            activityMode: 'meal',
+            continuityRelation: 'fresh_moment',
+            rationale: 'a typical lunch scene',
+            estimatedDurationMinutes: 45,
+          },
+          appearanceLogic: {
+            transition: 'inherit',
+            changeReason: 'same_day_continuation',
+            outfitMode: 'casual_home',
+          },
+        },
+      }),
+      memoryFilePath: () => tmpFile,
+    });
+
+    const result = await timelineResolve({
+      query: '你在干嘛',
+      mode: 'allow_generate',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected success');
+    expect(result.result?.consumption?.scene?.estimated_duration_minutes).toBe(45);
+
+    const content = fs.readFileSync(tmpFile, 'utf8');
+    expect(content).toContain('Estimated_Duration: 45');
+  });
+
 });

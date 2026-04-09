@@ -81,3 +81,29 @@ export function buildTrace(input: TimelineTraceInput, traceId?: string): Timelin
     notes: input.notes,
   };
 }
+
+export interface TimelineTransitionTrace {
+  trace_id: string;
+  ts: string;
+  directive: string;
+  active_facts_found: number;
+  interruption_handling?: string;
+  interrupted_event_id?: string;
+  truncate_ok?: boolean;
+  requires_persona_update: boolean;
+  write: {
+    success: boolean;
+    file_path?: string;
+    error_code?: string;
+    error?: string;
+  };
+  notes: string[];
+}
+
+export function buildTransitionTrace(input: Omit<TimelineTransitionTrace, 'trace_id' | 'ts'>, traceId?: string): TimelineTransitionTrace {
+  return {
+    trace_id: traceId ?? makeTraceId(),
+    ts: new Date().toISOString(),
+    ...input,
+  };
+}

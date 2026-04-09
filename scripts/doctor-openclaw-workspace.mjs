@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   detectAgentsContract,
+  detectHeartbeatContract,
   detectCurrentSoulContract,
   detectLegacySoulContract,
   detectSoulContract,
@@ -14,6 +15,7 @@ function parseArgs(argv) {
   const options = {
     workspace: path.resolve(process.cwd()),
     canonicalRootName: 'memory',
+    requireHeartbeat: false,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -24,6 +26,10 @@ function parseArgs(argv) {
     }
     if (arg === '--canonical-root-name') {
       options.canonicalRootName = normalizeRootName(argv[++i] || '');
+      continue;
+    }
+    if (arg === '--require-heartbeat') {
+      options.requireHeartbeat = true;
       continue;
     }
     if (arg === '--help' || arg === '-h') {
@@ -38,7 +44,7 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log([
-    'Usage: openclaw-timeline-doctor [--workspace <dir>] [--canonical-root-name <name>]',
+    'Usage: openclaw-timeline-doctor [--workspace <dir>] [--canonical-root-name <name>] [--require-heartbeat]',
     '',
     'Checks whether the required Timeline workspace contracts are present.',
   ].join('\n'));
@@ -79,10 +85,13 @@ function main() {
   const options = parseArgs(process.argv.slice(2));
   const agentsPath = path.join(options.workspace, 'AGENTS.md');
   const soulPath = path.join(options.workspace, 'SOUL.md');
+  const heartbeatPath = path.join(options.workspace, 'HEARTBEAT.md');
   const canonicalRootPath = resolveCanonicalRootPath(options.workspace, options.canonicalRootName);
+  const engagementStatePath = path.join(canonicalRootPath, 'engagement_state.json');
 
   const agentsContent = readText(agentsPath);
   const soulContent = readText(soulPath);
+  const heartbeatContent = readText(heartbeatPath);
 
   let ok = true;
   ok = check(
@@ -98,6 +107,32 @@ function main() {
     canonicalRootPath,
     `${canonicalRootPath} does not exist`,
   ) && ok;
+  if (options.requireHeartbeat) {
+    ok = check(
+      'HEARTBEAT contract',
+      fs.existsSync(heartbeatPath) && detectHeartbeatContract(heartbeatContent),
+      heartbeatPath,
+      `${heartbeatPath} is missing the proactive greeting heartbeat contract`,
+    ) && ok;
+    ok = check(
+      'Engagement state bootstrap',
+      fs.existsSync(engagementStatePath),
+      engagementStatePath,
+      `${engagementStatePath} is missing; rerun openclaw-timeline-setup with heartbeat bootstrap enabled`,
+    ) && ok;
+
+    console.log('');
+    console.log('Confirm OpenClaw heartbeat config (this is agent heartbeat, not a cron job):');
+    console.log('- heartbeat.every = 30m');
+    console.log('- heartbeat.target = "last"');
+    console.log('- heartbeat.session = "proactive-greeting"');
+    console.log('- heartbeat.isolatedSession = true');
+    console.log('- heartbeat.lightContext = true');
+  } else if (fs.existsSync(heartbeatPath) && detectHeartbeatContract(heartbeatContent)) {
+    console.log(`[ok] HEARTBEAT contract (optional): ${heartbeatPath}`);
+  } else {
+    console.log(`[info] HEARTBEAT contract (optional): not configured; rerun with --require-heartbeat when proactive greeting is enabled`);
+  }
 
   if (!ok) {
     process.exitCode = 1;

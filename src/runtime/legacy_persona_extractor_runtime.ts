@@ -25,7 +25,9 @@ function buildLegacyPersonaExtractorSystemPrompt(): string {
     'You are the internal Timeline persona contract extractor.',
     'Your only task is to convert legacy persona prose into a PersonaContractV1-bounded JSON object.',
     'Do not call tools. Do not use the user query. Do not infer temporal facts. Output JSON only.',
-    'schema_version is required. Never include fields outside the requested contract shape.',
+    'schema_version is required.',
+    'request_id is required and must exactly match legacy_files.request_id in the user message (subagent correlation).',
+    'Include only schema_version, request_id, and the persona sections shown in the requested output shape. Omit optional sections you cannot ground in the files.',
     'Keep outputs minimal and stable. Prefer omission over overcommitting.',
     'Do not emit explanatory prose or markdown fences unless the whole answer is a single JSON object.',
   ].join('\n');
@@ -44,9 +46,10 @@ function buildLegacyPersonaExtractorMessage(
   return [
     'Extract a PersonaContractV1 from the legacy persona files below.',
     'Use only the file contents provided here. Do not use user-query context or timeline facts.',
-    'Output a JSON object constrained to this shape. schema_version is required. Omit unsupported optional members instead of inventing them:',
+    'Output a JSON object constrained to this shape. schema_version and request_id are required; request_id must equal the value under legacy_files below. Omit unsupported optional persona members instead of inventing them:',
     JSON.stringify({
       schema_version: input.contractVersion,
+      request_id: input.requestId,
       identity: {
         home_city: 'optional string',
         home_country: 'optional string',

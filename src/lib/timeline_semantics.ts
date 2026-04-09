@@ -55,6 +55,10 @@ export interface SceneSemantics {
   activityMode: ActivityMode;
   continuityRelation: ContinuityRelation;
   rationale: string;
+  estimatedDurationMinutes?: number;
+  parentEventTag?: string;
+  parentEventPhase?: string;
+  parentEventProgress?: number;
 }
 
 export interface AppearanceLogic {

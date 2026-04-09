@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { computeFingerprint } from '../lib/fingerprint';
+import { computeFingerprint, halfHourTimelineBucket } from '../lib/fingerprint';
 import { parseMemoryFile } from '../lib/parse-memory';
 import { WorldHooks } from '../lib/types';
 import { getHoliday } from '../lib/holidays';
@@ -14,8 +14,15 @@ export interface WriteEpisodeInput {
   emotionTags: string[];
   appearance: string;
   internalMonologue?: string;
+  estimatedDurationMinutes?: number;
+  eventId?: string;
+  parentEventTag?: string;
+  parentEventPhase?: string;
+  parentEventProgress?: number;
   filePath: string;
   confidence?: number;
+  /** Existing episodes with these Event_Id values do not trigger same-half-hour-bucket CONFLICT (interrupt / micro-task follow-ups). */
+  sameBucketExemptEventIds?: string[];
 }
 
 export interface WriteResult {
@@ -36,12 +43,15 @@ function detectWriteConflict(
   timestamp: string,
   location: string,
   action: string,
+  sameBucketExemptEventIds?: string[],
 ): {
   outcome: 'noop_existing' | 'conflict' | 'clear';
   fingerprint: string;
   existingFingerprint?: string;
 } {
   const fingerprint = computeFingerprint(dateStr, location, action, timestamp);
+  const newTimeBucket = halfHourTimelineBucket(timestamp);
+  const exempt = new Set((sameBucketExemptEventIds ?? []).filter(Boolean));
   if (!fs.existsSync(filePath)) {
     return { outcome: 'clear', fingerprint };
   }
@@ -55,8 +65,11 @@ function detectWriteConflict(
       return { outcome: 'noop_existing', fingerprint, existingFingerprint };
     }
     const sameDate = existingDate === dateStr;
-    const sameTimeBucket = existingFingerprint.split('|')[3] === fingerprint.split('|')[3];
+    const sameTimeBucket = halfHourTimelineBucket(episode.timestamp) === newTimeBucket;
     if (sameDate && sameTimeBucket) {
+      if (episode.eventId && exempt.has(episode.eventId)) {
+        continue;
+      }
       return { outcome: 'conflict', fingerprint, existingFingerprint };
     }
   }
@@ -65,7 +78,21 @@ function detectWriteConflict(
 }
 
 export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResult> {
-  const { timestamp, location, action, emotionTags, appearance, internalMonologue, filePath } = input;
+  const {
+    timestamp,
+    location,
+    action,
+    emotionTags,
+    appearance,
+    internalMonologue,
+    estimatedDurationMinutes,
+    eventId,
+    parentEventTag,
+    parentEventPhase,
+    parentEventProgress,
+    filePath,
+    sameBucketExemptEventIds,
+  } = input;
 
   if (!timestamp || !location || !action || !emotionTags || emotionTags.length === 0 || !appearance) {
     return {
@@ -109,7 +136,7 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       weekday,
       holiday_key: holidayKey,
     };
-    const conflictCheck = detectWriteConflict(filePath, dateStr, timestamp, location, action);
+    const conflictCheck = detectWriteConflict(filePath, dateStr, timestamp, location, action, sameBucketExemptEventIds);
     if (conflictCheck.outcome === 'noop_existing') {
       return {
         success: true,
@@ -144,6 +171,7 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
     const existingContent = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '';
     const existingEpisodes = parseMemoryFile(existingContent);
 
+    const generatedEventId = eventId ?? `evt-${dateStr.replace(/-/g, '')}-${timeStr.replace(/:/g, '')}`;
     const newEpisode = {
       timestamp: `${dateStr} ${timeStr}`,
       location,
@@ -151,6 +179,11 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       emotionTags,
       appearance,
       internalMonologue,
+      estimatedDurationMinutes,
+      eventId: generatedEventId,
+      parentEventTag,
+      parentEventPhase,
+      parentEventProgress,
     };
 
     const allEpisodes = [...existingEpisodes, newEpisode];
@@ -168,6 +201,21 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       fileLines.push(`- Appearance: ${ep.appearance}`);
       if (ep.internalMonologue) {
         fileLines.push(`- Internal_Monologue: ${ep.internalMonologue}`);
+      }
+      if (ep.estimatedDurationMinutes != null) {
+        fileLines.push(`- Estimated_Duration: ${ep.estimatedDurationMinutes}`);
+      }
+      if (ep.eventId) {
+        fileLines.push(`- Event_Id: ${ep.eventId}`);
+      }
+      if (ep.parentEventTag) {
+        fileLines.push(`- Parent_Event: ${ep.parentEventTag}`);
+      }
+      if (ep.parentEventPhase) {
+        fileLines.push(`- Parent_Event_Phase: ${ep.parentEventPhase}`);
+      }
+      if (ep.parentEventProgress != null) {
+        fileLines.push(`- Parent_Event_Progress: ${ep.parentEventProgress}`);
       }
       fileLines.push('');
     }
@@ -190,5 +238,90 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       error: error.message,
       recovery_hint: 'Check file permissions and retry after confirming the timeline path is writable.',
     };
+  }
+}
+
+export async function truncateEpisodeDuration(
+  filePath: string,
+  eventId: string,
+  interruptionTimeISO: string
+): Promise<boolean> {
+  if (!fs.existsSync(filePath)) {
+    return false;
+  }
+  
+  try {
+    const existingContent = fs.readFileSync(filePath, 'utf8');
+    const allEpisodes = parseMemoryFile(existingContent);
+    let found = false;
+
+    // We locate the episode by eventId (or simply the latest if eventId is missing but we're doing a strict interrupt)
+    for (const ep of allEpisodes) {
+      if (ep.eventId === eventId && ep.estimatedDurationMinutes) {
+        const epTimeParts = parseTimestampParts(ep.timestamp);
+        const interruptParts = parseTimestampParts(interruptionTimeISO);
+        
+        let diffMins = -1;
+        if (epTimeParts && interruptParts && epTimeParts.year === interruptParts.year && epTimeParts.month === interruptParts.month && epTimeParts.day === interruptParts.day) {
+           const startSeconds = epTimeParts.hour * 3600 + epTimeParts.minute * 60 + (epTimeParts.second || 0);
+           const endSeconds = interruptParts.hour * 3600 + interruptParts.minute * 60 + (interruptParts.second || 0);
+           diffMins = Math.round((endSeconds - startSeconds) / 60);
+        } else {
+           // Fallback for cross-day or complex formats
+           const d1 = new Date(ep.timestamp.replace(' ', 'T')).getTime();
+           const d2 = new Date(interruptionTimeISO.replace(' ', 'T')).getTime();
+           if (!isNaN(d1) && !isNaN(d2)) {
+             // Use Round instead of floor to reduce truncation gap smells in high-frequency transitions
+             diffMins = Math.round((d2 - d1) / 60000);
+           }
+        }
+
+        if (diffMins !== -1) {
+          // Ensure at least 1 minute for a visible fragment, capped by original estimate
+          const finalDuration = Math.max(1, Math.min(diffMins, ep.estimatedDurationMinutes));
+          ep.estimatedDurationMinutes = finalDuration;
+          found = true;
+        }
+      }
+    }
+
+    if (!found) return false;
+
+    // Rewrite exactly like writeEpisode
+    const fileLines: string[] = [];
+    for (const ep of allEpisodes) {
+      const epTimeParts = parseTimestampParts(ep.timestamp) ?? parseTimestampParts(`${ep.timestamp.replace(' ', 'T')}+00:00`);
+      const epTimeStr = epTimeParts ? formatTime(epTimeParts) : ep.timestamp.slice(11, 19);
+      fileLines.push(`### [${epTimeStr}]`, '');
+      fileLines.push(`- Timestamp: ${ep.timestamp}`);
+      fileLines.push(`- Location: ${ep.location}`);
+      fileLines.push(`- Action: ${ep.action}`);
+      fileLines.push(`- Emotion_Tags: [${ep.emotionTags.join(', ')}]`);
+      fileLines.push(`- Appearance: ${ep.appearance}`);
+      if (ep.internalMonologue) {
+        fileLines.push(`- Internal_Monologue: ${ep.internalMonologue}`);
+      }
+      if (ep.estimatedDurationMinutes != null) {
+        fileLines.push(`- Estimated_Duration: ${ep.estimatedDurationMinutes}`);
+      }
+      if (ep.eventId) {
+        fileLines.push(`- Event_Id: ${ep.eventId}`);
+      }
+      if (ep.parentEventTag) {
+        fileLines.push(`- Parent_Event: ${ep.parentEventTag}`);
+      }
+      if (ep.parentEventPhase) {
+        fileLines.push(`- Parent_Event_Phase: ${ep.parentEventPhase}`);
+      }
+      if (ep.parentEventProgress != null) {
+        fileLines.push(`- Parent_Event_Progress: ${ep.parentEventProgress}`);
+      }
+      fileLines.push('');
+    }
+
+    fs.writeFileSync(filePath, fileLines.join('\n') + '\n', 'utf8');
+    return true;
+  } catch(e) {
+    return false;
   }
 }

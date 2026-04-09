@@ -5,7 +5,11 @@ function normalize(s: string): string {
   return s.toLowerCase().replace(/[\s\p{P}]/gu, '');
 }
 
-function toTimeBucket(timestamp: string): string {
+/**
+ * Half-hour resolution clock bucket used by `computeFingerprint` and write conflict detection.
+ * Call sites must not parse fingerprint strings; use this with the raw episode timestamp instead.
+ */
+export function halfHourTimelineBucket(timestamp: string): string {
   const parts = parseTimestampParts(timestamp);
   if (parts) {
     const hours = String(parts.hour).padStart(2, '0');
@@ -31,7 +35,7 @@ function toTimeBucket(timestamp: string): string {
 }
 
 export function computeFingerprint(date: string, location: string, action: string, timestamp: string): string {
-  const bucket = toTimeBucket(timestamp);
+  const bucket = halfHourTimelineBucket(timestamp);
   return `${normalize(date)}|${normalize(location)}|${normalize(action)}|${bucket}`;
 }
 

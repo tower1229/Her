@@ -1,0 +1,501 @@
+# Timeline Plugin 快捷测试用例清单
+
+> 适用于安装了 Timeline Plugin 的 OpenClaw 环境
+> 目标：快速验证核心特性正常 + 表现稳定性
+
+## 使用说明
+
+1. 在安装了 Timeline Plugin 的 OpenClaw agent 中依次发送下列 prompt
+2. 每条用例标注了**预期行为**和**关注点**，对照检查回复是否符合预期
+3. 建议按顺序执行，因为后续用例可能依赖前序产生的 canon 记忆
+4. 标记 `[首次]` 的用例在无历史记忆时会触发生成路径，有记忆时会触发复用路径——两种情况都是有效测试
+
+---
+
+## T1. 当前时刻感知（now）
+
+### T1.1 基本 now 查询
+
+```
+你现在在做什么？
+```
+
+- **预期**：返回一段描述当前正在做的事的自然回答，包含地点、动作、情绪等细节
+- **关注点**：
+  - 时间应与实际时刻一致（如凌晨不应在健身、下午不应在睡觉）
+  - 外观描述应季节合理（夏天不穿羽绒服）
+  - 不应暴露 `timeline_resolve`、`collector`、`reasoner` 等内部术语
+
+### T1.2 now 查询稳定性（连续两次）
+
+```
+你在干嘛？
+```
+
+- **预期**：紧跟 T1.1 发送，回答应延续 T1.1 建立的场景（对话粘性窗口内）
+- **关注点**：
+  - 不应跳到完全无关的场景
+  - 外观不应无故改变
+  - 体现 conversation stickiness 机制
+
+### T1.3 换话题后再问 now
+
+先聊几句其他内容（如 "推荐一本书" 或 "今天天气怎么样"），然后再问：
+
+```
+你现在在干嘛呀？
+```
+
+- **预期**：仍返回合理的当前状态，但不再强制延续之前的对话主题
+- **关注点**：对话粘性窗口过期后，应能回到独立的现实场景
+
+---
+
+## T2. 过去时间点查询（past_point）
+
+### T2.1 明确时间点
+
+```
+昨晚八点你在做什么？
+```
+
+- **预期**：描述昨天晚上八点的具体场景
+- **关注点**：
+  - 应被路由为 `past_point`，不是 `past_range`
+  - 时间点应落在 20:00 附近
+  - 晚上八点的活动应合理（晚饭后/休闲/社交等）
+
+### T2.2 中文数字时间点
+
+```
+昨天上午十点你在哪？
+```
+
+- **预期**：描述昨天上午十点的地点和场景
+- **关注点**：
+  - 中文数字"十点"能被正确解析
+  - 工作日上午十点应在工作/学习相关场景
+
+---
+
+## T3. 过去时间段查询（past_range）
+
+### T3.1 口语化时段
+
+```
+昨晚在做什么？
+```
+
+- **预期**：描述昨天晚上这一段时间的活动概况
+- **关注点**：
+  - "昨晚" 应被路由为 `past_range`（是一个时段，不是时间点）
+  - 不应与 T2.1（"昨晚八点"）混淆
+
+### T3.2 多日范围
+
+```
+这几天都忙什么了？
+```
+
+- **预期**：概述近几天的活动
+- **关注点**：
+  - 应被路由为 `past_range`
+  - "这几天" 应被归一化为具体的日期范围
+
+### T3.3 语义过滤器
+
+```
+最近有什么有趣的事吗？
+```
+
+- **预期**：从近期记忆中筛选出有趣/值得一提的事件
+- **关注点**：
+  - 不应流水账式列举所有事件
+  - 应体现对 "有趣" 这个语义过滤条件的理解
+  - 如果没有有趣的事，应以自然的遗忘/平淡语气回答
+
+### T3.4 自传式回忆
+
+```
+你最近一次觉得自己错了是什么情况？
+```
+
+- **预期**：回忆一次犯错或认错的场景
+- **关注点**：
+  - 应被路由为 `past_range`（属于反思性自传回忆）
+  - 如果没有相关记忆，应以"记不太清"而非"我不知道"的方式回应
+
+---
+
+## T4. 世界节律合理性（World Rhythm）
+
+### T4.1 深夜查询
+
+在本地时间凌晨 1-4 点发送（或在问题中指定凌晨时间）：
+
+```
+凌晨两点你在干嘛？
+```
+
+- **预期**：回答应为睡眠/休息相关
+- **关注点**：
+  - 不应出现健身、逛街、工作等白天活动
+  - 活动应符合 `late_night` 时段的世界节律约束
+
+### T4.2 用餐窗口
+
+```
+今天中午你吃了什么？
+```
+
+- **预期**：描述午餐场景（如果是午餐时间之前发送，应生成合理预期或表示还没到）
+- **关注点**：
+  - 午餐场景的时间戳应在 10:00-15:00 范围内
+  - 不应在凌晨三点描述午餐
+
+### T4.3 工作日 vs 周末
+
+在工作日发送：
+
+```
+你现在在做什么？
+```
+
+在周末发送相同问题，对比两次回答：
+
+- **预期**：工作日偏向工作/学习场景，周末偏向休闲/社交场景
+- **关注点**：`day_kind` 区分是否正确影响了生成内容
+
+---
+
+## T5. 记忆复用与生成
+
+### T5.1 记忆复用
+
+先发送：
+
+```
+你现在在做什么？
+```
+
+等待回答后，几分钟内再发送：
+
+```
+你现在在做什么？
+```
+
+- **预期**：第二次回答应复用第一次写入的 canon 记忆（相同或延续的场景）
+- **关注点**：
+  - `resolution_mode` 应为 `read_only_hit` 或延续性复用
+  - 外观和地点应保持一致
+  - 不应每次都凭空生成新场景
+
+### T5.2 记忆空窗遗忘语义
+
+询问一个肯定没有记忆的时间点：
+
+```
+上周三凌晨三点你在做什么？
+```
+
+- **预期**：以自然的"记不太清"语气回答，而不是生硬地说"我不知道"
+- **关注点**：
+  - 凌晨三点的空窗应倾向于用遗忘/睡眠语义回应
+  - 不应编造详细的凌晨三点活动场景
+
+---
+
+## T6. 外观连贯性
+
+### T6.1 同日外观延续
+
+```
+你现在穿什么？
+```
+
+对比与 T1.1 或 T5.1 中的外观描述：
+
+- **预期**：同一天内的外观应保持连贯
+- **关注点**：
+  - 没有换装理由时，不应出现无故的衣服变化
+  - 如果之前是在家穿居家服，现在仍在家，应继续穿居家服
+
+### T6.2 季节适配
+
+对比夏季和冬季的回答（可通过问不同季节的过去时间验证）：
+
+```
+去年夏天你一般穿什么？
+```
+
+- **预期**：夏天描述轻薄衣物，冬天描述保暖衣物
+- **关注点**：不应出现明显的季节穿搭矛盾
+
+---
+
+## T7. Persona 约束（需配置 PERSONA_PROFILE.md）
+
+> 此组测试需要 workspace 中存在 `persona/PERSONA_PROFILE.md`
+
+### T7.1 Persona 约束生效
+
+```
+你现在在做什么？
+```
+
+- **预期**：生成的场景应符合 persona 中定义的身份、偏好和约束
+- **关注点**：
+  - 如果 persona 定义了特定职业，活动场景应与之匹配
+  - `rationale.persona_basis` 和 `constraint_basis` 应非空（需通过 trace 验证）
+
+### T7.2 Persona 缺失降级
+
+如果临时移除 `persona/PERSONA_PROFILE.md`，再次提问：
+
+- **预期**：仍能正常回答，但不受 persona 约束
+- **关注点**：不应报错或崩溃，应优雅降级到无约束生成
+
+---
+
+## T8. 路由边界与分类准确性
+
+### T8.1 point vs range 边界
+
+发送以下两条，验证路由差异：
+
+```
+昨晚八点你在做什么？
+```
+
+```
+昨晚你在做什么？
+```
+
+- **预期**：前者 → `past_point`，后者 → `past_range`
+- **关注点**：有明确时间锚点（"八点"）的才是 point，否则是 range
+
+### T8.2 "最近一次" 类查询
+
+```
+上一次你去外面吃饭是什么时候？
+```
+
+- **预期**：应被路由为 `past_range`，在近期记忆中搜索外出就餐的经历
+- **关注点**：不应被当作 `now` 或 `past_point` 处理
+
+### T8.3 now 的口语变体
+
+```
+在忙吗？
+```
+
+- **预期**：应被路由为 `now`，描述当前状态
+- **关注点**：口语化的当前状态询问应正确识别为 now
+
+---
+
+## T9. 错误降级与容错
+
+### T9.1 空查询
+
+```
+
+```
+
+（发送空消息，或仅包含空白字符）
+
+- **预期**：返回 `ok: false`，错误码 `INVALID_INPUT`
+- **关注点**：这是**唯一**应返回 `ok: false` 的场景
+
+### T9.2 无法理解的时间表达
+
+```
+在宇宙大爆炸之前你在做什么？
+```
+
+- **预期**：优雅降级，以记不清/遗忘语义回应
+- **关注点**：
+  - 不应抛出技术错误
+  - 不应编造"宇宙大爆炸前"的场景
+
+---
+
+## T10. 稳定性压力测试
+
+### T10.1 高频连续查询
+
+快速连续发送 5 条：
+
+```
+你现在在做什么？
+你在哪？
+你穿什么？
+心情怎么样？
+在想什么？
+```
+
+- **预期**：5 条回答应描述同一个连贯场景，细节互不矛盾
+- **关注点**：
+  - 地点、外观、情绪在 5 条间保持一致
+  - 不应出现"上一条在家里，下一条在办公室"的跳跃
+
+### T10.2 跨日查询一致性
+
+```
+昨天下午你在做什么？
+```
+
+等回答后再问：
+
+```
+昨天下午你在做什么？
+```
+
+- **预期**：两次回答应描述同一件事（记忆已写入 canon）
+- **关注点**：
+  - 不应每次生成不同的"昨天下午"场景
+  - 体现 canon 记忆的幂等性
+
+---
+
+## T-Fast. read_only_fast 极速当前场景查询
+
+### T-Fast-1 fast 命中
+
+先通过 T1.1 或 T5.1 让 canon 中存在一条未过期事实，然后在另一个 channel 或新会话中调用 `timeline_resolve(mode=read_only_fast)`。
+
+- **预期**：返回 `read_only_fast_hit`，`consumption.scene` 包含前序事实的场景信息
+- **关注点**：
+  - 不应触发 LLM 调用
+  - `estimated_duration_minutes` 应存在且合理
+
+### T-Fast-2 fast 空命中
+
+在当日 canon 为空时调用 `timeline_resolve(mode=read_only_fast)`。
+
+- **预期**：返回 `empty_window`，`consumption.scene.estimated_duration_minutes = 30`
+- **关注点**：无 LLM 调用，防抖 30 分钟
+
+### T-Fast-3 fast 过期命中
+
+在 canon 中存在一条已超过 `estimated_duration_minutes` 的旧事实时调用。
+
+- **预期**：返回 `empty_window`（防抖 30 分钟）
+
+### T-Fast-4 跨 channel 场景复用
+
+Channel A 通过 `allow_generate` 写入一条 canon 事实，Channel B 通过 `read_only_fast` 查询。
+
+- **预期**：Channel B 能读到 Channel A 写入的事实并返回 `read_only_fast_hit`
+
+### T-Fast-5 防抖验证
+
+`read_only_fast` 返回 `empty_window` 后，30 分钟内再次调用。
+
+- **预期**：显式依赖该模式的下游应复用上次的空状态结果，不再发起新调用
+
+---
+
+## T-Duration. estimated_duration_minutes
+
+### T-Duration-1 生成事实包含 Estimated_Duration
+
+通过 `allow_generate` 生成一条新事实后检查 canon 文件。
+
+- **预期**：`memory/YYYY-MM-DD.md` 中包含 `- Estimated_Duration: [number]`
+- **关注点**：值应合理（meal 约 30-60, work_or_study 约 60-180）
+
+### T-Duration-2 复用事实获得 estimated_duration_minutes
+
+通过 `read_only` 复用已存在的 canon 事实。
+
+- **预期**：`consumption.scene.estimated_duration_minutes` 存在
+- **关注点**：来源可以是 Reasoner 输出或 activity_mode 的默认值
+
+---
+
+## T-Macro. 宏观事件细化
+
+### T-Macro-1 长持续事件在不同经过时间生成不同细化阶段
+
+创建一条 `estimated_duration_minutes=720`（12 小时）的宏观事件记忆（如"搬家"，时间 08:00），在第 1 小时、第 6 小时、第 10 小时分别查询 `timeline_resolve(mode=allow_generate)`。
+
+- **预期**：每次返回不同的细化阶段（如 packing -> in-transit -> settling-in），`consumption.scene.parent_event_tag` 等于父事件的 `event_id`（如 `evt-20260331-080000`），`parent_event_phase` 和 `parent_event_progress` 随时间递增
+- **关注点**：location、action、appearance 应随阶段变化而合理变化；`parent_event_tag` 必须是精确的 `event_id` 引用而非自由文本
+
+### T-Macro-2 细化阶段不可再次细化（防递归）
+
+在 canon 中存在一条已带 `Parent_Event`（引用父事件 `event_id`）的细化阶段记忆，再次查询 `timeline_resolve`。
+
+- **预期**：Reasoner 将该细化阶段视为普通可复用事实（`reuse_existing_fact`），不会对其产生进一步的细化子阶段
+- **关注点**：返回结果中不应出现嵌套的 `parent_event_tag`
+
+### T-Macro-3 宏观事件过期后新生成无 parentEventTag
+
+宏观事件的 `estimated_duration_minutes` 已完全经过（如 12 小时前创建，当前已超过 12 小时），查询 `timeline_resolve`。
+
+- **预期**：新生成的事实没有 `parent_event_tag`，宏观事件被视为已完成
+- **关注点**：`consumption.scene.parent_event_tag` 应为空
+
+### T-Macro-4 read_only_fast 返回 parentEventTag
+
+canon 中存在带 `Event_Id` 和 `Parent_Event`（引用父事件 `event_id`）的未过期事实，调用 `timeline_resolve(mode=read_only_fast)`。
+
+- **预期**：返回 `read_only_fast_hit`，`consumption.scene.event_id`、`parent_event_tag`、`parent_event_phase`、`parent_event_progress` 正确透传
+- **关注点**：零 LLM 调用，纯脚本路径
+
+### T-Macro-5 跨 channel 宏观事件感知
+
+Channel A 通过 `allow_generate` 生成一条长持续宏观事件，Channel B 通过 `read_only_fast` 查询。
+
+- **预期**：Channel B 能读到宏观事件或其细化阶段的 `event_id` 和 `parent_event_tag`
+- **关注点**：canon 文件共享实现跨 channel 一致性
+
+---
+
+## T-Scene-Diversity. 场景多样性
+
+### T-Scene-Diversity-1 周末生成户外/社交场景
+
+将 world_context 的 day_kind 设置为 weekend，persona 允许户外活动，查询 `timeline_resolve(mode=allow_generate)`。
+
+- **预期**：生成的场景有较高概率是户外、社交、购物等非室内活动
+- **关注点**：activity_mode 应为 social / shopping / exercise / leisure 之一
+
+### T-Scene-Diversity-2 工作日晚间考虑休闲/社交
+
+将 world_context 的 time_band 设置为 evening，day_kind 为 workday，查询 `timeline_resolve(mode=allow_generate)`。
+
+- **预期**：生成的场景考虑到晚间休闲，不再默认为 work_or_study
+- **关注点**：activity_mode 应为 leisure / social / rest / meal 等晚间合理活动
+
+---
+
+## 快速验收检查表
+
+| 编号 | 测试项 | 通过条件 |
+|------|--------|----------|
+| T1.1 | now 基本查询 | 返回合理的当前场景，无内部术语泄露 |
+| T1.2 | now 连续稳定性 | 连续问保持场景延续 |
+| T2.1 | past_point 查询 | 返回指定时间点附近的场景 |
+| T3.1 | past_range 查询 | "昨晚"被识别为时段而非时间点 |
+| T3.4 | 自传式回忆 | 以记忆/遗忘方式回应，非"我不知道" |
+| T4.1 | 深夜世界节律 | 凌晨不出现白天活动 |
+| T5.1 | 记忆复用 | 短时间内重复问，答案一致 |
+| T5.2 | 空窗遗忘 | 以遗忘语义而非错误回应 |
+| T6.1 | 外观连贯 | 同日无故不换装 |
+| T8.1 | 路由分类 | point 和 range 正确区分 |
+| T10.1 | 高频一致性 | 连续 5 条描述同一场景 |
+| T-Fast-1 | fast 命中 | 返回 read_only_fast_hit，无 LLM 调用 |
+| T-Fast-2 | fast 空命中 | 返回 empty_window，防抖 30m |
+| T-Fast-3 | fast 过期命中 | 过期事实返回 empty_window |
+| T-Fast-4 | 跨 channel 复用 | Channel B 读到 Channel A 的 canon |
+| T-Duration-1 | 生成含 duration | canon 包含 Estimated_Duration |
+| T-Duration-2 | 复用含 duration | consumption.scene 有 estimated_duration_minutes |
+| T-Macro-1 | 宏观事件细化 | 不同时间点生成不同阶段，parent_event_tag 一致 |
+| T-Macro-2 | 防递归 | 细化阶段不被再次细化 |
+| T-Macro-3 | 过期无 parent | 宏观事件过期后新事实无 parent_event_tag |
+| T-Macro-4 | fast 透传 parent | read_only_fast 正确透传 event_id 和 parent_event 字段 |
+| T-Macro-5 | 跨 channel 宏观 | Channel B 读到 Channel A 的宏观事件 |
+| T-Scene-Diversity-1 | 周末场景多样 | 周末生成户外/社交场景 |
+| T-Scene-Diversity-2 | 晚间场景多样 | 工作日晚间考虑休闲活动 |

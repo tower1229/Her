@@ -8,14 +8,28 @@ import {
 import { buildConversationContextFromMessages } from './conversation_context';
 import { TimelineQueryPlan } from '../core/resolve_window';
 import { addHours, formatTimestamp, parseTimestampParts, TimestampParts } from '../lib/time-utils';
+import { writeEpisode } from '../storage/write-episode';
 import {
   timelineResolve,
   timelineResolveToolSpec,
+  resolveReadOnlyFastSnapshot,
   TimelineRuntimeDependencies,
   TimelineResolveInput,
 } from '../tools/timeline_resolve';
 import { createLegacyPersonaExtractorRuntime } from './legacy_persona_extractor_runtime';
 import { loadTimelinePersonaContractFromWorkspace } from '../persona/load_persona_contract';
+import {
+  buildTimelinePromptContextFromFastSnapshot,
+  buildTimelinePromptContextText,
+  buildTimelinePromptSystemGuidance,
+  createDegradedTimelinePromptContext,
+} from './timeline_prompt_context';
+import { TIMELINE_PLUGIN_ID } from '../plugin_metadata';
+import {
+  handlePreprocessedInbound,
+  handleSentOutbound,
+  prepareProactiveGreetingHeartbeatContext,
+} from '../engagement/engagement_hooks';
 
 interface PluginLoggerLike {
   debug?: (message: string, meta?: Record<string, unknown>) => void;
@@ -29,6 +43,7 @@ interface PluginToolContextLike {
   workspaceDir?: string;
   agentId?: string;
   sessionKey?: string;
+  trigger?: string;
 }
 
 interface AgentToolLike {
@@ -65,6 +80,11 @@ interface PluginApiLike {
   workspaceDir?: string;
   logger?: PluginLoggerLike;
   resolvePath?: (input: string) => string;
+  on?: (
+    hookName: string,
+    handler: (event: unknown, ctx: PluginToolContextLike) => unknown,
+    options?: { priority?: number },
+  ) => void;
 }
 
 interface OpenClawPluginRuntimeModuleLike {
@@ -77,6 +97,10 @@ interface TimelinePluginRuntimeConfig {
   enableTrace: boolean;
   traceLogPath?: string;
   canonicalMemoryRoot: string;
+  enablePromptTimelineContext: boolean;
+  promptTimelineLookbackDays: number;
+  promptTimelineMacroThresholdMinutes: number;
+  promptTimelineDirectCurrentStateAnswers: boolean;
   reasonerTimeoutMs: number;
   reasonerSessionPrefix: string;
   reasonerMessageLimit: number;
@@ -117,11 +141,19 @@ function readInteger(value: unknown, fallback: number): number {
   return Number.isInteger(value) && Number(value) > 0 ? Number(value) : fallback;
 }
 
+function readNonNegativeInteger(value: unknown, fallback: number): number {
+  return Number.isInteger(value) && Number(value) >= 0 ? Number(value) : fallback;
+}
+
 function resolvePluginRuntimeConfig(pluginConfig?: Record<string, unknown>): TimelinePluginRuntimeConfig {
   return {
     enableTrace: readBoolean(pluginConfig?.enableTrace, true),
     traceLogPath: readString(pluginConfig?.traceLogPath),
     canonicalMemoryRoot: readString(pluginConfig?.canonicalMemoryRoot) || 'memory',
+    enablePromptTimelineContext: readBoolean(pluginConfig?.enablePromptTimelineContext, true),
+    promptTimelineLookbackDays: readNonNegativeInteger(pluginConfig?.promptTimelineLookbackDays, 7),
+    promptTimelineMacroThresholdMinutes: readInteger(pluginConfig?.promptTimelineMacroThresholdMinutes, 120),
+    promptTimelineDirectCurrentStateAnswers: readBoolean(pluginConfig?.promptTimelineDirectCurrentStateAnswers, true),
     reasonerTimeoutMs: readInteger(pluginConfig?.reasonerTimeoutMs, 90000),
     reasonerSessionPrefix: readString(pluginConfig?.reasonerSessionPrefix) || 'timeline-reasoner',
     reasonerMessageLimit: readInteger(pluginConfig?.reasonerMessageLimit, 24),
@@ -239,6 +271,17 @@ function resolveWorkspaceDir(pluginApi: PluginApiLike, toolContext: PluginToolCo
   if (pluginApi.workspaceDir) return pluginApi.workspaceDir;
   if (typeof pluginApi.resolvePath === 'function') return pluginApi.resolvePath('.');
   return process.cwd();
+}
+
+function isPromptInjectionAllowed(pluginApi: PluginApiLike): boolean {
+  const config = pluginApi.config as
+    | {
+        plugins?: {
+          entries?: Record<string, { hooks?: { allowPromptInjection?: boolean } }>;
+        };
+      }
+    | undefined;
+  return config?.plugins?.entries?.[TIMELINE_PLUGIN_ID]?.hooks?.allowPromptInjection !== false;
 }
 
 function resolveConfiguredPath(workspaceDir: string, configuredPath: string | undefined, fallbackRelativePath: string): string {
@@ -540,11 +583,13 @@ function buildTimelineQueryPlannerMessage(input: TimelineResolveInput, anchor: {
   ].join('\n');
 }
 
-function buildTimelineReasonerSystemPrompt(): string {
+function buildTimelineReasonerSystemPrompt(requestId: string): string {
   const coreRules = [
     'You are the internal Timeline plugin time-semantics reasoner.',
     'Your only task is to use the collector fact bundle and output a JSON object that strictly matches TimelineReasonerOutput.',
-    'Do not call tools. Do not introduce pre-existing facts beyond the collector input. Do not output Markdown, explanations, or extra text.',
+    'Do not call tools. Do not introduce pre-existing facts beyond the collector input.',
+    'Output raw JSON only: one JSON object, no markdown fences, no prose before or after.',
+    `Top-level request_id in your output must be exactly this string (including punctuation): ${JSON.stringify(requestId)}`,
     'Priority A - Output validity and action legality:',
     '- request_type must be one of now, past_point, or past_range. continuity is not a separate request type.',
     '- Session hard facts and existing canon facts take priority over generation.',
@@ -573,6 +618,30 @@ function buildTimelineReasonerSystemPrompt(): string {
     '- Avoid generic template scenes. Location, action, emotion, appearance, and internalMonologue must reflect lived continuity.',
     '- Respect collector.world_context temporal logic: meals, sleep, work/study, leisure, weekends, weekdays, and holidays.',
     '- For late-night and pre-dawn, prefer sleep/rest/quiet activities. Meal scenes must stay within plausible meal windows.',
+    '- estimated_duration_minutes (top-level, integer): how many minutes this scene/state is expected to persist.',
+    '  Must be present when decision.action is reuse_existing_fact or generate_new_fact.',
+    '  Consider activityMode, persona temperament, time of day, and typical real-world durations.',
+    '  Examples: sleep ≈ 420, meal ≈ 30–60, work_or_study ≈ 60–180, bath ≈ 20–40, commute ≈ 20–50, exercise ≈ 30–90, rest ≈ 15–45, transition ≈ 5–20.',
+    '- Scene diversity: when collector.world_context.target.day_kind is weekend or holiday, or time_band is evening on any day, actively consider outdoor, social, shopping, exercise, and leisure activity modes instead of defaulting to indoor/domestic scenes.',
+    '- Use persona.rhythm weekend_bias, evening_bias, and persona.scene plausible_locations/plausible_activities to select realistic non-indoor scenes.',
+    '- If the previous canon entries for the day are all indoor, increase the likelihood of an outdoor or social scene for subsequent generation, unless persona constraints explicitly restrict it.',
+    '- Avoid generating the same activity_mode for more than 3 consecutive entries on the same day (excluding sleep and work_or_study).',
+  ];
+
+  const macroEventRules = [
+    'Priority C3 - Macro event refinement (long-duration events):',
+    '- Each candidate_fact now carries precomputed time fields: estimated_duration_minutes, elapsed_minutes, is_within_duration_window (boolean), event_id (string), has_parent_event (boolean), parent_event_tag, parent_event_phase, parent_event_progress. Use these directly; do NOT recalculate elapsed time or duration windows yourself.',
+    '- event_id is a deterministic identifier assigned to every canon entry at write time. When generating a refined phase, set sceneSemantics.parentEventTag to the event_id of the parent macro event (available on the candidate_fact). Do NOT invent freeform strings; always copy the exact event_id value.',
+    '- When a candidate_fact has estimated_duration_minutes > 120 AND has_parent_event is false (meaning it is an original macro event, not already a refined phase) AND is_within_duration_window is true:',
+    '  Check whether any other candidate_fact with a matching parent_event_tag (equal to the parent\'s event_id) also has is_within_duration_window=true. If such a still-active refined phase exists, reuse it (reuse_existing_fact) instead of generating a new one.',
+    '  If no still-active refined phase covers the current time, you SHOULD generate_new_fact as a new refined instantaneous phase of that macro event. A macro event can spawn multiple non-overlapping refined phases over its lifetime.',
+    '  Set sceneSemantics.parentEventTag to the parent candidate_fact\'s event_id.',
+    '  Set sceneSemantics.parentEventPhase to a short label for the current phase (e.g., "packing", "in-transit", "arriving", "exploring-old-town", "lakeside-walk"). Each new phase should be distinct from previous phases of the same parent event.',
+    '  Set sceneSemantics.parentEventProgress to elapsed_minutes / estimated_duration_minutes from the parent fact (already available as precomputed numbers).',
+    '  The refined fact must be temporally plausible: location, action, appearance, and emotion should reflect what would realistically be happening at this point in the larger event. Consider previously generated phases (visible as expired candidate_facts with the same parent_event_tag) to ensure narrative continuity and avoid repeating the same phase.',
+    '  Set estimated_duration_minutes for the refined phase to a reasonable sub-interval (typically 30-120 minutes).',
+    '- ANTI-RECURSION GUARD: If a candidate_fact has has_parent_event=true, it is itself a refined phase. Do NOT generate a further refinement of it. Treat it as a normal reusable fact instead. This prevents infinite subdivision.',
+    '- When a macro event fact has is_within_duration_window=false, it has expired. Do NOT reference it as a parent. The macro event is complete.',
   ];
 
   const appearanceRules = [
@@ -594,12 +663,76 @@ function buildTimelineReasonerSystemPrompt(): string {
     '- If recovery_hint is forgetfulness_only, prefer return_empty with a clear forgetfulness rationale.',
   ];
 
+  const outputSchema = [
+    '',
+    'Output format:',
+    'Output a JSON object matching TimelineReasonerOutput with this shape:',
+    JSON.stringify({
+      schema_version: '1.0',
+      request_id: requestId,
+      request_type: 'now | past_point | past_range',
+      time_interpretation: {
+        normalized_kind: 'now | point | range',
+        normalized_point: 'optional',
+        normalized_start: 'optional',
+        normalized_end: 'optional',
+        match_strategy: 'exact_match | continuation | range_summary | generated',
+        summary: 'how you interpreted the user time semantics',
+      },
+      decision: {
+        action: 'reuse_existing_fact | generate_new_fact | return_empty',
+        selected_fact_id: 'required when action is reuse_existing_fact',
+        should_write_canon: true,
+      },
+      continuity: {
+        judged: true,
+        is_continuing: true,
+        reason: 'continuity reasoning summary',
+      },
+      estimated_duration_minutes: 'integer, required when action is reuse_existing_fact or generate_new_fact',
+      rationale: {
+        summary: 'short summary',
+        hard_fact_basis: ['...'],
+        canon_basis: ['...'],
+        persona_basis: ['...'],
+        constraint_basis: ['...'],
+        uncertainty: 'optional',
+      },
+      generated_fact: {
+        timestamp: 'optional ISO-like timestamp when generation should land at a specific past point or past range',
+        location: 'string',
+        action: 'string',
+        emotionTags: ['string'],
+        appearance: 'string',
+        internalMonologue: 'string',
+        confidence: 0.8,
+        reason: 'string',
+        sceneSemantics: {
+          activityMode: 'sleep | bath | meal | work_or_study | commute | exercise | social | shopping | leisure | domestic | errands | transition | rest | unknown',
+          continuityRelation: 'same_day_continuation | same_scene_continuation | shifted_scene | return_home | fresh_moment | unknown',
+          rationale: 'why this generated scene fits the current timeline state',
+          estimatedDurationMinutes: 'optional integer, mirrors top-level estimated_duration_minutes',
+          parentEventTag: 'optional string, must be the exact event_id of the parent macro event candidate_fact — do NOT invent values',
+          parentEventPhase: 'optional string, short label for the current phase of the macro event (e.g., "packing", "in-transit", "settling-in")',
+          parentEventProgress: 'optional float 0.0-1.0, elapsed proportion of the macro event duration',
+        },
+        appearanceLogic: {
+          transition: 'inherit | change_required | change_allowed | unknown',
+          changeReason: 'same_day_continuation | exercise | bath | sleep | formal_outing | shopping | weather_adjustment | unknown',
+          outfitMode: 'casual_home | casual_outing | workwear | sportswear | sleepwear | bathrobe | dressed_up | fresh_purchase | unknown',
+        },
+      },
+    }, null, 2),
+  ];
+
   return [
     ...coreRules,
     ...reasoningRules,
     ...generationRules,
+    ...macroEventRules,
     ...appearanceRules,
     ...conversationAndRecoveryRules,
+    ...outputSchema,
   ].join('\n');
 }
 
@@ -932,66 +1065,9 @@ function createTimelineQueryPlanner(
 function buildTimelineReasonerMessage(collector: TimelineCollectorOutput): string {
   return [
     'Perform structured time reasoning using only the collector JSON below.',
-    'Output a JSON object matching TimelineReasonerOutput:',
-    JSON.stringify({
-      schema_version: '1.0',
-      request_id: collector.request_id,
-      request_type: 'now | past_point | past_range',
-      time_interpretation: {
-        normalized_kind: 'now | point | range',
-        normalized_point: 'optional',
-        normalized_start: 'optional',
-        normalized_end: 'optional',
-        match_strategy: 'exact_match | continuation | range_summary | generated',
-        summary: 'how you interpreted the user time semantics',
-      },
-      decision: {
-        action: 'reuse_existing_fact | generate_new_fact | return_empty',
-        selected_fact_id: 'required when action is reuse_existing_fact',
-        should_write_canon: true,
-      },
-      continuity: {
-        judged: true,
-        is_continuing: true,
-        reason: 'continuity reasoning summary',
-        },
-        conversation_context: {
-          is_recently_active: true,
-          minutes_since_last_turn: 3,
-          stickiness_window_minutes: 10,
-          active_topic_summary: 'what the conversation was just about',
-          should_prefer_conversation_continuity_for_now: true,
-          last_active_timestamp: 'optional timestamp',
-        },
-        rationale: {
-          summary: 'short summary',
-        hard_fact_basis: ['...'],
-        canon_basis: ['...'],
-        persona_basis: ['...'],
-        constraint_basis: ['...'],
-        uncertainty: 'optional',
-      },
-      generated_fact: {
-        timestamp: 'optional ISO-like timestamp when generation should land at a specific past point or past range',
-        location: 'string',
-        action: 'string',
-        emotionTags: ['string'],
-        appearance: 'string',
-        internalMonologue: 'string',
-        confidence: 0.8,
-        reason: 'string',
-        sceneSemantics: {
-          activityMode: 'sleep | bath | meal | work_or_study | commute | exercise | social | shopping | leisure | domestic | errands | transition | rest | unknown',
-          continuityRelation: 'same_day_continuation | same_scene_continuation | shifted_scene | return_home | fresh_moment | unknown',
-          rationale: 'why this generated scene fits the current timeline state',
-        },
-        appearanceLogic: {
-          transition: 'inherit | change_required | change_allowed | unknown',
-          changeReason: 'same_day_continuation | exercise | bath | sleep | formal_outing | shopping | weather_adjustment | unknown',
-          outfitMode: 'casual_home | casual_outing | workwear | sportswear | sleepwear | bathrobe | dressed_up | fresh_purchase | unknown',
-        },
-      },
-    }, null, 2),
+    '',
+    'Respond with exactly one JSON object (TimelineReasonerOutput). No markdown code fences, no commentary outside the JSON.',
+    `The object must include top-level request_id exactly: ${JSON.stringify(collector.request_id)}`,
     '',
     'collector:',
     JSON.stringify(collector, null, 2),
@@ -1013,7 +1089,7 @@ function createSubagentReasoner(
           const runResult = await subagentRuntime.run({
             sessionKey: reasonerSessionKey,
             message: buildTimelineReasonerMessage(collector),
-            extraSystemPrompt: buildTimelineReasonerSystemPrompt(),
+            extraSystemPrompt: buildTimelineReasonerSystemPrompt(collector.request_id),
             deliver: false,
             idempotencyKey: collector.request_id,
           });
@@ -1057,6 +1133,73 @@ function createSubagentReasoner(
       });
       return buildFallbackReasonerOutput(collector, error);
     }
+  };
+}
+
+// -------------------------------------------------------------
+// Scene Transition Planner Subagent integration
+// -------------------------------------------------------------
+import { TimelineTransitionInput, TransitionPlan } from '../core/transition_planner_contract';
+import { buildTransitionPlannerSystemPrompt, buildTransitionPlannerMessage } from '../core/transition_planner';
+import { PersonaContractV1 } from '../persona/persona_contract';
+
+function createSubagentTransitionPlanner(
+  pluginApi: PluginApiLike,
+  toolContext: PluginToolContextLike,
+  runtimeConfig: TimelinePluginRuntimeConfig,
+) {
+  return async (
+    input: TimelineTransitionInput,
+    anchor: { now: string; timezone: string },
+    persona: PersonaContractV1,
+    activeFacts: CollectedTimelineFact[]
+  ): Promise<TransitionPlan> => {
+    const requestId = `trans-${Date.now()}`;
+    const baseSessionKey = toolContext.sessionKey || `plugin:${runtimeConfig.reasonerSessionPrefix}`;
+    const transitionSessionKey = `${baseSessionKey}:transition-planner:${requestId}`;
+
+    return await withPreferredSubagentRuntime(pluginApi, 'Timeline transition planner', async (subagentRuntime) => {
+      try {
+        const runResult = await subagentRuntime.run({
+          sessionKey: transitionSessionKey,
+          message: buildTransitionPlannerMessage(input, anchor, persona, activeFacts, requestId),
+          extraSystemPrompt: buildTransitionPlannerSystemPrompt(),
+          deliver: false,
+          idempotencyKey: requestId,
+        });
+        const waitResult = await subagentRuntime.waitForRun({
+          runId: runResult.runId,
+          timeoutMs: runtimeConfig.reasonerTimeoutMs,
+        });
+        if (waitResult.status === 'timeout') {
+          throw new Error('Timeline transition planner returned no decision');
+        }
+        if (waitResult.status === 'error') {
+          throw new Error(waitResult.error || 'Timeline transition planner returned no decision');
+        }
+
+        const session = await subagentRuntime.getSessionMessages({
+          sessionKey: transitionSessionKey,
+          limit: runtimeConfig.reasonerMessageLimit,
+        });
+        const jsonText = extractJsonObjectFromMessages(
+          session.messages || [],
+          'Timeline transition planner',
+        );
+        return JSON.parse(jsonText) as TransitionPlan;
+      } finally {
+        try {
+          await subagentRuntime.deleteSession?.({
+            sessionKey: transitionSessionKey,
+            deleteTranscript: true,
+          });
+        } catch (error) {
+          pluginApi.logger?.debug?.('timeline transition planner session cleanup skipped', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    });
   };
 }
 
@@ -1142,6 +1285,8 @@ function createTimelineResolveDependencies(
       now: formatCurrentTimestamp(new Date()),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     }),
+    writeEpisode,
+    readOnlyFastLookbackDays: runtimeConfig.promptTimelineLookbackDays,
     sessionsHistory: async () => {
       const sessionKey = toolContext.sessionKey;
       if (!sessionKey) return [];
@@ -1252,6 +1397,91 @@ function createTimelineResolveDependencies(
   };
 }
 
+type BeforePromptBuildEventLike = {
+  prompt: string;
+  messages: unknown[];
+};
+
+export function makeOpenClawTimelineBeforePromptBuildHook(pluginApi: PluginApiLike) {
+  return async (event: BeforePromptBuildEventLike, hookContext: PluginToolContextLike) => {
+    const runtimeConfig = resolvePluginRuntimeConfig(pluginApi.pluginConfig);
+    const heartbeatPreflight = await prepareProactiveGreetingHeartbeatContext(
+      event,
+      hookContext as any,
+      {
+        workspaceDir: hookContext.workspaceDir || pluginApi.workspaceDir || process.cwd(),
+        pluginConfig: pluginApi.pluginConfig,
+        config: pluginApi.config,
+        logger: pluginApi.logger,
+      },
+    );
+
+    if (!runtimeConfig.enablePromptTimelineContext || !isPromptInjectionAllowed(pluginApi)) {
+      return heartbeatPreflight;
+    }
+
+    const prependSystemContext = buildTimelinePromptSystemGuidance({
+      directCurrentStateAnswersAllowed: runtimeConfig.promptTimelineDirectCurrentStateAnswers,
+    });
+
+    try {
+      const deps = createTimelineResolveDependencies(pluginApi, hookContext);
+      const snapshot = await resolveReadOnlyFastSnapshot({
+        currentTime: deps.currentTime!,
+        memoryGet: deps.memoryGet!,
+        readOnlyFastLookbackDays: deps.readOnlyFastLookbackDays,
+      });
+      const promptContext = buildTimelinePromptContextFromFastSnapshot(snapshot, {
+        macroThresholdMinutes: runtimeConfig.promptTimelineMacroThresholdMinutes,
+        directCurrentStateAnswersAllowed: runtimeConfig.promptTimelineDirectCurrentStateAnswers,
+      });
+
+      return {
+        prependSystemContext,
+        prependContext: [
+          heartbeatPreflight?.prependContext,
+          buildTimelinePromptContextText(promptContext),
+        ].filter(Boolean).join('\n\n'),
+      };
+    } catch (error) {
+      pluginApi.logger?.debug?.('timeline before_prompt_build degraded', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return {
+        prependSystemContext,
+        prependContext: [
+          heartbeatPreflight?.prependContext,
+          buildTimelinePromptContextText(createDegradedTimelinePromptContext('resolver_unavailable')),
+        ].filter(Boolean).join('\n\n'),
+      };
+    }
+  };
+}
+
+export function makeOpenClawTimelineMessagePreprocessedHook(pluginApi: PluginApiLike) {
+  return async (event: unknown) => {
+    const workspaceDir = pluginApi.workspaceDir || process.cwd();
+    await handlePreprocessedInbound(event as any, {
+      workspaceDir,
+      pluginConfig: pluginApi.pluginConfig,
+      config: pluginApi.config,
+      logger: pluginApi.logger,
+    });
+  };
+}
+
+export function makeOpenClawTimelineMessageSentHook(pluginApi: PluginApiLike) {
+  return async (event: unknown) => {
+    const workspaceDir = pluginApi.workspaceDir || process.cwd();
+    await handleSentOutbound(event as any, {
+      workspaceDir,
+      pluginConfig: pluginApi.pluginConfig,
+      config: pluginApi.config,
+      logger: pluginApi.logger,
+    });
+  };
+}
+
 export function makeOpenClawTimelineResolveToolFactory(pluginApi: PluginApiLike) {
   return (toolContext: PluginToolContextLike): AgentToolLike => ({
     name: timelineResolveToolSpec.name,
@@ -1259,5 +1489,23 @@ export function makeOpenClawTimelineResolveToolFactory(pluginApi: PluginApiLike)
     parameters: timelineResolveToolSpec.inputSchema,
     execute: async (_toolCallId, params) =>
       wrapToolPayload(await timelineResolve(params as never, createTimelineResolveDependencies(pluginApi, toolContext))),
+  });
+}
+
+import { timelineTransition, timelineTransitionToolSpec } from '../tools/timeline_transition';
+
+export function makeOpenClawTimelineTransitionToolFactory(pluginApi: PluginApiLike) {
+  return (toolContext: PluginToolContextLike): AgentToolLike => ({
+    name: timelineTransitionToolSpec.name,
+    description: timelineTransitionToolSpec.description,
+    parameters: timelineTransitionToolSpec.inputSchema,
+    execute: async (_toolCallId, params) => {
+      const deps = createTimelineResolveDependencies(pluginApi, toolContext);
+      const transitionDeps = {
+        ...deps,
+        planTransition: createSubagentTransitionPlanner(pluginApi, toolContext, resolvePluginRuntimeConfig(pluginApi.pluginConfig))
+      };
+      return wrapToolPayload(await timelineTransition(params as any, transitionDeps as any));
+    }
   });
 }
