@@ -87,6 +87,7 @@ function main() {
   const soulPath = path.join(options.workspace, 'SOUL.md');
   const heartbeatPath = path.join(options.workspace, 'HEARTBEAT.md');
   const canonicalRootPath = resolveCanonicalRootPath(options.workspace, options.canonicalRootName);
+  const engagementStatePath = path.join(canonicalRootPath, 'engagement_state.json');
 
   const agentsContent = readText(agentsPath);
   const soulContent = readText(soulPath);
@@ -113,9 +114,15 @@ function main() {
       heartbeatPath,
       `${heartbeatPath} is missing the proactive greeting heartbeat contract`,
     ) && ok;
+    ok = check(
+      'Engagement state bootstrap',
+      fs.existsSync(engagementStatePath),
+      engagementStatePath,
+      `${engagementStatePath} is missing; rerun openclaw-timeline-setup with heartbeat bootstrap enabled`,
+    ) && ok;
 
     console.log('');
-    console.log('Manual heartbeat config required in OpenClaw:');
+    console.log('Confirm OpenClaw heartbeat config (this is agent heartbeat, not a cron job):');
     console.log('- heartbeat.every = 30m');
     console.log('- heartbeat.target = "last"');
     console.log('- heartbeat.session = "proactive-greeting"');

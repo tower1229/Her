@@ -20,6 +20,7 @@ import {
 
 const TIMELINE_PLUGIN_ID = 'stella-timeline-plugin';
 const PROACTIVE_SESSION_KEY = 'proactive-greeting';
+const ENGAGEMENT_STATE_SCHEMA_VERSION = '1.0';
 
 function defaultOpenClawHome() {
   const envHome = process.env.OPENCLAW_HOME;
@@ -172,6 +173,52 @@ function normalizePath(value) {
   return path.resolve(value);
 }
 
+function defaultUserTimezone(config) {
+  const root = (config ?? {});
+  const agents = (root.agents ?? {});
+  const defaults = (agents.defaults ?? {});
+  return readString(defaults.userTimezone)
+    || Intl.DateTimeFormat().resolvedOptions().timeZone
+    || 'UTC';
+}
+
+function buildInitialEngagementState(config) {
+  return {
+    schema_version: ENGAGEMENT_STATE_SCHEMA_VERSION,
+    state_revision: 0,
+    user_timezone: defaultUserTimezone(config),
+    last_user_message_at: null,
+    last_proactive_checkin_at: null,
+    last_non_social_outbound_at: null,
+    last_outbound_reason: null,
+    last_successful_proactive_message_id: null,
+    last_inbound_dedupe_key: null,
+    last_outbound_dedupe_key: null,
+    recent_inbound_dedupe_keys: [],
+    recent_outbound_dedupe_keys: [],
+    last_proactive_decision_token: null,
+    pending_proactive_send: false,
+    pending_proactive_send_started_at: null,
+    proactive_greeting_enabled: true,
+    idle_threshold_hours: 7,
+    proactive_opt_out: false,
+    unanswered_proactive_count: 0,
+    last_heartbeat_checked_at: null,
+    last_decision: null,
+    last_error: null,
+    primary_contact_fingerprint: null,
+    contact_scope_status: 'unknown',
+  };
+}
+
+function ensureJsonFile(filePath, payload) {
+  if (fs.existsSync(filePath)) {
+    return false;
+  }
+  writeFile(filePath, createJsonSnapshot(payload));
+  return true;
+}
+
 function shouldConfigureOpenClaw(options, config, fallbackWorkspacePath) {
   if (typeof options.configureOpenClaw === 'boolean') {
     return options.configureOpenClaw;
@@ -229,6 +276,7 @@ function main() {
   const soulPath = path.join(options.workspace, 'SOUL.md');
   const heartbeatPath = path.join(options.workspace, 'HEARTBEAT.md');
   const canonicalRootPath = resolveCanonicalRootPath(options.workspace, options.canonicalRootName);
+  const engagementStatePath = path.join(canonicalRootPath, 'engagement_state.json');
 
   const agentsContent = readTextFile(agentsPath);
   const soulContent = readTextFile(soulPath);
@@ -261,12 +309,14 @@ function main() {
     fs.mkdirSync(canonicalRootPath, { recursive: true });
   }
 
+  let finalConfig = existingConfig;
   let configResult = `skipped OpenClaw config wiring ${openClawConfigPath}`;
   if (configureOpenClaw) {
     if (!existingConfig) {
       configResult = `skipped OpenClaw config wiring ${openClawConfigPath} (file not found)`;
     } else {
       const patchedConfig = patchOpenClawConfig(existingConfig, normalizePath(options.workspace));
+      finalConfig = patchedConfig;
       const before = createJsonSnapshot(existingConfig);
       const after = createJsonSnapshot(patchedConfig);
       if (before !== after) {
@@ -278,6 +328,12 @@ function main() {
     }
   }
 
+  const engagementStateResult = writeHeartbeat
+    ? `${ensureJsonFile(engagementStatePath, buildInitialEngagementState(finalConfig))
+      ? 'initialized'
+      : 'kept'} ${engagementStatePath}`
+    : `skipped proactive engagement state ${engagementStatePath}`;
+
   const updates = [
     `${agentsResult.changed ? 'updated' : 'kept'} ${agentsPath}`,
     `${soulResult.status === 'upgraded-legacy' ? 'upgraded' : soulResult.changed ? 'updated' : 'kept'} ${soulPath}`,
@@ -285,6 +341,7 @@ function main() {
       ? `${heartbeatResult.changed ? 'updated' : 'kept'} ${heartbeatPath}`
       : `skipped optional heartbeat contract ${heartbeatPath}`,
     `${options.createMemoryRoot ? 'ensured' : 'skipped'} ${canonicalRootPath}`,
+    engagementStateResult,
     configResult,
   ];
 
