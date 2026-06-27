@@ -101,18 +101,20 @@ describe('workspace setup heartbeat contract', () => {
     expect(config.agents.defaults.heartbeat).toEqual(expect.objectContaining({
       every: '30m',
       target: 'last',
-      session: 'proactive-greeting',
+      directPolicy: 'allow',
       isolatedSession: true,
       lightContext: true,
+      skipWhenBusy: true,
     }));
+    expect(config.agents.defaults.heartbeat.session).toBeUndefined();
     expect(config.plugins.entries['stella-timeline-plugin']).toEqual(expect.objectContaining({
       enabled: true,
     }));
     expect(config.plugins.entries['stella-timeline-plugin'].config.proactiveGreeting).toEqual(expect.objectContaining({
       enabled: true,
-      sessionKey: 'proactive-greeting',
       singleUserGuard: true,
     }));
+    expect(config.plugins.entries['stella-timeline-plugin'].config.proactiveGreeting.sessionKey).toBeUndefined();
   });
 
   it('passes doctor --require-heartbeat after heartbeat bootstrap is initialized', () => {

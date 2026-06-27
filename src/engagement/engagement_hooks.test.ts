@@ -163,7 +163,7 @@ describe('engagement hooks', () => {
       },
       {
         workspaceDir: tmpDir,
-        sessionKey: 'proactive-greeting',
+        sessionKey: 'agent:main:heartbeat:isolated-1',
         trigger: 'heartbeat',
       },
       params,
@@ -173,12 +173,13 @@ describe('engagement hooks', () => {
 
     let state = loadEngagementState(resolveEngagementStatePath(tmpDir));
     expect(state.pending_proactive_send).toBe(true);
+    expect(state.pending_proactive_session_key).toBe('agent:main:heartbeat:isolated-1');
     expect(state.last_proactive_decision_token).toBeTruthy();
     const pendingStartedAt = new Date(state.pending_proactive_send_started_at || Date.now());
 
     await handleSentOutbound(
       {
-        sessionKey: 'proactive-greeting',
+        sessionKey: 'agent:main:heartbeat:isolated-1',
         timestamp: new Date(pendingStartedAt.getTime() + 10_000),
         context: {
           channelId: 'telegram',

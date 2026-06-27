@@ -94,31 +94,40 @@ function candidateDistDirs() {
   return [...dirs];
 }
 
-function findRuntimeModuleInDist(distDir) {
-  if (!fs.existsSync(distDir)) return '';
+function findRuntimeModulesInDist(distDir) {
+  if (!fs.existsSync(distDir)) return null;
+
+  const stableLoaderModule = path.join(distDir, 'plugins', 'loader.js');
+  const stableToolsModule = path.join(distDir, 'plugins', 'tools.js');
+  if (fs.existsSync(stableLoaderModule) && fs.existsSync(stableToolsModule)) {
+    return { loaderModule: stableLoaderModule, toolsModule: stableToolsModule };
+  }
+
   const candidates = listJsFiles(distDir);
   const aliasAware = candidates.find((filePath) => {
     const content = fs.readFileSync(filePath, 'utf8');
     return content.includes('loadOpenClawPlugins as') && content.includes('resolvePluginTools as');
   });
-  if (aliasAware) return aliasAware;
+  if (aliasAware) return { loaderModule: aliasAware, toolsModule: aliasAware };
 
   const direct = candidates.find((filePath) => {
     const content = fs.readFileSync(filePath, 'utf8');
     return content.includes('function loadOpenClawPlugins') && content.includes('function resolvePluginTools');
   });
-  if (direct) return direct;
+  if (direct) return { loaderModule: direct, toolsModule: direct };
 
-  return candidates.find((filePath) => /^reply-.*\.js$/.test(path.basename(filePath))) || '';
+  return null;
 }
 
-function findOpenClawRuntimeModule() {
+function findOpenClawRuntimeModules() {
   const explicit = process.env.OPENCLAW_RUNTIME_MODULE?.trim();
-  if (explicit && fs.existsSync(explicit)) return explicit;
+  if (explicit && fs.existsSync(explicit)) {
+    return { loaderModule: explicit, toolsModule: explicit };
+  }
 
   for (const distDir of candidateDistDirs()) {
-    const runtimeModule = findRuntimeModuleInDist(distDir);
-    if (runtimeModule) return runtimeModule;
+    const runtimeModules = findRuntimeModulesInDist(distDir);
+    if (runtimeModules) return runtimeModules;
   }
 
   const nvmNodeDir = path.join(os.homedir(), '.nvm', 'versions', 'node');
@@ -126,12 +135,12 @@ function findOpenClawRuntimeModule() {
     for (const entry of fs.readdirSync(nvmNodeDir, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
       const distDir = path.join(nvmNodeDir, entry.name, 'lib', 'node_modules', 'openclaw', 'dist');
-      const runtimeModule = findRuntimeModuleInDist(distDir);
-      if (runtimeModule) return runtimeModule;
+      const runtimeModules = findRuntimeModulesInDist(distDir);
+      if (runtimeModules) return runtimeModules;
     }
   }
 
-  return '';
+  return null;
 }
 
 function findCompatibleNodeBin(runtimeModulePath) {
@@ -201,35 +210,33 @@ function stagePluginForSmoke() {
   return stagedRoot;
 }
 
-const runtimeModule = findOpenClawRuntimeModule();
-if (!runtimeModule) {
+const runtimeModules = findOpenClawRuntimeModules();
+if (!runtimeModules) {
   console.log('Skipping OpenClaw smoke: OpenClaw runtime not found on this machine.');
   process.exit(0);
 }
 
-const openClawNodeBin = findCompatibleNodeBin(runtimeModule);
+const openClawNodeBin = findCompatibleNodeBin(runtimeModules.loaderModule);
 const stagedPluginRoot = stagePluginForSmoke();
 const script = `
   import fs from 'node:fs';
   import { pathToFileURL } from 'node:url';
 
-  const runtimeModulePath = ${JSON.stringify(runtimeModule)};
+  const loaderModulePath = ${JSON.stringify(runtimeModules.loaderModule)};
+  const toolsModulePath = ${JSON.stringify(runtimeModules.toolsModule)};
   const repoRoot = ${JSON.stringify(repoRoot)};
   const pluginRoot = ${JSON.stringify(stagedPluginRoot)};
-  const runtimeSource = fs.readFileSync(runtimeModulePath, 'utf8');
-  const alias = (symbolName) => runtimeSource.match(new RegExp('\\\\b' + symbolName + ' as ([\\\\w$]+)'))?.[1] || symbolName;
-  const runtime = await import(pathToFileURL(runtimeModulePath).href);
-  const loadOpenClawPlugins = runtime[alias('loadOpenClawPlugins')]
-    || runtime.loadOpenClawPlugins
-    || runtime.default?.[alias('loadOpenClawPlugins')]
-    || runtime.default?.loadOpenClawPlugins;
-  const resolvePluginTools = runtime[alias('resolvePluginTools')]
-    || runtime.resolvePluginTools
-    || runtime.default?.[alias('resolvePluginTools')]
-    || runtime.default?.resolvePluginTools;
+  const resolveExport = async (modulePath, symbolName) => {
+    const source = fs.readFileSync(modulePath, 'utf8');
+    const alias = source.match(new RegExp('\\\\b' + symbolName + ' as ([\\\\w$]+)'))?.[1] || symbolName;
+    const module = await import(pathToFileURL(modulePath).href);
+    return module[symbolName] || module[alias] || module.default?.[symbolName] || module.default?.[alias];
+  };
+  const loadOpenClawPlugins = await resolveExport(loaderModulePath, 'loadOpenClawPlugins');
+  const resolvePluginTools = await resolveExport(toolsModulePath, 'resolvePluginTools');
 
   if (typeof loadOpenClawPlugins !== 'function' || typeof resolvePluginTools !== 'function') {
-    throw new Error('Unable to resolve OpenClaw runtime exports from ' + runtimeModulePath);
+    throw new Error('Unable to resolve OpenClaw runtime exports from ' + loaderModulePath + ' and ' + toolsModulePath);
   }
 
   const config = {
@@ -253,7 +260,8 @@ const script = `
   });
 
   console.log(JSON.stringify({
-    runtimeModulePath,
+    loaderModulePath,
+    toolsModulePath,
     plugin: plugin ? {
       status: plugin.status,
       toolNames: plugin.toolNames,
@@ -293,4 +301,4 @@ if (!Array.isArray(payload.resolvedToolNames) || !payload.resolvedToolNames.incl
   process.exit(1);
 }
 
-console.log(`OpenClaw smoke passed using ${runtimeModule}`);
+console.log(`OpenClaw smoke passed using ${runtimeModules.loaderModule} and ${runtimeModules.toolsModule}`);

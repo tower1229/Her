@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.10]
+
+- **ClawHub package compatibility**: declare the tested OpenClaw plugin API floor and build version required by ClawHub package publishing.
+- **Current plugin manifest contracts**: move agent tool ownership to `contracts.tools`, declare startup activation for Timeline hooks, and keep runtime entrypoint ownership in `package.json`.
+- **Release packaging**: add a guarded ClawHub release command, build before npm packing, and exclude maintainer-only scripts from the published artifact.
+- **CI runtime alignment**: verify with Node.js 24, matching the package engine requirement.
+
 ## [2.8.7]
 
 - **连续状态迁移修复 (Consecutive Transition)**：修复了在同一个 30 分钟窗口内连续触发 `timeline_transition` 时，因半小时桶冲突（`CONFLICT_EXISTS`）导致写入失败的问题。现在会扫描目标时间桶内的所有既有记录 ID 并全量豁免，支持任意频次的快速状态切换。

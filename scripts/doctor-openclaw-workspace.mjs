@@ -125,9 +125,10 @@ function main() {
     console.log('Confirm OpenClaw heartbeat config (this is agent heartbeat, not a cron job):');
     console.log('- heartbeat.every = 30m');
     console.log('- heartbeat.target = "last"');
-    console.log('- heartbeat.session = "proactive-greeting"');
+    console.log('- heartbeat.directPolicy = "allow"');
     console.log('- heartbeat.isolatedSession = true');
     console.log('- heartbeat.lightContext = true');
+    console.log('- heartbeat.skipWhenBusy = true');
   } else if (fs.existsSync(heartbeatPath) && detectHeartbeatContract(heartbeatContent)) {
     console.log(`[ok] HEARTBEAT contract (optional): ${heartbeatPath}`);
   } else {
