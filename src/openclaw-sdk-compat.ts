@@ -7,6 +7,7 @@ export interface PluginToolResult {
     text: string;
   }>;
   data?: unknown;
+  details?: unknown;
 }
 
 export interface PluginHookRegistration {
@@ -59,7 +60,8 @@ export function materializePlugin(definition: PluginEntryDefinition): Registered
 
   definition.register({
     registerTool(tool, options) {
-      tools.push({ ...tool, optional: options?.optional });
+      const resolved = typeof tool === 'function' ? (tool as any)({}) : tool;
+      tools.push({ ...resolved, optional: options?.optional });
     },
     on(event, handler, options) {
       hooks.push({

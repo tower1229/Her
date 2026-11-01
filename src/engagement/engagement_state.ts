@@ -37,6 +37,10 @@ export interface EngagementStateV1 {
   pending_proactive_send: boolean;
   pending_proactive_send_started_at: string | null;
   pending_proactive_session_key: string | null;
+  pending_proactive_run_id?: string | null;
+  pending_proactive_channel_id?: string | null;
+  pending_proactive_account_id?: string | null;
+  pending_proactive_target?: string | null;
   proactive_greeting_enabled: boolean;
   idle_threshold_hours: number;
   proactive_opt_out: boolean;
@@ -192,6 +196,10 @@ export function sanitizeEngagementState(raw: unknown, config?: unknown): Engagem
     pending_proactive_send: readBoolean(record.pending_proactive_send, false),
     pending_proactive_send_started_at: readString(record.pending_proactive_send_started_at) || null,
     pending_proactive_session_key: readString(record.pending_proactive_session_key) || null,
+    pending_proactive_run_id: readString(record.pending_proactive_run_id) || null,
+    pending_proactive_channel_id: readString(record.pending_proactive_channel_id) || null,
+    pending_proactive_account_id: readString(record.pending_proactive_account_id) || null,
+    pending_proactive_target: readString(record.pending_proactive_target) || null,
     proactive_greeting_enabled: readBoolean(record.proactive_greeting_enabled, false),
     idle_threshold_hours: readPositiveNumber(record.idle_threshold_hours, 7),
     proactive_opt_out: readBoolean(record.proactive_opt_out, false),

@@ -1,3 +1,5 @@
+import { timestampMillis } from '../lib/timeline-time';
+import { enumerateLogDates } from '../core/calendar_dates';
 import * as path from 'path';
 import { collectSources, TimelineSourceDependencies } from '../core/collect_sources';
 import { buildTimelineCollectorOutput } from '../core/collect_timeline_request';
@@ -76,6 +78,8 @@ export interface TimelineRuntimeDependencies extends TimelineSourceDependencies 
   writeEpisode?: (input: WriteEpisodeInput) => Promise<WriteResult>;
   memoryFilePath?: (calendarDate: string) => string;
   canonicalRootName?: string;
+  canonicalRootPath?: string;
+  legacyLogTimezone?: string;
   traceLogPath?: string;
   readOnlyFastLookbackDays?: number;
   extractLegacyPersonaContract?: LegacyPersonaContractExtractor;
@@ -95,7 +99,6 @@ function createDefaultDependencies(
     }),
     sessionsHistory: async () => [],
     memoryGet: async () => '',
-    memorySearch: async () => [],
     writeEpisode,
     memoryFilePath: (calendarDate: string) => `memory/${calendarDate}.md`,
     canonicalRootName: 'memory',
@@ -202,8 +205,8 @@ function calendarDateFromTimestamp(timestamp: string): string {
   return formatDate(parts);
 }
 
-function isParsedEpisodeActiveAt(episode: ParsedEpisode, anchorIso: string): boolean {
-  const episodeMs = new Date(episode.timestamp.replace(' ', 'T')).getTime();
+function isParsedEpisodeActiveAt(episode: ParsedEpisode, anchorIso: string, legacyLogTimezone?: string): boolean {
+  const episodeMs = timestampMillis(episode.timestamp, legacyLogTimezone);
   const anchorMs = new Date(anchorIso).getTime();
   if (Number.isNaN(episodeMs) || Number.isNaN(anchorMs)) return false;
   const elapsedMinutes = (anchorMs - episodeMs) / 60_000;
@@ -212,14 +215,9 @@ function isParsedEpisodeActiveAt(episode: ParsedEpisode, anchorIso: string): boo
   return elapsedMinutes < duration;
 }
 
-function selectLatestUnexpiredParsedEpisode(episodes: ParsedEpisode[], anchorIso: string): ParsedEpisode | undefined {
-  for (let index = episodes.length - 1; index >= 0; index -= 1) {
-    const episode = episodes[index];
-    if (isParsedEpisodeActiveAt(episode, anchorIso)) {
-      return episode;
-    }
-  }
-  return undefined;
+function selectLatestUnexpiredParsedEpisode(episodes: ParsedEpisode[], anchorIso: string, legacyLogTimezone?: string): ParsedEpisode | undefined {
+  return episodes.filter(episode => isParsedEpisodeActiveAt(episode, anchorIso, legacyLogTimezone))
+    .sort((a, b) => timestampMillis(b.timestamp, legacyLogTimezone) - timestampMillis(a.timestamp, legacyLogTimezone))[0];
 }
 
 function mapCollectedFactToParsedEpisode(fact: CollectedTimelineFact): ParsedEpisode {
@@ -257,7 +255,7 @@ export type TimelineReadOnlyFastSnapshot =
     };
 
 export async function resolveReadOnlyFastSnapshot(
-  deps: Pick<TimelineRuntimeDependencies, 'currentTime' | 'memoryGet' | 'readOnlyFastLookbackDays'>,
+  deps: Pick<TimelineRuntimeDependencies, 'currentTime' | 'memoryGet' | 'readOnlyFastLookbackDays' | 'legacyLogTimezone'>,
 ): Promise<TimelineReadOnlyFastSnapshot> {
   const currentTime = await deps.currentTime();
   const timezone = currentTime.timezone;
@@ -274,17 +272,21 @@ export async function resolveReadOnlyFastSnapshot(
     timezone,
   };
 
-  const todayRaw = await deps.memoryGet(calendarDate, stubWindow as any, stubInput);
-  const todayEpisodes = parseMemoryFile(todayRaw);
-  const currentDayHit = selectLatestUnexpiredParsedEpisode(todayEpisodes, nowISO);
+  const zone = deps.legacyLogTimezone ?? timezone;
+  const currentDates = enumerateLogDates(nowISO, nowISO, zone);
+  const currentHits = await Promise.all(currentDates.map(async date => ({ date,
+    episode: selectLatestUnexpiredParsedEpisode(parseMemoryFile(await deps.memoryGet(date, stubWindow as any, stubInput)), nowISO, zone),
+  })));
+  const currentDayHit = currentHits.filter(hit => hit.episode)
+    .sort((a, b) => timestampMillis(b.episode!.timestamp, zone) - timestampMillis(a.episode!.timestamp, zone))[0];
   if (currentDayHit) {
     return {
       status: 'hit',
       source: 'same_day_fast_hit',
       now: nowISO,
       timezone,
-      calendarDate,
-      parsed: currentDayHit,
+      calendarDate: currentDayHit.date,
+      parsed: currentDayHit.episode!,
     };
   }
 
@@ -297,6 +299,7 @@ export async function resolveReadOnlyFastSnapshot(
       (candidateDate) => deps.memoryGet(candidateDate, stubWindow as any, stubInput),
       nowISO,
       lookbackDays,
+      deps.legacyLogTimezone ?? timezone,
     );
     const lookbackHit = activeFacts.find((fact) => fact.calendar_date !== calendarDate);
     if (lookbackHit) {
@@ -608,6 +611,8 @@ export async function timelineResolve(
           deps: {
             memoryFilePath: deps.memoryFilePath,
             canonicalRootName: deps.canonicalRootName,
+            canonicalRootPath: deps.canonicalRootPath,
+            legacyLogTimezone: deps.legacyLogTimezone,
             writeEpisode: deps.writeEpisode,
           },
           calendarDateFromTimestamp,

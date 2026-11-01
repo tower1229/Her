@@ -104,7 +104,6 @@ describe('workspace setup heartbeat contract', () => {
       directPolicy: 'allow',
       isolatedSession: true,
       lightContext: true,
-      skipWhenBusy: true,
     }));
     expect(config.agents.defaults.heartbeat.session).toBeUndefined();
     expect(config.plugins.entries['stella-timeline-plugin']).toEqual(expect.objectContaining({
@@ -129,5 +128,22 @@ describe('workspace setup heartbeat contract', () => {
         env: { ...process.env, OPENCLAW_HOME: openClawHome },
       });
     }).not.toThrow();
+  });
+
+  it('preserves explicit policy and heartbeat settings while fixing timezone and canonical root', () => {
+    const heartbeat = { every: '2h', target: 'telegram', session: 'custom', lightContext: false, skipWhenBusy: true };
+    fs.writeFileSync(openClawConfigPath, JSON.stringify({ agents: { defaults: { heartbeat } }, plugins: { entries: {
+      'stella-timeline-plugin': { enabled: false, hooks: { allowConversationAccess: false, allowPromptInjection: false }, config: { legacyLogTimezone: 'America/New_York', proactiveGreeting: { enabled: false, sessionKey: 'custom-greeting' } } },
+    } } }));
+    execFileSync(process.execPath, [scriptPath, '--workspace', defaultWorkspaceDir, '--canonical-root-name', 'journal'], {
+      stdio: 'pipe', env: { ...process.env, OPENCLAW_HOME: openClawHome, OPENCLAW_CONFIG_PATH: openClawConfigPath },
+    });
+    const updated = JSON.parse(fs.readFileSync(openClawConfigPath, 'utf8'));
+    expect(updated.agents.defaults.heartbeat).toMatchObject({ every: '2h', target: 'telegram', session: 'custom', lightContext: false });
+    expect(updated.agents.defaults.heartbeat.skipWhenBusy).toBeUndefined();
+    expect(updated.plugins.entries['stella-timeline-plugin']).toMatchObject({ enabled: false, hooks: { allowConversationAccess: false, allowPromptInjection: false }, config: { canonicalMemoryRoot: 'journal', legacyLogTimezone: 'America/New_York', proactiveGreeting: { enabled: false, sessionKey: 'custom-greeting' } } });
+    expect(() => execFileSync(process.execPath, [doctorPath, '--workspace', defaultWorkspaceDir, '--canonical-root-name', 'journal'], {
+      stdio: 'pipe', env: { ...process.env, OPENCLAW_CONFIG_PATH: openClawConfigPath },
+    })).toThrow();
   });
 });

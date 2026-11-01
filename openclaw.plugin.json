@@ -127,6 +127,10 @@
           }
         },
         "additionalProperties": false
+      },
+      "legacyLogTimezone": {
+        "type": "string",
+        "description": "IANA timezone for existing daily-log timestamps without offsets; setup captures the deployment timezone."
       }
     },
     "additionalProperties": false

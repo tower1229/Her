@@ -1,21 +1,23 @@
+import { timestampMillis } from '../lib/timeline-time';
 import { parseMemoryFile } from '../lib/parse-memory';
 import { defaultDurationForActivityMode } from './build_consumption_view';
-import { enumerateCalendarDates } from './calendar_dates';
+import { enumerateLogDates } from './calendar_dates';
 import { CollectedTimelineFact } from './timeline_reasoner_contract';
 import { addHours, formatTimestamp, parseTimestampParts, formatDate } from '../lib/time-utils';
 
 export async function collectActiveFacts(
   memoryGet: (calendarDate: string) => Promise<string>,
   nowIso: string,
-  lookbackDays = 7
+  lookbackDays = 7,
+  legacyLogTimezone?: string,
 ): Promise<CollectedTimelineFact[]> {
   const parts = parseTimestampParts(nowIso);
   if (!parts) return [];
   const lookbackStartParts = addHours(parts, -24 * lookbackDays);
-  const calendarDates = enumerateCalendarDates(formatTimestamp(lookbackStartParts), nowIso);
+  const calendarDates = enumerateLogDates(formatTimestamp(lookbackStartParts), nowIso, legacyLogTimezone);
 
   const activeFacts: CollectedTimelineFact[] = [];
-  const anchorMs = new Date(nowIso).getTime();
+  const anchorMs = timestampMillis(nowIso, legacyLogTimezone);
 
   for (const calendarDate of calendarDates) {
     const content = await memoryGet(calendarDate);
@@ -23,10 +25,10 @@ export async function collectActiveFacts(
     
     const parsedEpisodes = parseMemoryFile(content);
     for (const [index, episode] of parsedEpisodes.entries()) {
-      const factMs = new Date(episode.timestamp.replace(' ', 'T')).getTime();
-      if (isNaN(factMs)) continue;
+      const factMs = timestampMillis(episode.timestamp, legacyLogTimezone);
+      if (!Number.isFinite(factMs) || factMs > anchorMs) continue;
       
-      const elapsedMinutes = Math.max(0, Math.round((anchorMs - factMs) / 60_000));
+      const elapsedMinutes = Math.round((anchorMs - factMs) / 60_000);
       const duration = episode.estimatedDurationMinutes ?? defaultDurationForActivityMode(undefined);
       
       // We only care about facts that are still active relative to nowIso 
@@ -57,5 +59,5 @@ export async function collectActiveFacts(
   }
 
   // Sort descending by timestamp so latest fact is first
-  return activeFacts.sort((a, b) => new Date(b.timestamp.replace(' ', 'T')).getTime() - new Date(a.timestamp.replace(' ', 'T')).getTime());
+  return activeFacts.sort((a, b) => timestampMillis(b.timestamp, legacyLogTimezone) - timestampMillis(a.timestamp, legacyLogTimezone));
 }

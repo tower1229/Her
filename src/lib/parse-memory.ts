@@ -1,7 +1,8 @@
+import { effectiveTimestamp } from './timeline-time';
 import { ParsedEpisode, Episode } from './types';
 import { addHours, formatTimestamp, parseTimestampParts } from './time-utils';
 
-export function parseMemoryFile(content: string): ParsedEpisode[] {
+export function parseMemoryFile(content: string, diagnostic?: (message: string) => void): ParsedEpisode[] {
   const episodes: ParsedEpisode[] = [];
   
   if (!content || !content.trim()) {
@@ -22,7 +23,7 @@ export function parseMemoryFile(content: string): ParsedEpisode[] {
     if (!timestampMatch) {
       continue; // Skip if no timestamp
     }
-    const timestamp = timestampMatch[1].trim();
+    const timestamp = effectiveTimestamp(timestampMatch[1].trim(), part, diagnostic);
 
     // Extract other fields with permissive matching
     const locationMatch = part.match(/[-*]\s*Location:\s*([^\n]+)/i);

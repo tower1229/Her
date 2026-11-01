@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { timelinePlugin, timelinePluginEntry } from '../index';
+import { makeOpenClawTimelineResolveToolFactory } from './runtime/openclaw_timeline_runtime';
 
 describe('timeline plugin entry compatibility shape', () => {
   const tmpDir = path.join(__dirname, '__compat_tmp__');
@@ -29,7 +30,8 @@ describe('timeline plugin entry compatibility shape', () => {
     expect(timelinePlugin.tools.find((tool) => tool.name === 'timeline_transition')?.optional).toBeUndefined();
     expect(timelinePlugin.hooks.map((hook) => hook.event)).toContain('before_prompt_build');
     expect(timelinePlugin.hooks.map((hook) => hook.event)).toContain('message:preprocessed');
-    expect(timelinePlugin.hooks.map((hook) => hook.event)).toContain('message:sent');
+    expect(timelinePlugin.hooks.map((hook) => hook.event)).toContain('message:received');
+    expect(timelinePlugin.hooks.map((hook) => hook.event)).toContain('message_sent');
   });
 
   it('materialized before_prompt_build hook uses the runtime prompt-context pipeline rather than static guidance only', async () => {
@@ -61,13 +63,12 @@ describe('timeline plugin entry compatibility shape', () => {
     expect(manifest.tools).toBeUndefined();
     expect(pkg.openclaw.extensions).toEqual(['./dist/index.js']);
     expect(pkg.main).toBe('dist/index.js');
-    expect(pkg.openclaw.compat.pluginApi).toBe('>=2026.6.10');
-    expect(pkg.openclaw.build.openclawVersion).toBe('2026.6.10');
+    expect(pkg.openclaw.compat.pluginApi).toBe('2026.10.9');
+    expect(pkg.openclaw.build.openclawVersion).toBe('2026.10.9');
   });
 
   it('wraps tool execution results in the content envelope expected by the OpenClaw runtime', async () => {
-    const tool = timelinePlugin.tools.find((entry) => entry.name === 'timeline_resolve');
-    if (!tool) throw new Error('timeline_resolve tool not registered');
+    const tool = makeOpenClawTimelineResolveToolFactory({})({ workspaceDir: tmpDir });
 
     const result = await tool.execute('call-1', {
       query: '你在干嘛',
@@ -75,6 +76,6 @@ describe('timeline plugin entry compatibility shape', () => {
 
     expect(result.content[0]?.type).toBe('text');
     expect(result.content[0]?.text).toContain('timeline');
-    expect(result.data).toBeTruthy();
+    expect(result.details).toBeTruthy();
   });
 });

@@ -1,5 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { commitFile, readOptionalFile } from './atomic-file';
+import { insertEpisode, truncateDocument } from './daily-document';
+import { timestampMillis, timestampWithOffset } from '../lib/timeline-time';
 import { computeFingerprint, halfHourTimelineBucket } from '../lib/fingerprint';
 import { parseMemoryFile } from '../lib/parse-memory';
 import { WorldHooks } from '../lib/types';
@@ -21,6 +24,8 @@ export interface WriteEpisodeInput {
   parentEventProgress?: number;
   filePath: string;
   confidence?: number;
+  legacyLogTimezone?: string;
+  truncateEvent?: { eventId: string; timestamp: string };
   /** Existing episodes with these Event_Id values do not trigger same-half-hour-bucket CONFLICT (interrupt / micro-task follow-ups). */
   sameBucketExemptEventIds?: string[];
 }
@@ -38,7 +43,7 @@ export interface WriteResult {
 }
 
 function detectWriteConflict(
-  filePath: string,
+  existingContent: string,
   dateStr: string,
   timestamp: string,
   location: string,
@@ -52,11 +57,6 @@ function detectWriteConflict(
   const fingerprint = computeFingerprint(dateStr, location, action, timestamp);
   const newTimeBucket = halfHourTimelineBucket(timestamp);
   const exempt = new Set((sameBucketExemptEventIds ?? []).filter(Boolean));
-  if (!fs.existsSync(filePath)) {
-    return { outcome: 'clear', fingerprint };
-  }
-
-  const existingContent = fs.readFileSync(filePath, 'utf8');
   const existingEpisodes = parseMemoryFile(existingContent);
   for (const episode of existingEpisodes) {
     const existingDate = episode.timestamp.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] || dateStr;
@@ -108,7 +108,7 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
   try {
     const timestampParts = parseTimestampParts(timestamp);
     const dateObj = timestampParts ? null : new Date(timestamp);
-    if (!timestampParts && (!dateObj || isNaN(dateObj.getTime()))) {
+    if (!timestampParts || !Number.isFinite(timestampMillis(timestamp, input.legacyLogTimezone))) {
       return {
         success: false,
         written_at: '',
@@ -136,8 +136,15 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       weekday,
       holiday_key: holidayKey,
     };
-    const conflictCheck = detectWriteConflict(filePath, dateStr, timestamp, location, action, sameBucketExemptEventIds);
+    const expectedContent = readOptionalFile(filePath);
+    const existingContent = expectedContent ?? '';
+    const conflictCheck = detectWriteConflict(existingContent, dateStr, timestamp, location, action, sameBucketExemptEventIds);
     if (conflictCheck.outcome === 'noop_existing') {
+      if (input.truncateEvent) {
+        const updated = truncateDocument(existingContent, input.truncateEvent.eventId, input.truncateEvent.timestamp, input.legacyLogTimezone);
+        if (updated === null) throw new Error('Prior event cannot be uniquely truncated; no changes committed.');
+        commitFile(filePath, expectedContent, updated);
+      }
       return {
         success: true,
         written_at: '',
@@ -166,10 +173,7 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       fs.mkdirSync(dir, { recursive: true });
     }
 
-    // Read existing episodes, merge with the new one, sort by timestamp, and rewrite
-    // the entire file so the daily log stays in chronological order.
-    const existingContent = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '';
-    const existingEpisodes = parseMemoryFile(existingContent);
+    // Only render the new entry; preserve every existing byte during insertion.
 
     const generatedEventId = eventId ?? `evt-${dateStr.replace(/-/g, '')}-${timeStr.replace(/:/g, '')}`;
     const newEpisode = {
@@ -186,8 +190,7 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       parentEventProgress,
     };
 
-    const allEpisodes = [...existingEpisodes, newEpisode];
-    allEpisodes.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    const allEpisodes = [newEpisode];
 
     const fileLines: string[] = [];
     for (const ep of allEpisodes) {
@@ -217,10 +220,17 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       if (ep.parentEventProgress != null) {
         fileLines.push(`- Parent_Event_Progress: ${ep.parentEventProgress}`);
       }
+      fileLines.push(`<!-- timeline:timestamp=${timestampWithOffset(timestamp, input.legacyLogTimezone)} -->`);
       fileLines.push('');
     }
 
-    fs.writeFileSync(filePath, fileLines.join('\n') + '\n', 'utf8');
+    let updated = insertEpisode(existingContent, fileLines.join('\n') + '\n', timestamp, input.legacyLogTimezone);
+    if (input.truncateEvent) {
+      const truncated = truncateDocument(updated, input.truncateEvent.eventId, input.truncateEvent.timestamp, input.legacyLogTimezone);
+      if (truncated === null) throw new Error('Prior event cannot be uniquely truncated; no changes committed.');
+      updated = truncated;
+    }
+    commitFile(filePath, expectedContent, updated);
 
     return {
       success: true,
@@ -244,84 +254,15 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
 export async function truncateEpisodeDuration(
   filePath: string,
   eventId: string,
-  interruptionTimeISO: string
+  interruptionTimeISO: string,
+  legacyLogTimezone?: string,
 ): Promise<boolean> {
-  if (!fs.existsSync(filePath)) {
-    return false;
-  }
-  
   try {
-    const existingContent = fs.readFileSync(filePath, 'utf8');
-    const allEpisodes = parseMemoryFile(existingContent);
-    let found = false;
-
-    // We locate the episode by eventId (or simply the latest if eventId is missing but we're doing a strict interrupt)
-    for (const ep of allEpisodes) {
-      if (ep.eventId === eventId && ep.estimatedDurationMinutes) {
-        const epTimeParts = parseTimestampParts(ep.timestamp);
-        const interruptParts = parseTimestampParts(interruptionTimeISO);
-        
-        let diffMins = -1;
-        if (epTimeParts && interruptParts && epTimeParts.year === interruptParts.year && epTimeParts.month === interruptParts.month && epTimeParts.day === interruptParts.day) {
-           const startSeconds = epTimeParts.hour * 3600 + epTimeParts.minute * 60 + (epTimeParts.second || 0);
-           const endSeconds = interruptParts.hour * 3600 + interruptParts.minute * 60 + (interruptParts.second || 0);
-           diffMins = Math.round((endSeconds - startSeconds) / 60);
-        } else {
-           // Fallback for cross-day or complex formats
-           const d1 = new Date(ep.timestamp.replace(' ', 'T')).getTime();
-           const d2 = new Date(interruptionTimeISO.replace(' ', 'T')).getTime();
-           if (!isNaN(d1) && !isNaN(d2)) {
-             // Use Round instead of floor to reduce truncation gap smells in high-frequency transitions
-             diffMins = Math.round((d2 - d1) / 60000);
-           }
-        }
-
-        if (diffMins !== -1) {
-          // Ensure at least 1 minute for a visible fragment, capped by original estimate
-          const finalDuration = Math.max(1, Math.min(diffMins, ep.estimatedDurationMinutes));
-          ep.estimatedDurationMinutes = finalDuration;
-          found = true;
-        }
-      }
-    }
-
-    if (!found) return false;
-
-    // Rewrite exactly like writeEpisode
-    const fileLines: string[] = [];
-    for (const ep of allEpisodes) {
-      const epTimeParts = parseTimestampParts(ep.timestamp) ?? parseTimestampParts(`${ep.timestamp.replace(' ', 'T')}+00:00`);
-      const epTimeStr = epTimeParts ? formatTime(epTimeParts) : ep.timestamp.slice(11, 19);
-      fileLines.push(`### [${epTimeStr}]`, '');
-      fileLines.push(`- Timestamp: ${ep.timestamp}`);
-      fileLines.push(`- Location: ${ep.location}`);
-      fileLines.push(`- Action: ${ep.action}`);
-      fileLines.push(`- Emotion_Tags: [${ep.emotionTags.join(', ')}]`);
-      fileLines.push(`- Appearance: ${ep.appearance}`);
-      if (ep.internalMonologue) {
-        fileLines.push(`- Internal_Monologue: ${ep.internalMonologue}`);
-      }
-      if (ep.estimatedDurationMinutes != null) {
-        fileLines.push(`- Estimated_Duration: ${ep.estimatedDurationMinutes}`);
-      }
-      if (ep.eventId) {
-        fileLines.push(`- Event_Id: ${ep.eventId}`);
-      }
-      if (ep.parentEventTag) {
-        fileLines.push(`- Parent_Event: ${ep.parentEventTag}`);
-      }
-      if (ep.parentEventPhase) {
-        fileLines.push(`- Parent_Event_Phase: ${ep.parentEventPhase}`);
-      }
-      if (ep.parentEventProgress != null) {
-        fileLines.push(`- Parent_Event_Progress: ${ep.parentEventProgress}`);
-      }
-      fileLines.push('');
-    }
-
-    fs.writeFileSync(filePath, fileLines.join('\n') + '\n', 'utf8');
+    const original = readOptionalFile(filePath);
+    if (original === null) return false;
+    const updated = truncateDocument(original, eventId, interruptionTimeISO, legacyLogTimezone);
+    if (updated === null) return false;
+    commitFile(filePath, original, updated);
     return true;
-  } catch(e) {
-    return false;
-  }
+  } catch { return false; }
 }

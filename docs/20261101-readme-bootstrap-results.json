@@ -1,0 +1,26 @@
+{
+  "setup": {
+    "status": 0,
+    "stdout": "updated C:\\Users\\shixiong\\AppData\\Local\\Packages\\sandbox.{87d9c2c3-d080-4947-84c4-8511a5dca1e9}\\AC\\Temp\\her-readme-bootstrap-NH8VGB\\workspace\\AGENTS.md\nupdated C:\\Users\\shixiong\\AppData\\Local\\Packages\\sandbox.{87d9c2c3-d080-4947-84c4-8511a5dca1e9}\\AC\\Temp\\her-readme-bootstrap-NH8VGB\\workspace\\SOUL.md\nupdated C:\\Users\\shixiong\\AppData\\Local\\Packages\\sandbox.{87d9c2c3-d080-4947-84c4-8511a5dca1e9}\\AC\\Temp\\her-readme-bootstrap-NH8VGB\\workspace\\HEARTBEAT.md\nensured C:\\Users\\shixiong\\AppData\\Local\\Packages\\sandbox.{87d9c2c3-d080-4947-84c4-8511a5dca1e9}\\AC\\Temp\\her-readme-bootstrap-NH8VGB\\workspace\\memory\ninitialized C:\\Users\\shixiong\\AppData\\Local\\Packages\\sandbox.{87d9c2c3-d080-4947-84c4-8511a5dca1e9}\\AC\\Temp\\her-readme-bootstrap-NH8VGB\\workspace\\memory\\engagement_state.json\nupdated OpenClaw config C:\\Users\\shixiong\\AppData\\Local\\Packages\\sandbox.{87d9c2c3-d080-4947-84c4-8511a5dca1e9}\\AC\\Temp\\her-readme-bootstrap-NH8VGB\\openclaw.json\n",
+    "stderr": ""
+  },
+  "again": {
+    "status": 0,
+    "stdout": "kept C:\\Users\\shixiong\\AppData\\Local\\Packages\\sandbox.{87d9c2c3-d080-4947-84c4-8511a5dca1e9}\\AC\\Temp\\her-readme-bootstrap-NH8VGB\\workspace\\AGENTS.md\nkept C:\\Users\\shixiong\\AppData\\Local\\Packages\\sandbox.{87d9c2c3-d080-4947-84c4-8511a5dca1e9}\\AC\\Temp\\her-readme-bootstrap-NH8VGB\\workspace\\SOUL.md\nkept C:\\Users\\shixiong\\AppData\\Local\\Packages\\sandbox.{87d9c2c3-d080-4947-84c4-8511a5dca1e9}\\AC\\Temp\\her-readme-bootstrap-NH8VGB\\workspace\\HEARTBEAT.md\nensured C:\\Users\\shixiong\\AppData\\Local\\Packages\\sandbox.{87d9c2c3-d080-4947-84c4-8511a5dca1e9}\\AC\\Temp\\her-readme-bootstrap-NH8VGB\\workspace\\memory\nkept C:\\Users\\shixiong\\AppData\\Local\\Packages\\sandbox.{87d9c2c3-d080-4947-84c4-8511a5dca1e9}\\AC\\Temp\\her-readme-bootstrap-NH8VGB\\workspace\\memory\\engagement_state.json\nkept OpenClaw config C:\\Users\\shixiong\\AppData\\Local\\Packages\\sandbox.{87d9c2c3-d080-4947-84c4-8511a5dca1e9}\\AC\\Temp\\her-readme-bootstrap-NH8VGB\\openclaw.json\n",
+    "stderr": ""
+  },
+  "doctor": {
+    "status": 0,
+    "stdout": "[info] Internal semantic search: unavailable on 2026.10.9; daily-log/session fallback active. Agent memory_search is unchanged.\n[ok] AGENTS contract: C:\\Users\\shixiong\\AppData\\Local\\Packages\\sandbox.{87d9c2c3-d080-4947-84c4-8511a5dca1e9}\\AC\\Temp\\her-readme-bootstrap-NH8VGB\\workspace\\AGENTS.md\n[ok] SOUL contract: C:\\Users\\shixiong\\AppData\\Local\\Packages\\sandbox.{87d9c2c3-d080-4947-84c4-8511a5dca1e9}\\AC\\Temp\\her-readme-bootstrap-NH8VGB\\workspace\\SOUL.md\n[ok] Canonical memory root: C:\\Users\\shixiong\\AppData\\Local\\Packages\\sandbox.{87d9c2c3-d080-4947-84c4-8511a5dca1e9}\\AC\\Temp\\her-readme-bootstrap-NH8VGB\\workspace\\memory\n[ok] HEARTBEAT contract: C:\\Users\\shixiong\\AppData\\Local\\Packages\\sandbox.{87d9c2c3-d080-4947-84c4-8511a5dca1e9}\\AC\\Temp\\her-readme-bootstrap-NH8VGB\\workspace\\HEARTBEAT.md\n[ok] Engagement state bootstrap: C:\\Users\\shixiong\\AppData\\Local\\Packages\\sandbox.{87d9c2c3-d080-4947-84c4-8511a5dca1e9}\\AC\\Temp\\her-readme-bootstrap-NH8VGB\\workspace\\memory\\engagement_state.json\n\nConfirm OpenClaw heartbeat config (this is agent heartbeat, not a cron job):\n- heartbeat.every = 30m\n- heartbeat.target = \"last\"\n- heartbeat.directPolicy = \"allow\"\n- heartbeat.isolatedSession = true\n- heartbeat.lightContext = true\n",
+    "stderr": ""
+  },
+  "idempotent": true,
+  "heartbeatSettingsPreserved": true,
+  "files": [
+    "AGENTS.md",
+    "SOUL.md",
+    "HEARTBEAT.md",
+    "memory/engagement_state.json"
+  ],
+  "privateDataUsed": false
+}

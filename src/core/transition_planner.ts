@@ -9,6 +9,7 @@ export function buildTransitionPlannerSystemPrompt(): string {
     'Decide if the action is a micro-task, a macro-task (long duration), or invalid in the current physical state.',
     'Output a JSON object that strictly matches the following TransitionPlan schema:',
     JSON.stringify({
+      request_id: 'Echo the input request_id exactly',
       summary: 'Short summary of the transition',
       estimated_duration_minutes: 'integer (e.g., shower = 30, sleep = 480, travel = 2880)',
       started_at: 'ISO format timestamp, usually matching anchor.now',
@@ -43,8 +44,10 @@ export function buildTransitionPlannerMessage(
 ): string {
   return [
     'Plan the transition based on the directive.',
+    `Return top-level request_id exactly: ${requestId}`,
     'Input:',
     JSON.stringify({
+      request_id: requestId,
       directive: input.directive,
       anchor,
       persona: {

@@ -54,6 +54,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^25.x",
     "jest": "^30.x",
+    "openclaw": "2026.10.9",
     "ts-jest": "^29.x",
     "typescript": "^6.x"
   },
@@ -78,10 +79,10 @@
       "./dist/index.js"
     ],
     "compat": {
-      "pluginApi": ">=2026.6.10"
+      "pluginApi": "2026.10.9"
     },
     "build": {
-      "openclawVersion": "2026.6.10"
+      "openclawVersion": "2026.10.9"
     }
   }
 }

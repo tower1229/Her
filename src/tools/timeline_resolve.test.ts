@@ -99,7 +99,7 @@ describe('timelineResolve', () => {
     if (!result.ok) throw new Error('expected successful timeline resolve');
     expect(result.trace_id).toContain('timeline-');
     expect(result.resolution_summary.mode).toBe('read_only_hit');
-    expect(result.resolution_summary.sources).toEqual(['sessions_history', 'memory_get', 'memory_search']);
+    expect(result.resolution_summary.sources).toEqual(['sessions_history', 'memory_get']);
     expect(result.result?.window.calendar_date).toBe('2026-03-22');
     expect(result.result?.episodes).toHaveLength(1);
     expect(result.notes.join(' ')).toContain('Time interpretation: The user is asking about the current moment');

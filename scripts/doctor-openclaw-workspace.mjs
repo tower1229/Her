@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import {
   detectAgentsContract,
   detectHeartbeatContract,
@@ -94,6 +95,19 @@ function main() {
   const heartbeatContent = readText(heartbeatPath);
 
   let ok = true;
+  const configPath = process.env.OPENCLAW_CONFIG_PATH || path.join(process.env.OPENCLAW_STATE_DIR || process.env.OPENCLAW_HOME || path.join(os.homedir(), '.openclaw'), 'openclaw.json');
+  if (fs.existsSync(configPath)) {
+    try {
+      const entry = JSON.parse(readText(configPath)).plugins?.entries?.['stella-timeline-plugin'];
+      if (entry && entry.hooks?.allowConversationAccess !== true) { console.log('[missing] hooks.allowConversationAccess must be true'); ok = false; }
+      if (entry?.hooks?.allowPromptInjection === false) { console.log('[disabled] hooks.allowPromptInjection'); ok = false; }
+      const zone = entry?.config?.legacyLogTimezone;
+      if (!zone) console.log('[warning] legacyLogTimezone is not fixed; rerun setup on the original deployment host');
+      else { try { new Intl.DateTimeFormat('en-US', { timeZone: zone }); } catch { console.log('[invalid] legacyLogTimezone'); ok = false; } }
+    } catch { console.log('[warning] Host config cannot be parsed as JSON; verify hook permissions and timezone in OpenClaw'); }
+  } else console.log('[warning] Host config not found; hook permissions and legacyLogTimezone not verified');
+  console.log('[info] Internal semantic search: unavailable on 2026.10.9; daily-log/session fallback active. Agent memory_search is unchanged.');
+
   ok = check(
     'AGENTS contract',
     fs.existsSync(agentsPath) && detectAgentsContract(agentsContent),
@@ -128,7 +142,7 @@ function main() {
     console.log('- heartbeat.directPolicy = "allow"');
     console.log('- heartbeat.isolatedSession = true');
     console.log('- heartbeat.lightContext = true');
-    console.log('- heartbeat.skipWhenBusy = true');
+
   } else if (fs.existsSync(heartbeatPath) && detectHeartbeatContract(heartbeatContent)) {
     console.log(`[ok] HEARTBEAT contract (optional): ${heartbeatPath}`);
   } else {

@@ -10,11 +10,15 @@ export function assertCanonicalDailyLogPath(
   filePath: string,
   calendarDate: string,
   canonicalRootName = 'memory',
+  canonicalRootPath?: string,
 ): string {
   const normalized = toCanonicalPosixPath(filePath);
   const base = path.posix.basename(normalized);
   const parent = path.posix.basename(path.posix.dirname(normalized));
   const expectedBase = `${calendarDate}.md`;
+  if (canonicalRootPath && path.resolve(path.dirname(filePath)) !== path.resolve(canonicalRootPath)) {
+    throw new Error('Canonical daily logs must live under the configured absolute memory root.');
+  }
 
   if (!DAILY_LOG_RE.test(base)) {
     throw new Error(`Non-canonical daily log filename: ${base}`);

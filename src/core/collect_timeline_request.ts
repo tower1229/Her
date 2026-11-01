@@ -1,3 +1,4 @@
+import { timestampMillis } from '../lib/timeline-time';
 import { parseMemoryFile } from '../lib/parse-memory';
 import { defaultDurationForActivityMode } from './build_consumption_view';
 import { TimelineResolveInput } from '../tools/timeline_resolve';
@@ -90,13 +91,14 @@ export function buildTimelineCollectorOutput(
         range_calendar: deduplicateRangeCalendar(ctx.range_calendar),
       };
     })(),
-    candidate_facts: dailyLogs.flatMap((entry) => {
+    candidate_facts: [...dailyLogs.flatMap((entry) => {
       const anchorMs = new Date(window.end).getTime();
-      return entry.parsed_episodes.map((episode, index) => {
-        const factMs = new Date(episode.timestamp.replace(' ', 'T')).getTime();
-        const elapsedMinutes = Math.max(0, Math.round((anchorMs - factMs) / 60_000));
+      return entry.parsed_episodes.flatMap((episode, index) => {
+        const factMs = timestampMillis(episode.timestamp, sources.legacyLogTimezone ?? window.timezone);
+        if (!Number.isFinite(factMs) || (window.query_range === 'now' && factMs > anchorMs)) return [];
+        const elapsedMinutes = Math.round((anchorMs - factMs) / 60_000);
         const duration = episode.estimatedDurationMinutes ?? defaultDurationForActivityMode(undefined);
-        return {
+        return [{
           fact_id: `canon:${entry.calendar_date}:${index}`,
           source_type: 'canon_daily_log' as const,
           calendar_date: entry.calendar_date,
@@ -110,14 +112,14 @@ export function buildTimelineCollectorOutput(
           confidence: episode.confidence,
           estimated_duration_minutes: duration,
           elapsed_minutes: elapsedMinutes,
-          is_within_duration_window: elapsedMinutes < duration,
+          is_within_duration_window: factMs <= anchorMs && elapsedMinutes >= 0 && elapsedMinutes < duration,
           event_id: episode.eventId,
           has_parent_event: Boolean(episode.parentEventTag),
           parent_event_tag: episode.parentEventTag,
           parent_event_phase: episode.parentEventPhase,
           parent_event_progress: episode.parentEventProgress,
-        };
+        }];
       });
-    }),
+    }), ...(sources.currentBackgroundFacts ?? [])],
   };
 }

@@ -11,7 +11,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 24.22.1
           cache: npm
       - run: npm ci
       - run: npm run verify
+        env:
+          TZ: UTC
+      - run: npm run test:unit
+        env:
+          TZ: Asia/Shanghai
+      - run: npm run test:smoke

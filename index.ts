@@ -1,3 +1,4 @@
+import type { OpenClawPluginApi } from 'openclaw/plugin-sdk/core';
 import {
   TIMELINE_PLUGIN_DESCRIPTION,
   TIMELINE_PLUGIN_ID,
@@ -5,84 +6,35 @@ import {
   TIMELINE_PLUGIN_VERSION,
   TIMELINE_TOOL_NAMES,
 } from './src/plugin_metadata';
-import {
-  definePluginEntry,
-  makeTimelineToolRegistration,
-  makeTimelineTransitionToolRegistration,
-  materializePlugin,
-} from './src/openclaw-sdk-compat';
+import { materializePlugin } from './src/openclaw-sdk-compat';
 import {
   makeOpenClawTimelineBeforePromptBuildHook,
+  makeOpenClawTimelineHeartbeatHook,
+  makeOpenClawTimelineTypedSentHook,
   makeOpenClawTimelineMessagePreprocessedHook,
-  makeOpenClawTimelineMessageSentHook,
   makeOpenClawTimelineResolveToolFactory,
   makeOpenClawTimelineTransitionToolFactory
 } from './src/runtime/openclaw_timeline_runtime';
 
-function registerTimelineBeforePromptBuildHook(api: {
-  on?: (
-    hookName: string,
-    handler: (...args: unknown[]) => unknown,
-    options?: { priority?: number },
-  ) => void;
-  registerHook?: (
-    events: string | string[],
-    handler: (...args: unknown[]) => unknown,
-    options?: { name?: string; description?: string },
-  ) => void;
-}) {
-  const runtimeApi = api as any;
-  const beforePromptBuildHook =
-    makeOpenClawTimelineBeforePromptBuildHook(runtimeApi) as (...args: unknown[]) => unknown;
+function registerTimelineBeforePromptBuildHook(api: OpenClawPluginApi) {
+  const beforePromptBuildHook = makeOpenClawTimelineBeforePromptBuildHook(api);
   if (typeof api.on === 'function') {
     api.on('before_prompt_build', beforePromptBuildHook, { priority: 0 });
-  } else if (typeof api.registerHook === 'function') {
-    api.registerHook('before_prompt_build', beforePromptBuildHook, {
-      name: `${TIMELINE_PLUGIN_ID}.before_prompt_build`,
-      description: 'Inject timeline prompt context before prompt build.',
-    });
+    api.on('heartbeat_prompt_contribution', makeOpenClawTimelineHeartbeatHook(api));
+    api.on('message_sent', makeOpenClawTimelineTypedSentHook(api));
   }
 }
 
-function registerTimelineEngagementHooks(api: {
-  registerHook?: (
-    events: string | string[],
-    handler: (...args: unknown[]) => unknown,
-    options?: { name?: string; description?: string },
-  ) => void;
-  pluginConfig?: Record<string, unknown>;
-  config?: unknown;
-  runtime?: unknown;
-  workspaceDir?: string;
-  logger?: unknown;
-}) {
+function registerTimelineEngagementHooks(api: OpenClawPluginApi) {
   if (typeof api.registerHook !== 'function') {
     return;
   }
-  const runtimeApi = api as any;
-  api.registerHook('message:preprocessed', makeOpenClawTimelineMessagePreprocessedHook(runtimeApi), {
+  api.registerHook(['message:received', 'message:preprocessed'], makeOpenClawTimelineMessagePreprocessedHook(api), {
     name: `${TIMELINE_PLUGIN_ID}.message_preprocessed`,
-    description: 'Maintain proactive engagement state from enriched inbound messages.',
+    description: 'Maintain engagement from admitted inbound messages and their enriched content.',
   });
-  api.registerHook('message:sent', makeOpenClawTimelineMessageSentHook(runtimeApi), {
-    name: `${TIMELINE_PLUGIN_ID}.message_sent`,
-    description: 'Maintain proactive engagement state from outbound delivery results.',
-  });
+
 }
-
-export const timelinePluginEntry = definePluginEntry({
-  id: TIMELINE_PLUGIN_ID,
-  name: TIMELINE_PLUGIN_NAME,
-  description: TIMELINE_PLUGIN_DESCRIPTION,
-  register(api) {
-    api.registerTool(makeTimelineToolRegistration());
-    api.registerTool(makeTimelineTransitionToolRegistration());
-    registerTimelineBeforePromptBuildHook(api as any);
-    registerTimelineEngagementHooks(api as any);
-  },
-});
-
-export const timelinePlugin = materializePlugin(timelinePluginEntry);
 
 const openClawTimelinePlugin = {
   id: TIMELINE_PLUGIN_ID,
@@ -90,31 +42,14 @@ const openClawTimelinePlugin = {
   version: TIMELINE_PLUGIN_VERSION,
   description: TIMELINE_PLUGIN_DESCRIPTION,
   tools: TIMELINE_TOOL_NAMES,
-  register(api: {
-    pluginConfig?: Record<string, unknown>;
-    config?: unknown;
-    runtime?: unknown;
-    workspaceDir?: string;
-    logger?: unknown;
-    resolvePath?: (input: string) => string;
-    registerTool: (tool: unknown, options?: { optional?: boolean }) => void;
-    on?: (
-      hookName: string,
-      handler: (...args: unknown[]) => unknown,
-      options?: { priority?: number },
-    ) => void;
-    registerHook?: (
-      events: string | string[],
-      handler: (...args: unknown[]) => unknown,
-      options?: { name?: string; description?: string },
-    ) => void;
-  }) {
-    const runtimeApi = api as any;
-    api.registerTool(makeOpenClawTimelineResolveToolFactory(runtimeApi));
-    api.registerTool(makeOpenClawTimelineTransitionToolFactory(runtimeApi));
+  register(api: OpenClawPluginApi) {
+    api.registerTool(makeOpenClawTimelineResolveToolFactory(api));
+    api.registerTool(makeOpenClawTimelineTransitionToolFactory(api));
     registerTimelineBeforePromptBuildHook(api);
-    registerTimelineEngagementHooks(api as any);
+    registerTimelineEngagementHooks(api);
   },
 };
 
+export const timelinePluginEntry = openClawTimelinePlugin;
+export const timelinePlugin = materializePlugin(openClawTimelinePlugin as any);
 export default openClawTimelinePlugin;

@@ -1,4 +1,13 @@
 import { parseTimestampParts } from '../lib/time-utils';
+import { civilTimestampInZone } from '../lib/timeline-time';
+
+export function enumerateLogDates(start: string, end: string, legacyTimezone?: string): string[] {
+  const dates = enumerateCalendarDates(start, end);
+  if (!legacyTimezone) return dates;
+  const oldStart = civilTimestampInZone(start, legacyTimezone);
+  const oldEnd = civilTimestampInZone(end, legacyTimezone);
+  return oldStart && oldEnd ? [...new Set([...dates, ...enumerateCalendarDates(oldStart, oldEnd)])].sort() : dates;
+}
 
 export function enumerateCalendarDates(start: string, end: string): string[] {
   const startParts = parseTimestampParts(start);
