@@ -1,6 +1,3 @@
-import { timelineResolveToolSpec } from './tools/timeline_resolve';
-import { timelineTransitionToolSpec } from './tools/timeline_transition';
-
 export interface PluginToolResult {
   content: Array<{
     type: 'text';
@@ -50,10 +47,6 @@ export interface RegisteredPluginShape {
   hooks: PluginHookRegistration[];
 }
 
-export function definePluginEntry(definition: PluginEntryDefinition): PluginEntryDefinition {
-  return definition;
-}
-
 export function materializePlugin(definition: PluginEntryDefinition): RegisteredPluginShape {
   const tools: PluginToolRegistration[] = [];
   const hooks: PluginHookRegistration[] = [];
@@ -88,35 +81,5 @@ export function materializePlugin(definition: PluginEntryDefinition): Registered
     description: definition.description,
     tools,
     hooks,
-  };
-}
-
-function wrapToolData(data: unknown): PluginToolResult {
-  return {
-    content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
-    data,
-  };
-}
-
-export function makeTimelineToolRegistration(): PluginToolRegistration {
-  return {
-    name: timelineResolveToolSpec.name,
-    description: timelineResolveToolSpec.description,
-    parameters: timelineResolveToolSpec.inputSchema,
-    async execute(_callId, params) {
-      return wrapToolData(await timelineResolveToolSpec.run(params as never));
-    },
-  };
-}
-
-export function makeTimelineTransitionToolRegistration(): PluginToolRegistration {
-  return {
-    name: timelineTransitionToolSpec.name,
-    description: timelineTransitionToolSpec.description,
-    parameters: timelineTransitionToolSpec.inputSchema,
-    async execute(_callId, params) {
-      // Base usage; openclaw_timeline_runtime has the full implementation.
-      return wrapToolData(await timelineTransitionToolSpec.run(params as never, {} as never));
-    },
   };
 }

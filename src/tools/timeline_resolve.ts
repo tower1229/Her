@@ -324,7 +324,7 @@ export async function resolveReadOnlyFastSnapshot(
 
 function persistTraceIfConfigured(
   output: TimelineResolveOutput,
-  input: TimelineResolveInput,
+  _input: TimelineResolveInput,
   deps: TimelineRuntimeDependencies,
   requestedRange: string,
 ): boolean {

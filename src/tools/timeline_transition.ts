@@ -4,7 +4,7 @@ import { collectActiveFacts } from '../core/collect_active_facts';
 import { makeTraceId } from '../core/trace';
 import { formatDate, parseTimestampParts, addMinutesToTimestampString } from '../lib/time-utils';
 import { TimelineRuntimeDependencies } from './timeline_resolve';
-import { buildTransitionTrace, TimelineTransitionTrace } from '../core/trace';
+import { buildTransitionTrace } from '../core/trace';
 import { appendTraceLog } from '../storage/trace_log';
 
 export interface TimelineTransitionDependencies extends TimelineRuntimeDependencies {

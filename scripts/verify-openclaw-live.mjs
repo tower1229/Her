@@ -11,6 +11,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
 import readline from 'node:readline';
+import { compactLiveReport } from './live-report.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const node = process.env.OPENCLAW_NODE_BIN || process.execPath;
@@ -32,7 +33,10 @@ const pluginDir = path.join(temp, 'plugin');
 const reportPath = path.resolve(process.env.HER_LIVE_REPORT || path.join(root, 'docs/20261101-live-results.json'));
 const report = { startedAt: new Date().toISOString(), host: JSON.parse(fs.readFileSync(path.join(host, 'package.json'))).version, node: process.versions.node, model, tests: [], externalChannel: 'not configured', userWorkspaceModified: false };
 const clean = value => (secret ? String(value).split(secret).join('[REDACTED]') : String(value)).split(token).join('[GATEWAY_TOKEN]').replace(/oc-sent-v2\.[A-Za-z0-9._-]+\.end/g, '[SECRET_SENTINEL]');
-const save = () => fs.writeFileSync(reportPath, clean(JSON.stringify(report, null, 2)) + '\n');
+const save = () => {
+  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+  fs.writeFileSync(reportPath, clean(JSON.stringify(compactLiveReport(report), null, 2)) + '\n');
+};
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 function gatewayEvidence() {
   const file = path.join(temp, 'gateway.log');

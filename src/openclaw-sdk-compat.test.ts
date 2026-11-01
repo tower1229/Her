@@ -23,7 +23,7 @@ describe('timeline plugin entry compatibility shape', () => {
     expect(tool.description).toContain('最近一次知道自己错了');
   });
 
-  it('materializes a definePluginEntry-style registration with canonical tools', () => {
+  it('materializes the production registration with canonical tools', () => {
     expect(timelinePluginEntry.id).toBe('stella-timeline-plugin');
     expect(timelinePlugin.tools.map((tool) => tool.name)).toEqual(['timeline_resolve', 'timeline_transition']);
     expect(timelinePlugin.tools.find((tool) => tool.name === 'timeline_resolve')?.optional).toBeUndefined();

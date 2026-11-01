@@ -226,21 +226,6 @@ function readWorkspaceTextFile(filePath: string): string {
   }
 }
 
-function buildMemorySearchQuery(input: { query?: string }): string | null {
-  const explicit = readString(input.query);
-  if (explicit) return explicit;
-  return null;
-}
-
-function stringifySearchResult(entry: unknown): string {
-  if (!entry || typeof entry !== 'object') {
-    return typeof entry === 'string' ? entry : JSON.stringify(entry);
-  }
-  const record = entry as Record<string, unknown>;
-  if (typeof record.snippet === 'string' && record.snippet.trim()) return record.snippet.trim();
-  return JSON.stringify(entry);
-}
-
 function extractMessageText(value: unknown): string {
   if (typeof value === 'string') return value.trim();
   if (!value || typeof value !== 'object') return '';
@@ -303,20 +288,6 @@ function normalizeSessionHistory(messages: unknown[], limit: number): string[] {
     })
     .filter(Boolean)
     .slice(-limit);
-}
-
-function extractLatestAssistantText(messages: unknown[]): string {
-  const reversed = [...messages].reverse();
-  for (const message of reversed) {
-    const role = extractMessageRole(message);
-    const text = extractMessageText(message);
-    if (role === 'assistant' && text) return text;
-  }
-  for (const message of reversed) {
-    const text = extractMessageText(message);
-    if (text) return text;
-  }
-  return '';
 }
 
 function collectBalancedJsonObjects(text: string): string[] {
@@ -1163,7 +1134,7 @@ type BeforePromptBuildEventLike = {
 };
 
 export function makeOpenClawTimelineBeforePromptBuildHook(pluginApi: PluginApiLike) {
-  return async (event: BeforePromptBuildEventLike, hookContext: PluginToolContextLike) => {
+  return async (_event: BeforePromptBuildEventLike, hookContext: PluginToolContextLike) => {
     const runtimeConfig = resolvePluginRuntimeConfig(pluginApi.pluginConfig);
 
 

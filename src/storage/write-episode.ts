@@ -107,7 +107,6 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
 
   try {
     const timestampParts = parseTimestampParts(timestamp);
-    const dateObj = timestampParts ? null : new Date(timestamp);
     if (!timestampParts || !Number.isFinite(timestampMillis(timestamp, input.legacyLogTimezone))) {
       return {
         success: false,
@@ -119,18 +118,10 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       };
     }
 
-    const yyyy = timestampParts ? timestampParts.year : dateObj!.getFullYear();
-    const mm = String(timestampParts ? timestampParts.month : dateObj!.getMonth() + 1).padStart(2, '0');
-    const dd = String(timestampParts ? timestampParts.day : dateObj!.getDate()).padStart(2, '0');
-    const dateStr = timestampParts ? formatDate(timestampParts) : `${yyyy}-${mm}-${dd}`;
-
-    const timeStr = timestampParts
-      ? formatTime(timestampParts)
-      : `${String(dateObj!.getHours()).padStart(2, '0')}:${String(dateObj!.getMinutes()).padStart(2, '0')}:${String(dateObj!.getSeconds()).padStart(2, '0')}`;
-
-    const isWeekend = timestampParts ? [0, 6].includes(dayOfWeek(timestampParts)) : dateObj!.getDay() === 0 || dateObj!.getDay() === 6;
-    const weekday = !isWeekend;
-    const holidayKey = getHoliday(`${yyyy}-${mm}-${dd}`, timestampParts ? inferCountryFromOffset(timestampParts.offset) : 'US');
+    const dateStr = formatDate(timestampParts);
+    const timeStr = formatTime(timestampParts);
+    const weekday = ![0, 6].includes(dayOfWeek(timestampParts));
+    const holidayKey = getHoliday(dateStr, inferCountryFromOffset(timestampParts.offset));
 
     const worldHooks: WorldHooks = {
       weekday,

@@ -1,6 +1,6 @@
 # 改进提案：默认记忆语料内按事件分文件
 
-状态：2026-11-01 提案，尚未由用户定案。替代共享单个日记的方案，保持 Markdown 权威源、默认召回和可重建时间索引。未修改生产实现。
+状态：历史提案，已由后续“保持每日 Markdown 和现有体验”的决定取代，不作为当前实施方案。保留用于解释设计取舍；当前范围见 [兼容性修复范围](20261101-compatibility-only-scope.md)。未按本提案修改生产实现。
 
 ## 布局与职责
 
@@ -21,7 +21,7 @@ memory/
 
 ## 已执行验证
 
-`scripts/probe-shared-memory.mjs` 使用安装的 OpenClaw 2026.10.9 发布代码：
+历史探针 [`probe-shared-memory.mjs`](https://github.com/tower1229/Her/blob/a91f41bf1e11bf0d0a4fbf90bb0d27bcbf113b79/scripts/probe-shared-memory.mjs) 使用当时安装的 OpenClaw 2026.10.9 发布代码。该探针包含旧写入器的行为断言，已退出当前可执行脚本集合：
 
 - 实际调用 `listMemoryFiles(tempWorkspace)`，不传 extraPaths，返回普通日记与 `memory/timeline/simulated/2026-11-01/evt-safe.md`。证明默认语料发现覆盖该布局，不需要另一套搜索索引入口。
 - 同时更新普通日记、创建新的关联细节文件，既有事件内人工编辑内容保留；再次用 `wx` 创建同名文件被 EEXIST 拒绝。

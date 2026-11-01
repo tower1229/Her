@@ -1,5 +1,5 @@
 import { PersonaContractV1 } from '../persona/persona_contract';
-import { TimelineTransitionInput, TransitionPlan } from './transition_planner_contract';
+import { TimelineTransitionInput } from './transition_planner_contract';
 import { CollectedTimelineFact } from './timeline_reasoner_contract';
 
 export function buildTransitionPlannerSystemPrompt(): string {

@@ -263,11 +263,6 @@ export function classifyWorldRhythmModes(input: { action?: string; location?: st
   return [...modes];
 }
 
-function hourFromTimestamp(timestamp: string): number | null {
-  const parts = parseTimestampParts(timestamp);
-  return parts ? parts.hour : null;
-}
-
 function worldModesFromActivityMode(activityMode: ActivityMode): WorldRhythmMode[] {
   switch (activityMode) {
     case 'sleep':

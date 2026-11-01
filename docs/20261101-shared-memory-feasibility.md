@@ -54,7 +54,7 @@
 
 发现本机实际安装的 OpenClaw 2026.10.9，可读取其发布产物。此前 smoke 未发现 runtime 不代表未安装；当前 `.mjs` 发布布局与旧探测脚本不同。此次没有启动 Gateway、读取用户记忆或调用模型。
 
-可复现探针：`node scripts/probe-shared-memory.mjs <openclaw-package-root>`。脚本导入上游真实分块/管理块纯函数，并从实际发布文件原样提取日记候选解析函数及其依赖放入隔离 VM。所有写入在新建临时目录，结束自动清理；业务代码未变。脚本输出版本与三个上游文件 SHA256，版本不匹配直接失败。
+历史探针见 [固定提交中的脚本](https://github.com/tower1229/Her/blob/a91f41bf1e11bf0d0a4fbf90bb0d27bcbf113b79/scripts/probe-shared-memory.mjs)。该脚本包含“旧写入器丢失普通文字”的断言，修复后不再适用于当前版本，已移出可执行脚本集合。当前共享检索验收使用 `npm run test:smoke`。原探针导入上游真实分块/管理块纯函数，在临时目录运行，输出版本与上游文件 SHA256；本页保留当时的调研结论。
 
 | 实验 | 结果 | 可得结论 |
 | --- | --- | --- |

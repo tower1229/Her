@@ -3,7 +3,7 @@ import { parseMemoryFile } from '../lib/parse-memory';
 import { defaultDurationForActivityMode } from './build_consumption_view';
 import { enumerateLogDates } from './calendar_dates';
 import { CollectedTimelineFact } from './timeline_reasoner_contract';
-import { addHours, formatTimestamp, parseTimestampParts, formatDate } from '../lib/time-utils';
+import { addHours, formatTimestamp, parseTimestampParts } from '../lib/time-utils';
 
 export async function collectActiveFacts(
   memoryGet: (calendarDate: string) => Promise<string>,

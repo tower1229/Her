@@ -56,6 +56,8 @@ README 承诺跨日长事件可细化当前阶段。实际测试中，prompt hoo
 
 入口是 `scripts/verify-openclaw-live.mjs`，场景在 `scripts/readme-live-scenarios.mjs`，持续连接助手为 `scripts/live-gateway-client.mjs`。除原有 host/node/model 环境变量外：
 
+统一命令为 `npm run test:live-experience`，默认使用 Gemini README 套件；仍需先构建并提供固定版本 host/node 路径及可用凭证条件。命令默认将结果保存到已忽略的 `.timeline-cache/live-experience-results.json`，不会覆盖已提交的验收证据。旧 `OPENCLAW_BIN`/`OPENCLAW_LIVE_E2E` 启动路径已退休，改用 `OPENCLAW_PACKAGE_ROOT`/`OPENCLAW_NODE_BIN`。没有重新创建快照或自动扩大凭证使用权限。
+
 ```powershell
 $env:OPENCLAW_LIVE_MODEL = 'google/gemini-3.8-flash'
 $env:HER_LIVE_STORE_SNAPSHOT = '<用户授权的官方 snapshot 目录>'
@@ -78,3 +80,12 @@ $env:HER_LIVE_CASES = 'R02,R10,R11,R14'
 - 复核捕获数据：三日摘要同时覆盖三个日期的经历；历史点／范围分类正确；修复前后同一旅行父日记逐字一致。
 - 所有临时 Gateway 已退出，隔离 workspace/config/state 已删除。授权的官方全局快照及私有临时根目录已删除，两次失败尝试的临时目录也已清理。未发送外部消息，未修改正常部署配置和用户日记。
 - 原始报告保留合成测试文本、响应和诊断证据；其中的临时文件路径是历史记录，不代表文件仍存在。
+
+## 后续等价精简
+
+- 删除未使用函数、导入、变量和写入器中验证失败后不可达的时间降级分支，启用 TypeScript 未使用检查；保留生产入口的现有导出、工具协议、prompt 和存储规则。
+- 旧真实 E2E 的四个场景分别由 R01、R05、R03、R04 覆盖，统一到隔离运行入口，移除旧环境的 fixture 写入／恢复代码。固定宿主 smoke 与真实模型验收仍是不同检查。
+- 报告保留全部测试结果、失败记录和 Gateway 证据，只将重复的 `caseObservations` 对象替换为 `caseObservationRefs`，例如 `tests[0].result`；非重复／失败观察仍内联。已逐项反向解析校验内容等价，减少 247,600 字节。完整场景与定向复测报告均保留。
+- 本轮没有再次调用真实模型；上述 Gemini 结果属于精简前验收记录，精简后的自动检查另行记录。
+- 精简后类型检查、构建及 42 套／248 项自动测试通过；测试集中默认跳过的固定宿主 smoke 已单独执行通过（OpenClaw 2026.10.9、Node 24.22.1、安装包加载、工具发现、Hook 授权门控、默认 memory_search 共享日记）。首次沙箱符号链接限制及系统临时目录 rename 失败后，改用仓库测试缓存并在允许符号链接的环境中运行成功。临时测试目录由脚本清理。
+- 统一 launcher 的参数、隔离套件选择及失败退出码通过无模型调用的接线检查；报告去重通过原始内容逐项比对与重复转换幂等检查。脚本语法和 `git diff --check` 通过。

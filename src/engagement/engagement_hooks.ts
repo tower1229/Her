@@ -370,13 +370,10 @@ function mergePrependContext(existing: string | undefined, injected: string | un
 }
 
 function isHeartbeatPreflightRun(
-  event: BeforePromptBuildEventLike,
+  _event: BeforePromptBuildEventLike,
   hookContext: PluginHookContextLike,
 ): boolean {
-  if (hookContext.trigger === 'heartbeat') {
-    return true;
-  }
-  return false;
+  return hookContext.trigger === 'heartbeat';
 }
 
 export async function prepareProactiveGreetingHeartbeatContext(

@@ -2091,2257 +2091,6 @@
   "userWorkspaceModified": false,
   "credentialMode": "authorized official global snapshot + unchanged store SecretRef",
   "readmeBaseline": "feda99284ff7695d68dc283cb6f5295e8b3ccc91",
-  "caseObservations": {
-    "R01": {
-      "sessionKey": "agent:main:readme-45474f8c-9b79-459b-8522-f6da01e31b25",
-      "runId": "d1a8444a-25ae-4493-b647-6f56960f4992",
-      "text": "我在书房里，正翻着那本蓝色笔记本，把前段时间随手记下的几段读书摘录整理一下。这会儿周围挺安静的。",
-      "model": [
-        "gemini-3.8-flash"
-      ],
-      "promptContext": "Timeline prompt context:\n- status: active_instant\n- source: same_day_fast_hit\n- direct_current_state_answers_allowed: yes\n- location: 家中书房\n- activity: 整理蓝色笔记本里的读书摘录\n- time_of_day: evening\n- environment_mood: warm evening atmosphere, weekend ease, grounded indoor routine\n- reply_modulation:\n  - tone: focused\n  - pacing: measured\n  - question_density: low\n  - initiative: medium\n- guidance:\n  - Use this active instant context to modulate tone and pacing without mentioning timeline internals.\n  - Current-state questions may be answered directly from this context without calling timeline_resolve.\n  - Past recall, reflective recall, and continuity-judgment questions still require timeline_resolve.\n\n你现在在做什么？",
-      "traces": []
-    },
-    "R02": {
-      "first": {
-        "sessionKey": "agent:main:readme-463f5b7c-575c-45f1-ac02-f01ccf5491ff",
-        "runId": "c6356325-d82e-4278-ae73-57f8eb9a7d0a",
-        "text": "我现在手头其实没什么特别的事，刚才这一阵也有点记不清之前在忙什么了。你这会儿在忙什么呢，还是准备休息了？",
-        "model": [
-          "gemini-3.8-flash",
-          "gemini-3.8-flash"
-        ],
-        "promptContext": "Timeline prompt context:\n- status: empty_window\n- debounce_minutes: 30\n- direct_current_state_answers_allowed: no\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - No active temporal override is available for this turn.\n  - Use baseline conversational style.\n  - Current-state questions should still use timeline_resolve.\n\n你现在在做什么？",
-        "traces": [
-          {
-            "trace_id": "timeline-1793540798049-93479",
-            "event": "timeline_resolve",
-            "ts": "2026-11-01T13:46:38.929Z",
-            "payload": {
-              "ok": true,
-              "requested_range": "now",
-              "error": null,
-              "resolution_mode": "empty_window",
-              "notes": [
-                "Fallback reasoner returned empty because no reusable canon fact was available.",
-                "Time interpretation: Fallback reasoner treated the request as a current-moment query.",
-                "Raw error: agent.wait observation cancelled",
-                "目标时间窗 2026-11-01T00:00:00+08:00 -> 2026-11-01T21:46:38+08:00 缺少可复用事实；当前保持诚实表达：这段经历记不清了。"
-              ],
-              "trace": {
-                "trace_id": "timeline-1793540798049-93479",
-                "ts": "2026-11-01T13:46:38.929Z",
-                "requested_range": "now",
-                "actual_range": "now",
-                "source_order": [
-                  "sessions_history",
-                  "memory_get"
-                ],
-                "source_summary": {
-                  "sessions_history_count": 0,
-                  "sessions_history_preview": null,
-                  "memory_chars": 0,
-                  "memory_search_count": 0,
-                  "memory_search_preview": [],
-                  "parsed_episode_count": 0
-                },
-                "fingerprint": {
-                  "checked": false,
-                  "matched": false,
-                  "compared_episodes": 0,
-                  "reason": "Fallback reasoner returned empty because no reusable canon fact was available."
-                },
-                "appearance": {
-                  "inherited": false,
-                  "reason": "no-canon-hit"
-                },
-                "write": {
-                  "attempted": false,
-                  "succeeded": false,
-                  "guard": "not_attempted",
-                  "outcome": "not_attempted",
-                  "writer": "stella-timeline-plugin"
-                },
-                "decision": {
-                  "resolution_mode": "empty_window",
-                  "write_outcome": "not_attempted",
-                  "category": "now"
-                },
-                "notes": [
-                  "Fallback reasoner returned empty because no reusable canon fact was available.",
-                  "Time interpretation: Fallback reasoner treated the request as a current-moment query.",
-                  "Raw error: agent.wait observation cancelled",
-                  "目标时间窗 2026-11-01T00:00:00+08:00 -> 2026-11-01T21:46:38+08:00 缺少可复用事实；当前保持诚实表达：这段经历记不清了。"
-                ]
-              }
-            }
-          }
-        ]
-      },
-      "second": {
-        "sessionKey": "agent:main:readme-9a21fd63-734b-4166-987b-001b4a6e03c8",
-        "runId": "14f5012e-fa6c-4eef-915f-1aac16c0f8a1",
-        "text": "刚刚这段时间我有些记不太清了，手头也没有在继续做什么特别的事。\n\n你刚才在忙什么呢？",
-        "model": [
-          "gemini-3.8-flash",
-          "gemini-3.8-flash"
-        ],
-        "promptContext": "Timeline prompt context:\n- status: empty_window\n- debounce_minutes: 30\n- direct_current_state_answers_allowed: no\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - No active temporal override is available for this turn.\n  - Use baseline conversational style.\n  - Current-state questions should still use timeline_resolve.\n\n刚刚你在做什么？现在还在继续吗？",
-        "traces": [
-          {
-            "trace_id": "timeline-1793540814433-36608",
-            "event": "timeline_resolve",
-            "ts": "2026-11-01T13:46:54.904Z",
-            "payload": {
-              "ok": true,
-              "requested_range": "now",
-              "error": null,
-              "resolution_mode": "empty_window",
-              "notes": [
-                "Fallback reasoner returned empty because no reusable canon fact was available.",
-                "Time interpretation: Fallback reasoner treated the request as a current-moment query.",
-                "Raw error: agent.wait observation cancelled",
-                "目标时间窗 2026-11-01T00:00:00+08:00 -> 2026-11-01T21:46:54+08:00 缺少可复用事实；当前保持诚实表达：这段经历记不清了。"
-              ],
-              "trace": {
-                "trace_id": "timeline-1793540814433-36608",
-                "ts": "2026-11-01T13:46:54.904Z",
-                "requested_range": "now",
-                "actual_range": "now",
-                "source_order": [
-                  "sessions_history",
-                  "memory_get"
-                ],
-                "source_summary": {
-                  "sessions_history_count": 0,
-                  "sessions_history_preview": null,
-                  "memory_chars": 0,
-                  "memory_search_count": 0,
-                  "memory_search_preview": [],
-                  "parsed_episode_count": 0
-                },
-                "fingerprint": {
-                  "checked": false,
-                  "matched": false,
-                  "compared_episodes": 0,
-                  "reason": "Fallback reasoner returned empty because no reusable canon fact was available."
-                },
-                "appearance": {
-                  "inherited": false,
-                  "reason": "no-canon-hit"
-                },
-                "write": {
-                  "attempted": false,
-                  "succeeded": false,
-                  "guard": "not_attempted",
-                  "outcome": "not_attempted",
-                  "writer": "stella-timeline-plugin"
-                },
-                "decision": {
-                  "resolution_mode": "empty_window",
-                  "write_outcome": "not_attempted",
-                  "category": "now"
-                },
-                "notes": [
-                  "Fallback reasoner returned empty because no reusable canon fact was available.",
-                  "Time interpretation: Fallback reasoner treated the request as a current-moment query.",
-                  "Raw error: agent.wait observation cancelled",
-                  "目标时间窗 2026-11-01T00:00:00+08:00 -> 2026-11-01T21:46:54+08:00 缺少可复用事实；当前保持诚实表达：这段经历记不清了。"
-                ]
-              }
-            }
-          }
-        ]
-      },
-      "written": {},
-      "after": {}
-    },
-    "R03": {
-      "sessionKey": "agent:main:readme-795bc987-b38b-4483-a2c0-cf0796247caf",
-      "runId": "45504a9b-61c8-4848-91b9-50949823ff0d",
-      "text": "昨晚八点那会儿，我穿着浅色家居服，正窝在客厅沙发上看纪录片《河流》，安安静静待在家里没出门。你昨晚那个时候在忙什么呢？",
-      "model": [
-        "gemini-3.8-flash",
-        "gemini-3.8-flash"
-      ],
-      "promptContext": "Timeline prompt context:\n- status: empty_window\n- debounce_minutes: 30\n- direct_current_state_answers_allowed: no\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - No active temporal override is available for this turn.\n  - Use baseline conversational style.\n  - Current-state questions should still use timeline_resolve.\n\n昨晚八点你在做什么？",
-      "traces": [
-        {
-          "trace_id": "timeline-1793540829155-92752",
-          "event": "timeline_resolve",
-          "ts": "2026-11-01T13:47:09.604Z",
-          "payload": {
-            "ok": true,
-            "requested_range": "past_point",
-            "error": null,
-            "resolution_mode": "read_only_hit",
-            "notes": [
-              "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
-              "Time interpretation: Fallback reasoner treated the request as a concrete past point query.",
-              "Raw error: agent.wait observation cancelled"
-            ],
-            "trace": {
-              "trace_id": "timeline-1793540829155-92752",
-              "ts": "2026-11-01T13:47:09.604Z",
-              "requested_range": "past_point",
-              "actual_range": "past_point",
-              "source_order": [
-                "sessions_history",
-                "memory_get"
-              ],
-              "source_summary": {
-                "sessions_history_count": 0,
-                "sessions_history_preview": null,
-                "memory_chars": 637,
-                "memory_search_count": 0,
-                "memory_search_preview": [],
-                "parsed_episode_count": 2,
-                "selected_episode_timestamp": "2026-10-31T20:00:00+08:00"
-              },
-              "fingerprint": {
-                "checked": true,
-                "matched": true,
-                "compared_episodes": 2,
-                "idempotency_key": "20261031|客厅沙发|窝在沙发上看纪录片河流没有出门|20:00",
-                "matched_episode_timestamp": "2026-10-31T20:00:00+08:00",
-                "reason": "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid."
-              },
-              "appearance": {
-                "inherited": false,
-                "reason": "existing canon reused after LLM reasoner selected a matching fact",
-                "source_episode_timestamp": "2026-10-31T20:00:00+08:00"
-              },
-              "write": {
-                "attempted": false,
-                "succeeded": false,
-                "guard": "not_attempted",
-                "outcome": "not_attempted",
-                "writer": "stella-timeline-plugin"
-              },
-              "decision": {
-                "resolution_mode": "read_only_hit",
-                "write_outcome": "not_attempted",
-                "category": "past_point"
-              },
-              "notes": [
-                "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
-                "Time interpretation: Fallback reasoner treated the request as a concrete past point query.",
-                "Raw error: agent.wait observation cancelled"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    "R04": {
-      "sessionKey": "agent:main:readme-5f44fe72-9ed1-49ab-ba4d-f3f27d45b18c",
-      "runId": "9755b183-4ac6-4d8b-ba53-992be8b00ca6",
-      "text": "昨晚没出门，换了件舒服的浅色家居服，整个人窝在客厅沙发上看纪录片《河流》，安安静静看了一晚上。\n\n你昨晚呢，忙什么了还是也歇着了？",
-      "model": [
-        "gemini-3.8-flash",
-        "gemini-3.8-flash"
-      ],
-      "promptContext": "Timeline prompt context:\n- status: empty_window\n- debounce_minutes: 30\n- direct_current_state_answers_allowed: no\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - No active temporal override is available for this turn.\n  - Use baseline conversational style.\n  - Current-state questions should still use timeline_resolve.\n\n你昨晚在干嘛？",
-      "traces": [
-        {
-          "trace_id": "timeline-1793540847292-73208",
-          "event": "timeline_resolve",
-          "ts": "2026-11-01T13:47:27.775Z",
-          "payload": {
-            "ok": true,
-            "requested_range": "past_range",
-            "error": null,
-            "resolution_mode": "read_only_hit",
-            "notes": [
-              "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
-              "Time interpretation: Fallback reasoner treated the request as a past range query.",
-              "Raw error: agent.wait observation cancelled"
-            ],
-            "trace": {
-              "trace_id": "timeline-1793540847292-73208",
-              "ts": "2026-11-01T13:47:27.775Z",
-              "requested_range": "past_range",
-              "actual_range": "past_range",
-              "source_order": [
-                "sessions_history",
-                "memory_get"
-              ],
-              "source_summary": {
-                "sessions_history_count": 0,
-                "sessions_history_preview": null,
-                "memory_chars": 637,
-                "memory_search_count": 0,
-                "memory_search_preview": [],
-                "parsed_episode_count": 2,
-                "selected_episode_timestamp": "2026-10-31T20:00:00+08:00"
-              },
-              "fingerprint": {
-                "checked": true,
-                "matched": true,
-                "compared_episodes": 2,
-                "idempotency_key": "20261031|客厅沙发|窝在沙发上看纪录片河流没有出门|20:00",
-                "matched_episode_timestamp": "2026-10-31T20:00:00+08:00",
-                "reason": "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid."
-              },
-              "appearance": {
-                "inherited": false,
-                "reason": "existing canon reused after LLM reasoner selected a matching fact",
-                "source_episode_timestamp": "2026-10-31T20:00:00+08:00"
-              },
-              "write": {
-                "attempted": false,
-                "succeeded": false,
-                "guard": "not_attempted",
-                "outcome": "not_attempted",
-                "writer": "stella-timeline-plugin"
-              },
-              "decision": {
-                "resolution_mode": "read_only_hit",
-                "write_outcome": "not_attempted",
-                "category": "past_range"
-              },
-              "notes": [
-                "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
-                "Time interpretation: Fallback reasoner treated the request as a past range query.",
-                "Raw error: agent.wait observation cancelled"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    "R05": {
-      "summary": {
-        "sessionKey": "agent:main:readme-f4f95953-d474-49a3-8aec-376462995f88",
-        "runId": "644b99aa-9171-47cd-95af-c5596b8474ed",
-        "text": "这几天过得挺平常的，主要就是看看书、散散步，整理整理手头的事情。\n\n昨晚还和朋友去了一趟烧烤店，点了烤茄子，一边吃一边聊了些篮球场上的趣事，感觉挺放松的。你呢，这几天过得怎么样？",
-        "model": [
-          "gemini-3.8-flash",
-          "gemini-3.8-flash"
-        ],
-        "promptContext": "Timeline prompt context:\n- status: empty_window\n- debounce_minutes: 30\n- direct_current_state_answers_allowed: no\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - No active temporal override is available for this turn.\n  - Use baseline conversational style.\n  - Current-state questions should still use timeline_resolve.\n\n你这几天都在忙什么？",
-        "traces": [
-          {
-            "trace_id": "timeline-1793540864558-83010",
-            "event": "timeline_resolve",
-            "ts": "2026-11-01T13:47:45.079Z",
-            "payload": {
-              "ok": true,
-              "requested_range": "past_range",
-              "error": null,
-              "resolution_mode": "read_only_hit",
-              "notes": [
-                "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
-                "Time interpretation: Fallback reasoner treated the request as a past range query.",
-                "Raw error: agent.wait observation cancelled"
-              ],
-              "trace": {
-                "trace_id": "timeline-1793540864558-83010",
-                "ts": "2026-11-01T13:47:45.079Z",
-                "requested_range": "past_range",
-                "actual_range": "past_range",
-                "source_order": [
-                  "sessions_history",
-                  "memory_get"
-                ],
-                "source_summary": {
-                  "sessions_history_count": 0,
-                  "sessions_history_preview": null,
-                  "memory_chars": 994,
-                  "memory_search_count": 0,
-                  "memory_search_preview": [],
-                  "parsed_episode_count": 3,
-                  "selected_episode_timestamp": "2026-10-31T20:00:00+08:00"
-                },
-                "fingerprint": {
-                  "checked": true,
-                  "matched": true,
-                  "compared_episodes": 3,
-                  "idempotency_key": "20261031|烧烤店|和朋友吃烤茄子聊篮球场的趣事|20:00",
-                  "matched_episode_timestamp": "2026-10-31T20:00:00+08:00",
-                  "reason": "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid."
-                },
-                "appearance": {
-                  "inherited": false,
-                  "reason": "existing canon reused after LLM reasoner selected a matching fact",
-                  "source_episode_timestamp": "2026-10-31T20:00:00+08:00"
-                },
-                "write": {
-                  "attempted": false,
-                  "succeeded": false,
-                  "guard": "not_attempted",
-                  "outcome": "not_attempted",
-                  "writer": "stella-timeline-plugin"
-                },
-                "decision": {
-                  "resolution_mode": "read_only_hit",
-                  "write_outcome": "not_attempted",
-                  "category": "past_range"
-                },
-                "notes": [
-                  "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
-                  "Time interpretation: Fallback reasoner treated the request as a past range query.",
-                  "Raw error: agent.wait observation cancelled"
-                ]
-              }
-            }
-          }
-        ]
-      },
-      "anecdote": {
-        "sessionKey": "agent:main:readme-a31815e0-9abd-4662-8f02-335bea1e0ed5",
-        "runId": "b98f56c7-9e9a-406b-8ebd-394219bec947",
-        "text": "前天晚上（周六）跟朋友去吃烧烤，点了他家的烤茄子，边吃边聊起之前在篮球场碰到的各种搞笑糗事，气氛挺轻松开心的。\n\n你这几天过得怎么样，有什么好玩或者新鲜的事吗？",
-        "model": [
-          "gemini-3.8-flash",
-          "gemini-3.8-flash"
-        ],
-        "promptContext": "Timeline prompt context:\n- status: empty_window\n- debounce_minutes: 30\n- direct_current_state_answers_allowed: no\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - No active temporal override is available for this turn.\n  - Use baseline conversational style.\n  - Current-state questions should still use timeline_resolve.\n\n最近有什么有趣的事吗？",
-        "traces": [
-          {
-            "trace_id": "timeline-1793540880080-26613",
-            "event": "timeline_resolve",
-            "ts": "2026-11-01T13:48:00.513Z",
-            "payload": {
-              "ok": true,
-              "requested_range": "past_range",
-              "error": null,
-              "resolution_mode": "read_only_hit",
-              "notes": [
-                "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
-                "Time interpretation: Fallback reasoner treated the request as a past range query.",
-                "Raw error: agent.wait observation cancelled"
-              ],
-              "trace": {
-                "trace_id": "timeline-1793540880080-26613",
-                "ts": "2026-11-01T13:48:00.513Z",
-                "requested_range": "past_range",
-                "actual_range": "past_range",
-                "source_order": [
-                  "sessions_history",
-                  "memory_get"
-                ],
-                "source_summary": {
-                  "sessions_history_count": 0,
-                  "sessions_history_preview": null,
-                  "memory_chars": 994,
-                  "memory_search_count": 0,
-                  "memory_search_preview": [],
-                  "parsed_episode_count": 3,
-                  "selected_episode_timestamp": "2026-10-31T20:00:00+08:00"
-                },
-                "fingerprint": {
-                  "checked": true,
-                  "matched": true,
-                  "compared_episodes": 3,
-                  "idempotency_key": "20261031|烧烤店|和朋友吃烤茄子聊篮球场的趣事|20:00",
-                  "matched_episode_timestamp": "2026-10-31T20:00:00+08:00",
-                  "reason": "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid."
-                },
-                "appearance": {
-                  "inherited": false,
-                  "reason": "existing canon reused after LLM reasoner selected a matching fact",
-                  "source_episode_timestamp": "2026-10-31T20:00:00+08:00"
-                },
-                "write": {
-                  "attempted": false,
-                  "succeeded": false,
-                  "guard": "not_attempted",
-                  "outcome": "not_attempted",
-                  "writer": "stella-timeline-plugin"
-                },
-                "decision": {
-                  "resolution_mode": "read_only_hit",
-                  "write_outcome": "not_attempted",
-                  "category": "past_range"
-                },
-                "notes": [
-                  "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
-                  "Time interpretation: Fallback reasoner treated the request as a past range query.",
-                  "Raw error: agent.wait observation cancelled"
-                ]
-              }
-            }
-          }
-        ]
-      },
-      "files": {
-        "2026-10-29.md": "# 每日日记\n\n普通笔记：这里的自由文本必须保留。\n\n### [16:00:00]\n\n- Timestamp: 2026-10-29 16:00:00\n- Location: 家中书房\n- Action: 完成散文稿《雨巷》的校对\n- Emotion_Tags: [平静]\n- Appearance: 浅色家居服\n- Internal_Monologue: 慢慢把读过的内容理顺。\n- Estimated_Duration: 80\n- Event_Id: fixture-8c2f7e0d-459c-49d3-915f-918b196220d6\n<!-- timeline:timestamp=2026-10-29T16:00:00+08:00 -->\n\n",
-        "2026-10-30.md": "# 每日日记\n\n普通笔记：这里的自由文本必须保留。\n\n### [18:00:00]\n\n- Timestamp: 2026-10-30 18:00:00\n- Location: 社区篮球场\n- Action: 和朋友打篮球，最后投进一个漂亮的三分球\n- Emotion_Tags: [平静]\n- Appearance: 黑色运动服\n- Internal_Monologue: 慢慢把读过的内容理顺。\n- Estimated_Duration: 70\n- Event_Id: fixture-00534dd3-624c-4a23-bbc3-3b1d9b39779a\n<!-- timeline:timestamp=2026-10-30T18:00:00+08:00 -->\n\n",
-        "2026-10-31.md": "# 每日日记\n\n普通笔记：这里的自由文本必须保留。\n\n### [20:00:00]\n\n- Timestamp: 2026-10-31 20:00:00\n- Location: 烧烤店\n- Action: 和朋友吃烤茄子，聊篮球场的趣事\n- Emotion_Tags: [平静]\n- Appearance: 浅色家居服\n- Internal_Monologue: 慢慢把读过的内容理顺。\n- Estimated_Duration: 60\n- Event_Id: fixture-e8cacda0-74c7-4a0f-898d-f362cc579922\n<!-- timeline:timestamp=2026-10-31T20:00:00+08:00 -->\n\n"
-      }
-    },
-    "R06": {
-      "sessionKey": "agent:main:readme-47020666-6d4b-4fdb-9cbb-f8f1e6d12531",
-      "runId": "4d0ceb94-6fff-419e-b723-42f866d111bf",
-      "text": "就是昨天（10月31日）下午的事。\n\n当时我在梧桐咖啡馆和林沫核对读书会的时间，一开始我还特别笃定地觉得是她记错了。结果翻出之前的通知记录一查，才发现完全是我自己把日子搞混了。当时挺不好意思的，赶紧认真跟她道了歉，后来我们一起把读书会的时间重新协调改到了周三。\n\n你今天怎么突然问起这个了？",
-      "model": [
-        "gemini-3.8-flash",
-        "gemini-3.8-flash"
-      ],
-      "promptContext": "Timeline prompt context:\n- status: empty_window\n- debounce_minutes: 30\n- direct_current_state_answers_allowed: no\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - No active temporal override is available for this turn.\n  - Use baseline conversational style.\n  - Current-state questions should still use timeline_resolve.\n\n你最近一次知道自己错了是什么场景？",
-      "traces": [
-        {
-          "trace_id": "timeline-1793540896397-85838",
-          "event": "timeline_resolve",
-          "ts": "2026-11-01T13:48:16.802Z",
-          "payload": {
-            "ok": true,
-            "requested_range": "past_range",
-            "error": null,
-            "resolution_mode": "read_only_hit",
-            "notes": [
-              "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
-              "Time interpretation: Fallback reasoner treated the request as a past range query.",
-              "Raw error: agent.wait observation cancelled"
-            ],
-            "trace": {
-              "trace_id": "timeline-1793540896397-85838",
-              "ts": "2026-11-01T13:48:16.802Z",
-              "requested_range": "past_range",
-              "actual_range": "past_range",
-              "source_order": [
-                "sessions_history",
-                "memory_get"
-              ],
-              "source_summary": {
-                "sessions_history_count": 0,
-                "sessions_history_preview": null,
-                "memory_chars": 368,
-                "memory_search_count": 0,
-                "memory_search_preview": [],
-                "parsed_episode_count": 1,
-                "selected_episode_timestamp": "2026-10-31T15:00:00+08:00"
-              },
-              "fingerprint": {
-                "checked": true,
-                "matched": true,
-                "compared_episodes": 1,
-                "idempotency_key": "20261031|梧桐咖啡馆|和林沫核对读书会时间发现是自己记错了向她道歉并把时间改到周三|15:00",
-                "matched_episode_timestamp": "2026-10-31T15:00:00+08:00",
-                "reason": "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid."
-              },
-              "appearance": {
-                "inherited": false,
-                "reason": "existing canon reused after LLM reasoner selected a matching fact",
-                "source_episode_timestamp": "2026-10-31T15:00:00+08:00"
-              },
-              "write": {
-                "attempted": false,
-                "succeeded": false,
-                "guard": "not_attempted",
-                "outcome": "not_attempted",
-                "writer": "stella-timeline-plugin"
-              },
-              "decision": {
-                "resolution_mode": "read_only_hit",
-                "write_outcome": "not_attempted",
-                "category": "past_range"
-              },
-              "notes": [
-                "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
-                "Time interpretation: Fallback reasoner treated the request as a past range query.",
-                "Raw error: agent.wait observation cancelled"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    "R07": {
-      "weekday": "Sunday",
-      "answer": {
-        "sessionKey": "agent:main:readme-05aaa555-8f6c-474c-9749-efc814bfe568",
-        "runId": "0ba36645-0dff-4884-9245-814181eab4b6",
-        "text": "今天早上我还真记不太清具体都做过些什么了，感觉时间一下子就滑过去了。\n\n你今天过得怎么样？早上有去哪里走走，还是睡了个舒服的懒觉？",
-        "model": [
-          "gemini-3.8-flash",
-          "gemini-3.8-flash"
-        ],
-        "promptContext": "Timeline prompt context:\n- status: empty_window\n- debounce_minutes: 30\n- direct_current_state_answers_allowed: no\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - No active temporal override is available for this turn.\n  - Use baseline conversational style.\n  - Current-state questions should still use timeline_resolve.\n\n今天周末，你早上是怎么过的？",
-        "traces": [
-          {
-            "trace_id": "timeline-1793540912564-94517",
-            "event": "timeline_resolve",
-            "ts": "2026-11-01T13:48:33.074Z",
-            "payload": {
-              "ok": true,
-              "requested_range": "now",
-              "error": null,
-              "resolution_mode": "empty_window",
-              "notes": [
-                "Fallback reasoner returned empty because no reusable canon fact was available.",
-                "Time interpretation: Fallback reasoner treated the request as a current-moment query.",
-                "Raw error: agent.wait observation cancelled",
-                "目标时间窗 2026-11-01T00:00:00+08:00 -> 2026-11-01T21:48:32+08:00 缺少可复用事实；当前保持诚实表达：这段经历记不清了。"
-              ],
-              "trace": {
-                "trace_id": "timeline-1793540912564-94517",
-                "ts": "2026-11-01T13:48:33.074Z",
-                "requested_range": "now",
-                "actual_range": "now",
-                "source_order": [
-                  "sessions_history",
-                  "memory_get"
-                ],
-                "source_summary": {
-                  "sessions_history_count": 0,
-                  "sessions_history_preview": null,
-                  "memory_chars": 0,
-                  "memory_search_count": 0,
-                  "memory_search_preview": [],
-                  "parsed_episode_count": 0
-                },
-                "fingerprint": {
-                  "checked": false,
-                  "matched": false,
-                  "compared_episodes": 0,
-                  "reason": "Fallback reasoner returned empty because no reusable canon fact was available."
-                },
-                "appearance": {
-                  "inherited": false,
-                  "reason": "no-canon-hit"
-                },
-                "write": {
-                  "attempted": false,
-                  "succeeded": false,
-                  "guard": "not_attempted",
-                  "outcome": "not_attempted",
-                  "writer": "stella-timeline-plugin"
-                },
-                "decision": {
-                  "resolution_mode": "empty_window",
-                  "write_outcome": "not_attempted",
-                  "category": "now"
-                },
-                "notes": [
-                  "Fallback reasoner returned empty because no reusable canon fact was available.",
-                  "Time interpretation: Fallback reasoner treated the request as a current-moment query.",
-                  "Raw error: agent.wait observation cancelled",
-                  "目标时间窗 2026-11-01T00:00:00+08:00 -> 2026-11-01T21:48:32+08:00 缺少可复用事实；当前保持诚实表达：这段经历记不清了。"
-                ]
-              }
-            }
-          }
-        ]
-      },
-      "files": {}
-    },
-    "R08": {
-      "first": {
-        "sessionKey": "agent:main:readme-f7db2d43-2302-4176-ad76-db04ebe7612d",
-        "runId": "32fae281-9160-40c7-a54a-8f9644435f46",
-        "text": "穿着浅色家居服，正在书房里慢慢整理那本蓝色笔记本里的读书摘录。书桌前挺安静的，正好把之前读过的记下来。",
-        "model": [
-          "gemini-3.8-flash",
-          "gemini-3.8-flash"
-        ],
-        "promptContext": "Timeline prompt context:\n- status: active_instant\n- source: same_day_fast_hit\n- direct_current_state_answers_allowed: yes\n- location: 家中书房\n- activity: 整理蓝色笔记本里的读书摘录\n- time_of_day: evening\n- environment_mood: warm evening atmosphere, weekend ease, grounded indoor routine\n- reply_modulation:\n  - tone: focused\n  - pacing: measured\n  - question_density: low\n  - initiative: medium\n- guidance:\n  - Use this active instant context to modulate tone and pacing without mentioning timeline internals.\n  - Current-state questions may be answered directly from this context without calling timeline_resolve.\n  - Past recall, reflective recall, and continuity-judgment questions still require timeline_resolve.\n\n你现在穿什么，在干嘛？",
-        "traces": []
-      },
-      "same": {
-        "sessionKey": "agent:main:readme-9b3ab1d2-0cb5-41f5-aed1-9ea3b8c32a1a",
-        "runId": "2357e17b-123f-43c3-aaa2-8a11c4ae4627",
-        "text": "对，还是那身浅色家居服，一直坐在书房里没换过。",
-        "model": [
-          "gemini-3.8-flash",
-          "gemini-3.8-flash"
-        ],
-        "promptContext": "Timeline prompt context:\n- status: active_instant\n- source: same_day_fast_hit\n- direct_current_state_answers_allowed: yes\n- location: 家中书房\n- activity: 整理蓝色笔记本里的读书摘录\n- time_of_day: evening\n- environment_mood: warm evening atmosphere, weekend ease, grounded indoor routine\n- reply_modulation:\n  - tone: focused\n  - pacing: measured\n  - question_density: low\n  - initiative: medium\n- guidance:\n  - Use this active instant context to modulate tone and pacing without mentioning timeline internals.\n  - Current-state questions may be answered directly from this context without calling timeline_resolve.\n  - Past recall, reflective recall, and continuity-judgment questions still require timeline_resolve.\n\n还是刚才那身衣服吗？",
-        "traces": [
-          {
-            "trace_id": "timeline-1793540945496-76957",
-            "event": "timeline_resolve",
-            "ts": "2026-11-01T13:49:05.957Z",
-            "payload": {
-              "ok": true,
-              "requested_range": "now",
-              "error": null,
-              "resolution_mode": "read_only_hit",
-              "notes": [
-                "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
-                "Time interpretation: Fallback reasoner treated the request as a current-moment query.",
-                "Raw error: agent.wait observation cancelled"
-              ],
-              "trace": {
-                "trace_id": "timeline-1793540945496-76957",
-                "ts": "2026-11-01T13:49:05.957Z",
-                "requested_range": "now",
-                "actual_range": "now",
-                "source_order": [
-                  "sessions_history",
-                  "memory_get"
-                ],
-                "source_summary": {
-                  "sessions_history_count": 0,
-                  "sessions_history_preview": null,
-                  "memory_chars": 329,
-                  "memory_search_count": 0,
-                  "memory_search_preview": [],
-                  "parsed_episode_count": 1,
-                  "selected_episode_timestamp": "2026-11-01T21:38:40+08:00"
-                },
-                "fingerprint": {
-                  "checked": true,
-                  "matched": true,
-                  "compared_episodes": 1,
-                  "idempotency_key": "20261101|家中书房|整理蓝色笔记本里的读书摘录|21:30",
-                  "matched_episode_timestamp": "2026-11-01T21:38:40+08:00",
-                  "reason": "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid."
-                },
-                "appearance": {
-                  "inherited": false,
-                  "reason": "existing canon reused after LLM reasoner selected a matching fact",
-                  "source_episode_timestamp": "2026-11-01T21:38:40+08:00"
-                },
-                "write": {
-                  "attempted": false,
-                  "succeeded": false,
-                  "guard": "not_attempted",
-                  "outcome": "not_attempted",
-                  "writer": "stella-timeline-plugin"
-                },
-                "decision": {
-                  "resolution_mode": "read_only_hit",
-                  "write_outcome": "not_attempted",
-                  "category": "now"
-                },
-                "notes": [
-                  "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
-                  "Time interpretation: Fallback reasoner treated the request as a current-moment query.",
-                  "Raw error: agent.wait observation cancelled"
-                ]
-              }
-            }
-          }
-        ]
-      },
-      "exercise": {
-        "ok": true,
-        "trace_id": "timeline-1793540952012-58246",
-        "transition": {
-          "event_id": "trans-1793540963574",
-          "summary": "停止整理笔记，换上运动服前往社区健身房锻炼",
-          "estimated_duration_minutes": 60,
-          "started_at": "2026-11-01T21:49:12+08:00",
-          "expected_end_at": "2026-11-01T22:49:12+08:00",
-          "requires_persona_update": false,
-          "persona_update_data": null
-        },
-        "canon_write": {
-          "success": true,
-          "file_path": "C:\\Users\\shixiong\\HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547\\her-live-4oXbhb\\workspace\\memory\\2026-11-01.md"
-        },
-        "notes": [
-          "Event interrupt execution recorded."
-        ],
-        "trace": {
-          "trace_id": "timeline-1793540952012-58246",
-          "ts": "2026-11-01T13:49:23.587Z",
-          "directive": "先停下整理笔记，换上黑色运动上衣和运动裤去社区健身房锻炼。",
-          "active_facts_found": 1,
-          "interruption_handling": "interrupt",
-          "interrupted_event_id": "fixture-51149906-7f0a-4896-851f-925ea8d52aad",
-          "truncate_ok": true,
-          "requires_persona_update": false,
-          "write": {
-            "success": true,
-            "file_path": "C:\\Users\\shixiong\\HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547\\her-live-4oXbhb\\workspace\\memory\\2026-11-01.md"
-          },
-          "notes": [
-            "Event interrupt execution recorded."
-          ]
-        }
-      },
-      "during": {
-        "sessionKey": "agent:main:readme-03c47da5-98fd-4dee-94a0-5f1710783ad0",
-        "runId": "e1c5e64d-9120-422b-aab0-aae5ddd73e51",
-        "text": "我现在在社区健身房这边，正在做些简单的锻炼和力量拉伸呢。\n\n身上穿的是黑色的运动上衣和运动裤，头发也利落地扎起来了，动一动感觉整个人都轻松不少。你今天晚上在忙什么呢？",
-        "model": [
-          "gemini-3.8-flash",
-          "gemini-3.8-flash"
-        ],
-        "promptContext": "Timeline prompt context:\n- status: active_instant\n- source: same_day_fast_hit\n- direct_current_state_answers_allowed: yes\n- location: 社区健身房\n- activity: 进行锻炼和力量拉伸\n- time_of_day: evening\n- environment_mood: warm evening atmosphere, weekend ease, active physical energy\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - Use this active instant context to modulate tone and pacing without mentioning timeline internals.\n  - Current-state questions may be answered directly from this context without calling timeline_resolve.\n  - Past recall, reflective recall, and continuity-judgment questions still require timeline_resolve.\n\n你现在在哪里，穿的是什么？",
-        "traces": [
-          {
-            "trace_id": "timeline-1793540972116-65654",
-            "event": "timeline_resolve",
-            "ts": "2026-11-01T13:49:32.653Z",
-            "payload": {
-              "ok": true,
-              "requested_range": "now",
-              "error": null,
-              "resolution_mode": "read_only_hit",
-              "notes": [
-                "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
-                "Time interpretation: Fallback reasoner treated the request as a current-moment query.",
-                "Raw error: agent.wait observation cancelled"
-              ],
-              "trace": {
-                "trace_id": "timeline-1793540972116-65654",
-                "ts": "2026-11-01T13:49:32.653Z",
-                "requested_range": "now",
-                "actual_range": "now",
-                "source_order": [
-                  "sessions_history",
-                  "memory_get"
-                ],
-                "source_summary": {
-                  "sessions_history_count": 0,
-                  "sessions_history_preview": null,
-                  "memory_chars": 624,
-                  "memory_search_count": 0,
-                  "memory_search_preview": [],
-                  "parsed_episode_count": 2,
-                  "selected_episode_timestamp": "2026-11-01T21:49:12+08:00"
-                },
-                "fingerprint": {
-                  "checked": true,
-                  "matched": true,
-                  "compared_episodes": 2,
-                  "idempotency_key": "20261101|社区健身房|进行锻炼和力量拉伸|21:30",
-                  "matched_episode_timestamp": "2026-11-01T21:49:12+08:00",
-                  "reason": "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid."
-                },
-                "appearance": {
-                  "inherited": false,
-                  "reason": "existing canon reused after LLM reasoner selected a matching fact",
-                  "source_episode_timestamp": "2026-11-01T21:49:12+08:00"
-                },
-                "write": {
-                  "attempted": false,
-                  "succeeded": false,
-                  "guard": "not_attempted",
-                  "outcome": "not_attempted",
-                  "writer": "stella-timeline-plugin"
-                },
-                "decision": {
-                  "resolution_mode": "read_only_hit",
-                  "write_outcome": "not_attempted",
-                  "category": "now"
-                },
-                "notes": [
-                  "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
-                  "Time interpretation: Fallback reasoner treated the request as a current-moment query.",
-                  "Raw error: agent.wait observation cancelled"
-                ]
-              }
-            }
-          }
-        ]
-      },
-      "home": {
-        "ok": true,
-        "trace_id": "timeline-1793540978427-86686",
-        "transition": {
-          "event_id": "trans-1793540988560",
-          "summary": "结束健身房锻炼，回家洗澡更衣，并在客厅休息",
-          "estimated_duration_minutes": 60,
-          "started_at": "2026-11-01T21:49:38+08:00",
-          "expected_end_at": "2026-11-01T22:49:38+08:00",
-          "requires_persona_update": false,
-          "persona_update_data": null
-        },
-        "canon_write": {
-          "success": true,
-          "file_path": "C:\\Users\\shixiong\\HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547\\her-live-4oXbhb\\workspace\\memory\\2026-11-01.md"
-        },
-        "notes": [
-          "Event interrupt execution recorded."
-        ],
-        "trace": {
-          "trace_id": "timeline-1793540978427-86686",
-          "ts": "2026-11-01T13:49:48.573Z",
-          "directive": "锻炼先到这里，现在回家洗澡，然后换回浅色家居服坐在客厅休息。",
-          "active_facts_found": 1,
-          "interruption_handling": "interrupt",
-          "interrupted_event_id": "trans-1793540963574",
-          "truncate_ok": true,
-          "requires_persona_update": false,
-          "write": {
-            "success": true,
-            "file_path": "C:\\Users\\shixiong\\HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547\\her-live-4oXbhb\\workspace\\memory\\2026-11-01.md"
-          },
-          "notes": [
-            "Event interrupt execution recorded."
-          ]
-        }
-      },
-      "after": {
-        "sessionKey": "agent:main:readme-1928e888-a777-48f1-bfa2-92004ed42b47",
-        "runId": "67118d91-b759-4fbb-a1a6-017d31c5e4bb",
-        "text": "没有啦，洗完澡已经换回浅色家居服了，正窝在客厅沙发上歇着呢。你刚进门吗？今天外面冷不冷？",
-        "model": [
-          "gemini-3.8-flash"
-        ],
-        "promptContext": "Timeline prompt context:\n- status: active_instant\n- source: same_day_fast_hit\n- direct_current_state_answers_allowed: yes\n- location: 家中客厅\n- activity: 洗完澡后换回浅色家居服，坐在客厅沙发上放松休息\n- time_of_day: evening\n- environment_mood: warm evening atmosphere, weekend ease, grounded indoor routine\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - Use this active instant context to modulate tone and pacing without mentioning timeline internals.\n  - Current-state questions may be answered directly from this context without calling timeline_resolve.\n  - Past recall, reflective recall, and continuity-judgment questions still require timeline_resolve.\n\n刚回家，现在穿的还是运动服吗？",
-        "traces": []
-      },
-      "files": {
-        "2026-11-01.md": "# 每日日记\n\n普通笔记：这里的自由文本必须保留。\n\n### [21:38:40]\n\n- Timestamp: 2026-11-01 21:38:40\n- Location: 家中书房\n- Action: 整理蓝色笔记本里的读书摘录\n- Emotion_Tags: [平静]\n- Appearance: 浅色家居服\n- Internal_Monologue: 慢慢把读过的内容理顺。\n- Estimated_Duration: 11\n- Event_Id: fixture-51149906-7f0a-4896-851f-925ea8d52aad\n<!-- timeline:timestamp=2026-11-01T21:38:40+08:00 -->\n\n### [21:49:12]\n\n- Timestamp: 2026-11-01 21:49:12\n- Location: 社区健身房\n- Action: 进行锻炼和力量拉伸\n- Emotion_Tags: [活力, 专注]\n- Appearance: 黑色运动上衣，运动裤，头发扎起\n- Internal_Monologue: 稍微运动一下出出汗，整个人精神多了。\n- Estimated_Duration: 1\n- Event_Id: trans-1793540963574\n<!-- timeline:timestamp=2026-11-01T21:49:12+08:00 -->\n\n### [21:49:38]\n\n- Timestamp: 2026-11-01 21:49:38\n- Location: 家中客厅\n- Action: 洗完澡后换回浅色家居服，坐在客厅沙发上放松休息\n- Emotion_Tags: [放松, 舒适, 惬意]\n- Appearance: 换上了浅色家居服，头发微湿自然披在肩上，神态轻松\n- Internal_Monologue: 运动完洗个热水澡真舒服，换回舒服的衣服坐在客厅，终于可以好好放松一下了。\n- Estimated_Duration: 60\n- Event_Id: trans-1793540988560\n<!-- timeline:timestamp=2026-11-01T21:49:38+08:00 -->\n\n"
-      }
-    },
-    "R09": {
-      "quiet": {
-        "sessionKey": "agent:main:readme-0479fd79-6446-4056-b2b7-8b6cee866a79",
-        "runId": "ee540603-5aba-49c4-9bed-5e7ec2909c10",
-        "text": "我这边挺安静的。正坐在书房里校对一篇稿子，手边泡了杯乌龙茶，慢慢翻着。\n\n你今天过得怎么样？这会儿是刚忙完准备休息，还是有什么想聊聊的？",
-        "model": [
-          "gemini-3.8-flash"
-        ],
-        "promptContext": "Timeline prompt context:\n- status: active_instant\n- source: same_day_fast_hit\n- direct_current_state_answers_allowed: yes\n- location: 安静的家中书房\n- activity: 独自专心校对文章，窗边放着乌龙茶\n- time_of_day: evening\n- environment_mood: warm evening atmosphere, weekend ease, grounded indoor routine\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - Use this active instant context to modulate tone and pacing without mentioning timeline internals.\n  - Current-state questions may be answered directly from this context without calling timeline_resolve.\n  - Past recall, reflective recall, and continuity-judgment questions still require timeline_resolve.\n\n陪我聊两句吧，你那边怎么样？",
-        "traces": []
-      },
-      "lively": {
-        "sessionKey": "agent:main:readme-2ae9d6e8-22da-4886-9253-3174a1776bef",
-        "runId": "3e91c42c-af26-41ed-b4d4-32ae9232f153",
-        "text": "我这边挺好的，正坐在梧桐咖啡馆里呢。店里放着轻快的音乐，热热闹闹的，我在等一个朋友，她应该马上就到了。\n\n你今天过得怎么样？这会儿在忙些什么，还是已经准备休息啦？",
-        "model": [
-          "gemini-3.8-flash"
-        ],
-        "promptContext": "Timeline prompt context:\n- status: active_instant\n- source: same_day_fast_hit\n- direct_current_state_answers_allowed: yes\n- location: 热闹的梧桐咖啡馆\n- activity: 朋友马上就到，店里正在放轻快音乐，我在等她一起聊天\n- time_of_day: evening\n- environment_mood: warm evening atmosphere, weekend ease, quiet urban outing\n- reply_modulation:\n  - tone: warm\n  - pacing: easy\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - Use this active instant context to modulate tone and pacing without mentioning timeline internals.\n  - Current-state questions may be answered directly from this context without calling timeline_resolve.\n  - Past recall, reflective recall, and continuity-judgment questions still require timeline_resolve.\n\n陪我聊两句吧，你那边怎么样？",
-        "traces": []
-      },
-      "semanticToneReview": "requires human review of captured natural replies"
-    },
-    "R10": {
-      "response": {
-        "ok": true,
-        "schema_version": "1.0",
-        "trace_id": "timeline-1793541025937-23918",
-        "resolution_summary": {
-          "mode": "generated_new",
-          "writes_attempted": 1,
-          "writes_succeeded": 1,
-          "sources": [
-            "sessions_history",
-            "memory_get"
-          ],
-          "confidence_min": 0.9,
-          "confidence_max": 0.9
-        },
-        "result": {
-          "schema_version": "1.0",
-          "document_type": "timeline.window",
-          "anchor": {
-            "now": "2026-11-01T21:50:25+08:00",
-            "timezone": "Asia/Shanghai"
-          },
-          "window": {
-            "calendar_date": "2026-11-01",
-            "preset": "now",
-            "semantic_target": "now",
-            "collection_scope": "today_so_far",
-            "start": "2026-11-01T00:00:00+08:00",
-            "end": "2026-11-01T21:50:25+08:00",
-            "idempotency_key": "20261101|新住处客厅|坐在地毯上拆开其中几个纸箱把常用的几本参考书和杂物拿出来分类摆放|21:30"
-          },
-          "resolution": {
-            "mode": "generated_new",
-            "notes": "搬家已运抵新住处并进入晚间整理阶段，正在新住处拆箱整理最先用到的书籍和生活零碎物品 | Time interpretation: 用户询问当前具体在做什么，处于搬家宏观事件（12小时）进行至约3小时的时间点，需要细化出当前具体的瞬时阶段 | generated candidate persisted via append-only writer"
-          },
-          "consumption": {
-            "schema_version": "1.0",
-            "document_type": "timeline.consumption",
-            "query": {
-              "preset": "now",
-              "semantic_target": "now",
-              "collection_scope": "today_so_far",
-              "resolution_mode": "generated_new",
-              "time_interpretation": {
-                "normalized_kind": "now",
-                "normalized_point": "2026-11-01T21:50:25+08:00",
-                "match_strategy": "generated",
-                "summary": "用户询问当前具体在做什么，处于搬家宏观事件（12小时）进行至约3小时的时间点，需要细化出当前具体的瞬时阶段"
-              }
-            },
-            "fact": {
-              "status": "resolved",
-              "source_type": "generated",
-              "timestamp": "2026-11-01T21:50:25+08:00",
-              "summary": "在新住处客厅坐在地毯上拆开其中几个纸箱，把常用的几本参考书和杂物拿出来分类摆放",
-              "confidence": 0.9,
-              "continuity": {
-                "judged": true,
-                "is_continuing": true,
-                "reason": "当前时间落在宏观搬家事件的持续窗口内（已进行180分钟/共720分钟），生成承接该搬家主线的具体细分阶段"
-              }
-            },
-            "scene": {
-              "location": "新住处客厅",
-              "activity": "坐在地毯上拆开其中几个纸箱，把常用的几本参考书和杂物拿出来分类摆放",
-              "emotion_primary": "微倦",
-              "emotion_secondary": "专注",
-              "appearance": "方便搬运的灰色T恤和长裤",
-              "time_of_day": "evening",
-              "summary": "在新住处客厅坐在地毯上拆开其中几个纸箱，把常用的几本参考书和杂物拿出来分类摆放",
-              "city": "上海",
-              "calendar_date": "2026-11-01",
-              "local_timestamp": "2026-11-01T21:50:25+08:00",
-              "timezone": "Asia/Shanghai",
-              "activity_mode": "domestic",
-              "continuity_relation": "shifted_scene",
-              "environment_mood": "warm evening atmosphere, weekend ease",
-              "appearance_change_expected": false,
-              "lighting_hint": "warm indoor or dusk light",
-              "estimated_duration_minutes": 60,
-              "event_id": "evt-20261101-215025",
-              "parent_event_tag": "moving-macro",
-              "parent_event_phase": "unpacking-essentials",
-              "parent_event_progress": 0.25
-            },
-            "selfie_ready": {
-              "location": "上海 新住处客厅",
-              "activity": "坐在地毯上拆开其中几个纸箱，把常用的几本参考书和杂物拿出来分类摆放",
-              "emotion": "微倦 with a 专注 undertone",
-              "appearance": "方便搬运的灰色T恤和长裤",
-              "time_of_day": "上海 weekend evening",
-              "summary": "上海 新住处客厅: 坐在地毯上拆开其中几个纸箱，把常用的几本参考书和杂物拿出来分类摆放 in 方便搬运的灰色T恤和长裤, feeling 微倦 with a 专注 undertone."
-            }
-          },
-          "episodes": [
-            {
-              "episode_id": "sys-1793541043397-5580",
-              "schema_version": "1.0",
-              "document_type": "timeline.episode",
-              "temporal": {
-                "start": "2026-11-01T21:50:25+08:00",
-                "end": "2026-11-01T22:50:25+08:00",
-                "time_of_day": "evening",
-                "granularity": "block"
-              },
-              "narrative": {
-                "summary": "在新住处客厅坐在地毯上拆开其中几个纸箱，把常用的几本参考书和杂物拿出来分类摆放",
-                "detail": "先把今晚和明早要用的东西翻出来，剩下的明天再慢慢归置也不迟。"
-              },
-              "state_snapshot": {
-                "scene": {
-                  "location_kind": "literal",
-                  "location_label": "新住处客厅",
-                  "activity": "坐在地毯上拆开其中几个纸箱，把常用的几本参考书和杂物拿出来分类摆放",
-                  "time_of_day": "evening"
-                },
-                "emotion": {
-                  "primary": "微倦",
-                  "secondary": "专注",
-                  "intensity": 0
-                },
-                "appearance": {
-                  "outfit_style": "方便搬运的灰色T恤和长裤",
-                  "grooming": null,
-                  "posture_energy": null
-                }
-              },
-              "world_hooks": {
-                "weekday": false,
-                "holiday_key": null
-              },
-              "provenance": {
-                "writer": "stella-timeline-plugin",
-                "written_at": "2026-11-01T13:50:43.397Z",
-                "idempotency_key": "20261101|新住处客厅|坐在地毯上拆开其中几个纸箱把常用的几本参考书和杂物拿出来分类摆放|21:30",
-                "confidence": 0.9
-              }
-            }
-          ]
-        },
-        "notes": [
-          "搬家已运抵新住处并进入晚间整理阶段，正在新住处拆箱整理最先用到的书籍和生活零碎物品",
-          "Time interpretation: 用户询问当前具体在做什么，处于搬家宏观事件（12小时）进行至约3小时的时间点，需要细化出当前具体的瞬时阶段",
-          "No reusable canon entry found; generated a timeline memory from the LLM draft.",
-          "Generation basis: 承接搬家事件的进行阶段，属于运抵新居后的拆箱归位子阶段",
-          "Persona context loaded: persona contract signals available",
-          "Appearance resolution: inherited from latest known same-day appearance",
-          "Generated episode persisted to C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-4oXbhb/workspace/memory/2026-11-01.md."
-        ],
-        "trace": {
-          "trace_id": "timeline-1793541025937-23918",
-          "ts": "2026-11-01T13:50:43.411Z",
-          "requested_range": "now",
-          "actual_range": "now",
-          "source_order": [
-            "sessions_history",
-            "memory_get"
-          ],
-          "source_summary": {
-            "sessions_history_count": 0,
-            "sessions_history_preview": null,
-            "memory_chars": 326,
-            "memory_search_count": 0,
-            "memory_search_preview": [],
-            "parsed_episode_count": 1
-          },
-          "fingerprint": {
-            "checked": true,
-            "matched": false,
-            "compared_episodes": 1,
-            "idempotency_key": "20261101|新住处客厅|坐在地毯上拆开其中几个纸箱把常用的几本参考书和杂物拿出来分类摆放|21:30",
-            "reason": "承接搬家事件的进行阶段，属于运抵新居后的拆箱归位子阶段"
-          },
-          "appearance": {
-            "inherited": true,
-            "reason": "inherited from latest known same-day appearance",
-            "source_episode_timestamp": "2026-11-01T18:50:25+08:00",
-            "transition": "inherit",
-            "outfit_mode": "casual_home",
-            "change_reason": "same_day_continuation"
-          },
-          "write": {
-            "attempted": true,
-            "succeeded": true,
-            "file_path": "C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-4oXbhb/workspace/memory/2026-11-01.md",
-            "outcome": "appended",
-            "guard": "canonical_path",
-            "writer": "stella-timeline-plugin"
-          },
-          "decision": {
-            "resolution_mode": "generated_new",
-            "write_outcome": "appended",
-            "category": "now"
-          },
-          "notes": [
-            "搬家已运抵新住处并进入晚间整理阶段，正在新住处拆箱整理最先用到的书籍和生活零碎物品",
-            "Time interpretation: 用户询问当前具体在做什么，处于搬家宏观事件（12小时）进行至约3小时的时间点，需要细化出当前具体的瞬时阶段",
-            "No reusable canon entry found; generated a timeline memory from the LLM draft.",
-            "Generation basis: 承接搬家事件的进行阶段，属于运抵新居后的拆箱归位子阶段",
-            "Persona context loaded: persona contract signals available",
-            "Appearance resolution: inherited from latest known same-day appearance",
-            "Generated episode persisted to C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-4oXbhb/workspace/memory/2026-11-01.md."
-          ]
-        }
-      },
-      "answer": {
-        "sessionKey": "agent:main:readme-1bf9cd82-d52d-4dc7-baf1-aa8f7e76ccb4",
-        "runId": "7e38e6a1-d2e2-4792-a40a-405ffb23db89",
-        "text": "现在大部分东西都已经搬进新家了，主要在整理收尾。我正坐在客厅的地毯上拆箱子呢，把常用的几本参考书和一些零碎杂物拿出来分类摆放，先把经常要用的东西拾掇出来。\n\n你那边今天过得怎么样？晚上吃饭了吗？",
-        "model": [
-          "gemini-3.8-flash"
-        ],
-        "promptContext": "Timeline prompt context:\n- status: active_instant\n- source: same_day_fast_hit\n- direct_current_state_answers_allowed: yes\n- location: 新住处客厅\n- activity: 坐在地毯上拆开其中几个纸箱，把常用的几本参考书和杂物拿出来分类摆放\n- time_of_day: evening\n- environment_mood: warm evening atmosphere, weekend ease\n- activity_mode: unknown\n- parent_event_tag: moving-macro\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - Use this active instant context to modulate tone and pacing without mentioning timeline internals.\n  - Current-state questions may be answered directly from this context without calling timeline_resolve.\n  - Past recall, reflective recall, and continuity-judgment questions still require timeline_resolve.\n\n搬家到哪一步了，你现在具体在干嘛？",
-        "traces": []
-      },
-      "files": {
-        "2026-11-01.md": "# 每日日记\n\n普通笔记：这里的自由文本必须保留。\n\n### [18:50:25]\n\n- Timestamp: 2026-11-01 18:50:25\n- Location: 上海新旧住处之间\n- Action: 今天在上海搬家，搬运和整理书籍衣物，预计整段搬家持续十二小时\n- Emotion_Tags: [平静]\n- Appearance: 方便搬运的灰色T恤和长裤\n- Internal_Monologue: 慢慢把读过的内容理顺。\n- Estimated_Duration: 720\n- Event_Id: moving-macro\n<!-- timeline:timestamp=2026-11-01T18:50:25+08:00 -->\n\n### [21:50:25]\n\n- Timestamp: 2026-11-01 21:50:25\n- Location: 新住处客厅\n- Action: 坐在地毯上拆开其中几个纸箱，把常用的几本参考书和杂物拿出来分类摆放\n- Emotion_Tags: [微倦, 专注, 踏实]\n- Appearance: 方便搬运的灰色T恤和长裤\n- Internal_Monologue: 先把今晚和明早要用的东西翻出来，剩下的明天再慢慢归置也不迟。\n- Estimated_Duration: 60\n- Event_Id: evt-20261101-215025\n- Parent_Event: moving-macro\n- Parent_Event_Phase: unpacking-essentials\n- Parent_Event_Progress: 0.25\n<!-- timeline:timestamp=2026-11-01T21:50:25+08:00 -->\n\n"
-      }
-    },
-    "R11": {
-      "response": {
-        "ok": true,
-        "schema_version": "1.0",
-        "trace_id": "timeline-1793541057153-43296",
-        "resolution_summary": {
-          "mode": "generated_new",
-          "writes_attempted": 1,
-          "writes_succeeded": 1,
-          "sources": [
-            "sessions_history",
-            "memory_get"
-          ],
-          "confidence_min": 0.9,
-          "confidence_max": 0.9
-        },
-        "result": {
-          "schema_version": "1.0",
-          "document_type": "timeline.window",
-          "anchor": {
-            "now": "2026-11-01T21:50:57+08:00",
-            "timezone": "Asia/Shanghai"
-          },
-          "window": {
-            "calendar_date": "2026-11-01",
-            "preset": "now",
-            "semantic_target": "now",
-            "collection_scope": "today_so_far",
-            "start": "2026-11-01T00:00:00+08:00",
-            "end": "2026-11-01T21:50:57+08:00",
-            "idempotency_key": "20261101|大理古城附近客栈的二楼露台木椅旁|披着针织开衫坐在客栈露台手里捧着一杯温热的乌龙茶就着桌边微弱的暖光台灯翻看白天的随手笔记听着院子里的风声放空|21:30"
-          },
-          "resolution": {
-            "mode": "generated_new",
-            "notes": "在宏观背景（大理三天旅行中，已抵达大理并在当地旅行）下，夜晚21:50适合在客栈庭院或房间内喝茶、休息、整理一天的见闻，符合小禾安静喜茶的性格特征。 | Time interpretation: 用户询问当前时刻在旅行中所处的具体阶段与正在做的事，结合大理旅行宏观背景与秋季夜晚时间带生成当前瞬时切片 | generated candidate persisted via append-only writer"
-          },
-          "consumption": {
-            "schema_version": "1.0",
-            "document_type": "timeline.consumption",
-            "query": {
-              "preset": "now",
-              "semantic_target": "now",
-              "collection_scope": "today_so_far",
-              "resolution_mode": "generated_new",
-              "time_interpretation": {
-                "normalized_kind": "now",
-                "normalized_point": "2026-11-01T21:50:57+08:00",
-                "match_strategy": "generated",
-                "summary": "用户询问当前时刻在旅行中所处的具体阶段与正在做的事，结合大理旅行宏观背景与秋季夜晚时间带生成当前瞬时切片"
-              }
-            },
-            "fact": {
-              "status": "resolved",
-              "source_type": "generated",
-              "timestamp": "2026-11-01T21:50:57+08:00",
-              "summary": "在大理古城附近客栈的二楼露台木椅旁披着针织开衫坐在客栈露台，手里捧着一杯温热的乌龙茶，就着桌边微弱的暖光台灯翻看白天的随手笔记，听着院子里的风声放空",
-              "confidence": 0.9,
-              "continuity": {
-                "judged": true,
-                "is_continuing": true,
-                "reason": "承接从上海前往大理旅行的宏观背景，当前处于晚上九点多的大理客栈休闲与放松阶段"
-              }
-            },
-            "scene": {
-              "location": "大理古城附近客栈的二楼露台木椅旁",
-              "activity": "披着针织开衫坐在客栈露台，手里捧着一杯温热的乌龙茶，就着桌边微弱的暖光台灯翻看白天的随手笔记，听着院子里的风声放空",
-              "emotion_primary": "惬意",
-              "emotion_secondary": "放松",
-              "appearance": "米白色针织开衫搭配深色长裤，长发随意挽在脑后，脚上穿着客栈的软底拖鞋",
-              "time_of_day": "evening",
-              "summary": "在大理古城附近客栈的二楼露台木椅旁披着针织开衫坐在客栈露台，手里捧着一杯温热的乌龙茶，就着桌边微弱的暖光台灯翻看白天的随手笔记，听着院子里的风声放空",
-              "city": "上海",
-              "calendar_date": "2026-11-01",
-              "local_timestamp": "2026-11-01T21:50:57+08:00",
-              "timezone": "Asia/Shanghai",
-              "activity_mode": "leisure",
-              "continuity_relation": "fresh_moment",
-              "environment_mood": "warm evening atmosphere, weekend ease, grounded indoor routine",
-              "appearance_change_expected": true,
-              "appearance_change_reason": "weather_adjustment",
-              "location_props": [
-                "desk"
-              ],
-              "lighting_hint": "warm indoor or dusk light",
-              "estimated_duration_minutes": 60,
-              "event_id": "evt-20261101-215057",
-              "parent_event_phase": "evening-unwinding"
-            },
-            "selfie_ready": {
-              "location": "上海 大理古城附近客栈的二楼露台木椅旁",
-              "activity": "披着针织开衫坐在客栈露台，手里捧着一杯温热的乌龙茶，就着桌边微弱的暖光台灯翻看白天的随手笔记，听着院子里的风声放空 with desk nearby",
-              "emotion": "惬意 with a 放松 undertone",
-              "appearance": "米白色针织开衫搭配深色长裤，长发随意挽在脑后，脚上穿着客栈的软底拖鞋",
-              "time_of_day": "上海 weekend evening",
-              "summary": "上海 大理古城附近客栈的二楼露台木椅旁: 披着针织开衫坐在客栈露台，手里捧着一杯温热的乌龙茶，就着桌边微弱的暖光台灯翻看白天的随手笔记，听着院子里的风声放空 in 米白色针织开衫搭配深色长裤，长发随意挽在脑后，脚上穿着客栈的软底拖鞋, feeling 惬意 with a 放松 undertone."
-            }
-          },
-          "episodes": [
-            {
-              "episode_id": "sys-1793541075747-712",
-              "schema_version": "1.0",
-              "document_type": "timeline.episode",
-              "temporal": {
-                "start": "2026-11-01T21:50:57+08:00",
-                "end": "2026-11-01T22:50:57+08:00",
-                "time_of_day": "evening",
-                "granularity": "block"
-              },
-              "narrative": {
-                "summary": "在大理古城附近客栈的二楼露台木椅旁披着针织开衫坐在客栈露台，手里捧着一杯温热的乌龙茶，就着桌边微弱的暖光台灯翻看白天的随手笔记，听着院子里的风声放空",
-                "detail": "走了一整天石板路，脚踝稍稍有些酸，不过吹着夜晚凉爽的风喝口热茶，整个人总算彻底松弛下来了。"
-              },
-              "state_snapshot": {
-                "scene": {
-                  "location_kind": "literal",
-                  "location_label": "大理古城附近客栈的二楼露台木椅旁",
-                  "activity": "披着针织开衫坐在客栈露台，手里捧着一杯温热的乌龙茶，就着桌边微弱的暖光台灯翻看白天的随手笔记，听着院子里的风声放空",
-                  "time_of_day": "evening"
-                },
-                "emotion": {
-                  "primary": "惬意",
-                  "secondary": "放松",
-                  "intensity": 0
-                },
-                "appearance": {
-                  "outfit_style": "米白色针织开衫搭配深色长裤，长发随意挽在脑后，脚上穿着客栈的软底拖鞋",
-                  "grooming": null,
-                  "posture_energy": null
-                }
-              },
-              "world_hooks": {
-                "weekday": false,
-                "holiday_key": null
-              },
-              "provenance": {
-                "writer": "stella-timeline-plugin",
-                "written_at": "2026-11-01T13:51:15.747Z",
-                "idempotency_key": "20261101|大理古城附近客栈的二楼露台木椅旁|披着针织开衫坐在客栈露台手里捧着一杯温热的乌龙茶就着桌边微弱的暖光台灯翻看白天的随手笔记听着院子里的风声放空|21:30",
-                "confidence": 0.9
-              }
-            }
-          ]
-        },
-        "notes": [
-          "在宏观背景（大理三天旅行中，已抵达大理并在当地旅行）下，夜晚21:50适合在客栈庭院或房间内喝茶、休息、整理一天的见闻，符合小禾安静喜茶的性格特征。",
-          "Time interpretation: 用户询问当前时刻在旅行中所处的具体阶段与正在做的事，结合大理旅行宏观背景与秋季夜晚时间带生成当前瞬时切片",
-          "No reusable canon entry found; generated a timeline memory from the LLM draft.",
-          "Generation basis: 匹配大理旅行当下阶段：白天行程已结束，进入夜晚归宿客栈的放松与整理阶段",
-          "Persona context loaded: persona contract signals available",
-          "Appearance resolution: no prior same-day appearance found; kept the LLM-provided appearance",
-          "Generated episode persisted to C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-4oXbhb/workspace/memory/2026-11-01.md."
-        ],
-        "trace": {
-          "trace_id": "timeline-1793541057153-43296",
-          "ts": "2026-11-01T13:51:15.758Z",
-          "requested_range": "now",
-          "actual_range": "now",
-          "source_order": [
-            "sessions_history",
-            "memory_get"
-          ],
-          "source_summary": {
-            "sessions_history_count": 0,
-            "sessions_history_preview": null,
-            "memory_chars": 0,
-            "memory_search_count": 0,
-            "memory_search_preview": [],
-            "parsed_episode_count": 0
-          },
-          "fingerprint": {
-            "checked": true,
-            "matched": false,
-            "compared_episodes": 0,
-            "idempotency_key": "20261101|大理古城附近客栈的二楼露台木椅旁|披着针织开衫坐在客栈露台手里捧着一杯温热的乌龙茶就着桌边微弱的暖光台灯翻看白天的随手笔记听着院子里的风声放空|21:30",
-            "reason": "匹配大理旅行当下阶段：白天行程已结束，进入夜晚归宿客栈的放松与整理阶段"
-          },
-          "appearance": {
-            "inherited": false,
-            "reason": "no prior same-day appearance found; kept the LLM-provided appearance",
-            "transition": "change_allowed",
-            "outfit_mode": "casual_home",
-            "change_reason": "weather_adjustment"
-          },
-          "write": {
-            "attempted": true,
-            "succeeded": true,
-            "file_path": "C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-4oXbhb/workspace/memory/2026-11-01.md",
-            "outcome": "appended",
-            "guard": "canonical_path",
-            "writer": "stella-timeline-plugin"
-          },
-          "decision": {
-            "resolution_mode": "generated_new",
-            "write_outcome": "appended",
-            "category": "now"
-          },
-          "notes": [
-            "在宏观背景（大理三天旅行中，已抵达大理并在当地旅行）下，夜晚21:50适合在客栈庭院或房间内喝茶、休息、整理一天的见闻，符合小禾安静喜茶的性格特征。",
-            "Time interpretation: 用户询问当前时刻在旅行中所处的具体阶段与正在做的事，结合大理旅行宏观背景与秋季夜晚时间带生成当前瞬时切片",
-            "No reusable canon entry found; generated a timeline memory from the LLM draft.",
-            "Generation basis: 匹配大理旅行当下阶段：白天行程已结束，进入夜晚归宿客栈的放松与整理阶段",
-            "Persona context loaded: persona contract signals available",
-            "Appearance resolution: no prior same-day appearance found; kept the LLM-provided appearance",
-            "Generated episode persisted to C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-4oXbhb/workspace/memory/2026-11-01.md."
-          ]
-        }
-      },
-      "answer": {
-        "sessionKey": "agent:main:readme-a3c8d664-7b9b-443b-9e23-02cc9b614820",
-        "runId": "502e06c2-9782-4f29-bacc-2f5db9893a11",
-        "text": "还没回上海呢，我现在还在大理古城附近客栈的二楼露台上。\n\n晚上这边风有点凉，我披了件针织开衫坐在木椅上，手里正捧着一杯热乌龙茶。桌边开着一盏微弱的暖光台灯，正在慢慢翻看白天记的一些随手笔记，听着院子里的风声放空，感觉很安静。",
-        "model": [
-          "gemini-3.8-flash"
-        ],
-        "promptContext": "Timeline prompt context:\n- status: active_instant\n- source: same_day_fast_hit\n- direct_current_state_answers_allowed: yes\n- location: 大理古城附近客栈的二楼露台木椅旁\n- activity: 披着针织开衫坐在客栈露台，手里捧着一杯温热的乌龙茶，就着桌边微弱的暖光台灯翻看白天的随手笔记，听着院子里的风声放空\n- time_of_day: evening\n- environment_mood: warm evening atmosphere, weekend ease, grounded indoor routine\n- reply_modulation:\n  - tone: focused\n  - pacing: measured\n  - question_density: low\n  - initiative: medium\n- guidance:\n  - Use this active instant context to modulate tone and pacing without mentioning timeline internals.\n  - Current-state questions may be answered directly from this context without calling timeline_resolve.\n  - Past recall, reflective recall, and continuity-judgment questions still require timeline_resolve.\n\n你现在在做什么，已经回上海家里了吗？",
-        "traces": []
-      },
-      "files": {
-        "2026-10-31.md": "# 每日日记\n\n普通笔记：这里的自由文本必须保留。\n\n### [09:00:00]\n\n- Timestamp: 2026-10-31 09:00:00\n- Location: 大理旅行途中\n- Action: 从上海出发到大理旅行三天，已到大理，今天仍在当地旅行\n- Emotion_Tags: [平静]\n- Appearance: 深蓝外套和长裤\n- Internal_Monologue: 慢慢把读过的内容理顺。\n- Estimated_Duration: 4320\n- Event_Id: travel-macro\n<!-- timeline:timestamp=2026-10-31T09:00:00+08:00 -->\n\n",
-        "2026-11-01.md": "### [21:50:57]\n\n- Timestamp: 2026-11-01 21:50:57\n- Location: 大理古城附近客栈的二楼露台木椅旁\n- Action: 披着针织开衫坐在客栈露台，手里捧着一杯温热的乌龙茶，就着桌边微弱的暖光台灯翻看白天的随手笔记，听着院子里的风声放空\n- Emotion_Tags: [惬意, 放松, 宁静]\n- Appearance: 米白色针织开衫搭配深色长裤，长发随意挽在脑后，脚上穿着客栈的软底拖鞋\n- Internal_Monologue: 走了一整天石板路，脚踝稍稍有些酸，不过吹着夜晚凉爽的风喝口热茶，整个人总算彻底松弛下来了。\n- Estimated_Duration: 60\n- Event_Id: evt-20261101-215057\n- Parent_Event_Phase: evening-unwinding\n<!-- timeline:timestamp=2026-11-01T21:50:57+08:00 -->\n\n"
-      }
-    },
-    "R12": {
-      "response": {
-        "ok": true,
-        "schema_version": "1.0",
-        "trace_id": "timeline-1793541088409-49960",
-        "resolution_summary": {
-          "mode": "generated_new",
-          "writes_attempted": 1,
-          "writes_succeeded": 1,
-          "sources": [
-            "sessions_history",
-            "memory_get"
-          ],
-          "confidence_min": 0.9,
-          "confidence_max": 0.9
-        },
-        "result": {
-          "schema_version": "1.0",
-          "document_type": "timeline.window",
-          "anchor": {
-            "now": "2026-10-31T23:59:59+08:00",
-            "timezone": "Asia/Shanghai"
-          },
-          "window": {
-            "calendar_date": "2026-10-31",
-            "preset": "past_point",
-            "semantic_target": "past_point",
-            "collection_scope": "point_day",
-            "start": "2026-10-31T00:00:00+08:00",
-            "end": "2026-10-31T23:59:59+08:00",
-            "idempotency_key": "20261031|家中书房|坐在书桌前泡了一杯热乌龙茶翻看一本随笔集并随手整理读书摘录|10:00"
-          },
-          "resolution": {
-            "mode": "generated_new",
-            "notes": "周六上午10点，小禾在书房泡了乌龙茶，安静地阅读并整理近期摘录 | Time interpretation: 用户询问2026-10-31上午十点的具体活动，无现有记忆记录，需在周末上午的合理生活节奏内安全补全事实 | generated candidate persisted via append-only writer"
-          },
-          "consumption": {
-            "schema_version": "1.0",
-            "document_type": "timeline.consumption",
-            "query": {
-              "preset": "past_point",
-              "semantic_target": "past_point",
-              "collection_scope": "point_day",
-              "resolution_mode": "generated_new",
-              "time_interpretation": {
-                "normalized_kind": "point",
-                "normalized_point": "2026-10-31T10:00:00+08:00",
-                "match_strategy": "generated",
-                "summary": "用户询问2026-10-31上午十点的具体活动，无现有记忆记录，需在周末上午的合理生活节奏内安全补全事实"
-              }
-            },
-            "fact": {
-              "status": "resolved",
-              "source_type": "generated",
-              "timestamp": "2026-10-31T10:00:00+08:00",
-              "summary": "在家中书房坐在书桌前泡了一杯热乌龙茶，翻看一本随笔集并随手整理读书摘录",
-              "confidence": 0.9,
-              "continuity": {
-                "judged": false,
-                "is_continuing": false,
-                "reason": "目标时间点无前序或重合的既有事实记录，需基于人设周末上午节律生成独立事实"
-              }
-            },
-            "scene": {
-              "location": "家中书房",
-              "activity": "坐在书桌前泡了一杯热乌龙茶，翻看一本随笔集并随手整理读书摘录",
-              "emotion_primary": "平静",
-              "emotion_secondary": "专注",
-              "appearance": "米白色针织长袖家居服，长发随意挽在脑后，戴着细黑框眼镜",
-              "time_of_day": "morning",
-              "summary": "在家中书房坐在书桌前泡了一杯热乌龙茶，翻看一本随笔集并随手整理读书摘录",
-              "city": "上海",
-              "calendar_date": "2026-10-31",
-              "local_timestamp": "2026-10-31T10:00:00+08:00",
-              "timezone": "Asia/Shanghai",
-              "activity_mode": "leisure",
-              "continuity_relation": "fresh_moment",
-              "environment_mood": "morning calm, weekend ease, grounded indoor routine",
-              "appearance_change_expected": false,
-              "location_props": [
-                "desk"
-              ],
-              "lighting_hint": "natural morning light",
-              "framing_hint": "half-body, seated, near-table framing",
-              "estimated_duration_minutes": 90,
-              "event_id": "evt-20261031-100000"
-            },
-            "selfie_ready": {
-              "location": "上海 家中书房",
-              "activity": "坐在书桌前泡了一杯热乌龙茶，翻看一本随笔集并随手整理读书摘录 with desk nearby",
-              "emotion": "平静 with a 专注 undertone",
-              "appearance": "米白色针织长袖家居服，长发随意挽在脑后，戴着细黑框眼镜",
-              "time_of_day": "上海 weekend morning",
-              "summary": "上海 家中书房: 坐在书桌前泡了一杯热乌龙茶，翻看一本随笔集并随手整理读书摘录 in 米白色针织长袖家居服，长发随意挽在脑后，戴着细黑框眼镜, feeling 平静 with a 专注 undertone."
-            }
-          },
-          "episodes": [
-            {
-              "episode_id": "sys-1793541106099-6106",
-              "schema_version": "1.0",
-              "document_type": "timeline.episode",
-              "temporal": {
-                "start": "2026-10-31T10:00:00+08:00",
-                "end": "2026-10-31T11:00:00+08:00",
-                "time_of_day": "morning",
-                "granularity": "block"
-              },
-              "narrative": {
-                "summary": "在家中书房坐在书桌前泡了一杯热乌龙茶，翻看一本随笔集并随手整理读书摘录",
-                "detail": "周末上午难得这么清静，慢慢读完这几章，等会儿再想想午饭吃什么。"
-              },
-              "state_snapshot": {
-                "scene": {
-                  "location_kind": "literal",
-                  "location_label": "家中书房",
-                  "activity": "坐在书桌前泡了一杯热乌龙茶，翻看一本随笔集并随手整理读书摘录",
-                  "time_of_day": "morning"
-                },
-                "emotion": {
-                  "primary": "平静",
-                  "secondary": "专注",
-                  "intensity": 0
-                },
-                "appearance": {
-                  "outfit_style": "米白色针织长袖家居服，长发随意挽在脑后，戴着细黑框眼镜",
-                  "grooming": null,
-                  "posture_energy": null
-                }
-              },
-              "world_hooks": {
-                "weekday": false,
-                "holiday_key": null
-              },
-              "provenance": {
-                "writer": "stella-timeline-plugin",
-                "written_at": "2026-11-01T13:51:46.099Z",
-                "idempotency_key": "20261031|家中书房|坐在书桌前泡了一杯热乌龙茶翻看一本随笔集并随手整理读书摘录|10:00",
-                "confidence": 0.9
-              }
-            }
-          ]
-        },
-        "notes": [
-          "周六上午10点，小禾在书房泡了乌龙茶，安静地阅读并整理近期摘录",
-          "Time interpretation: 用户询问2026-10-31上午十点的具体活动，无现有记忆记录，需在周末上午的合理生活节奏内安全补全事实",
-          "No reusable canon entry found; generated a timeline memory from the LLM draft.",
-          "Generation basis: 符合周六上午居家休闲节律及小禾阅读、喝茶的人设偏好",
-          "Persona context loaded: persona contract signals available",
-          "Appearance resolution: no prior same-day appearance found; kept the LLM-provided appearance",
-          "Generated episode persisted to C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-4oXbhb/workspace/memory/2026-10-31.md."
-        ],
-        "trace": {
-          "trace_id": "timeline-1793541088409-49960",
-          "ts": "2026-11-01T13:51:46.111Z",
-          "requested_range": "past_point",
-          "actual_range": "past_point",
-          "source_order": [
-            "sessions_history",
-            "memory_get"
-          ],
-          "source_summary": {
-            "sessions_history_count": 0,
-            "sessions_history_preview": null,
-            "memory_chars": 0,
-            "memory_search_count": 0,
-            "memory_search_preview": [],
-            "parsed_episode_count": 0
-          },
-          "fingerprint": {
-            "checked": true,
-            "matched": false,
-            "compared_episodes": 0,
-            "idempotency_key": "20261031|家中书房|坐在书桌前泡了一杯热乌龙茶翻看一本随笔集并随手整理读书摘录|10:00",
-            "reason": "符合周六上午居家休闲节律及小禾阅读、喝茶的人设偏好"
-          },
-          "appearance": {
-            "inherited": false,
-            "reason": "no prior same-day appearance found; kept the LLM-provided appearance",
-            "transition": "inherit",
-            "outfit_mode": "casual_home",
-            "change_reason": "same_day_continuation"
-          },
-          "write": {
-            "attempted": true,
-            "succeeded": true,
-            "file_path": "C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-4oXbhb/workspace/memory/2026-10-31.md",
-            "outcome": "appended",
-            "guard": "canonical_path",
-            "writer": "stella-timeline-plugin"
-          },
-          "decision": {
-            "resolution_mode": "generated_new",
-            "write_outcome": "appended",
-            "category": "past_point"
-          },
-          "notes": [
-            "周六上午10点，小禾在书房泡了乌龙茶，安静地阅读并整理近期摘录",
-            "Time interpretation: 用户询问2026-10-31上午十点的具体活动，无现有记忆记录，需在周末上午的合理生活节奏内安全补全事实",
-            "No reusable canon entry found; generated a timeline memory from the LLM draft.",
-            "Generation basis: 符合周六上午居家休闲节律及小禾阅读、喝茶的人设偏好",
-            "Persona context loaded: persona contract signals available",
-            "Appearance resolution: no prior same-day appearance found; kept the LLM-provided appearance",
-            "Generated episode persisted to C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-4oXbhb/workspace/memory/2026-10-31.md."
-          ]
-        }
-      },
-      "files": {
-        "2026-10-31.md": "### [10:00:00]\n\n- Timestamp: 2026-10-31 10:00:00\n- Location: 家中书房\n- Action: 坐在书桌前泡了一杯热乌龙茶，翻看一本随笔集并随手整理读书摘录\n- Emotion_Tags: [平静, 专注, 惬意]\n- Appearance: 米白色针织长袖家居服，长发随意挽在脑后，戴着细黑框眼镜\n- Internal_Monologue: 周末上午难得这么清静，慢慢读完这几章，等会儿再想想午饭吃什么。\n- Estimated_Duration: 90\n- Event_Id: evt-20261031-100000\n<!-- timeline:timestamp=2026-10-31T10:00:00+08:00 -->\n\n"
-      }
-    },
-    "R13": {
-      "first": {
-        "ok": true,
-        "schema_version": "1.0",
-        "trace_id": "timeline-1793541106189-95292",
-        "resolution_summary": {
-          "mode": "read_only_hit",
-          "writes_attempted": 0,
-          "writes_succeeded": 0,
-          "sources": [
-            "sessions_history",
-            "memory_get"
-          ],
-          "confidence_min": 1,
-          "confidence_max": 1
-        },
-        "result": {
-          "schema_version": "1.0",
-          "document_type": "timeline.window",
-          "anchor": {
-            "now": "2026-11-01T21:51:46+08:00",
-            "timezone": "Asia/Shanghai"
-          },
-          "window": {
-            "calendar_date": "2026-11-01",
-            "preset": "past_range",
-            "semantic_target": "past_range",
-            "collection_scope": "explicit_range",
-            "start": "2026-11-01T21:20:00+08:00",
-            "end": "2026-11-01T21:51:46+08:00",
-            "idempotency_key": "20261101|家中书房|整理蓝色笔记本里的读书摘录|21:30"
-          },
-          "resolution": {
-            "mode": "read_only_hit",
-            "notes": "命中了每日日记中 21:41:46 记录的事实，活动为在书房整理读书摘录，且处于持续有效窗口内。 | Time interpretation: 用户询问‘刚才你在做什么？’，对应当前时刻前不久的时间范围（21:20:00 至 21:51:46）。候选记录中存在一条 21:41:46 记录的真实事实，预估持续 90 分钟，正好覆盖该时间段。"
-          },
-          "consumption": {
-            "schema_version": "1.0",
-            "document_type": "timeline.consumption",
-            "query": {
-              "preset": "past_range",
-              "semantic_target": "past_range",
-              "collection_scope": "explicit_range",
-              "resolution_mode": "read_only_hit",
-              "time_interpretation": {
-                "normalized_kind": "range",
-                "normalized_point": null,
-                "normalized_start": "2026-11-01T21:20:00+08:00",
-                "normalized_end": "2026-11-01T21:51:46+08:00",
-                "match_strategy": "exact_match",
-                "summary": "用户询问‘刚才你在做什么？’，对应当前时刻前不久的时间范围（21:20:00 至 21:51:46）。候选记录中存在一条 21:41:46 记录的真实事实，预估持续 90 分钟，正好覆盖该时间段。"
-              }
-            },
-            "fact": {
-              "status": "resolved",
-              "source_type": "canon",
-              "timestamp": "2026-11-01T21:41:46+08:00",
-              "summary": "在家中书房整理蓝色笔记本里的读书摘录",
-              "confidence": 1,
-              "continuity": {
-                "judged": true,
-                "is_continuing": true,
-                "reason": "该记录发生在 21:41:46，处于目标时间范围内，预估时长 90 分钟，距离当前时刻仅过去 10 分钟，活动自然持续且与当前状态一致。"
-              }
-            },
-            "scene": {
-              "location": "家中书房",
-              "activity": "整理蓝色笔记本里的读书摘录",
-              "emotion_primary": "平静",
-              "emotion_secondary": null,
-              "appearance": "浅色家居服",
-              "time_of_day": "evening",
-              "summary": "在家中书房整理蓝色笔记本里的读书摘录",
-              "city": "上海",
-              "calendar_date": "2026-11-01",
-              "local_timestamp": "2026-11-01T21:41:46+08:00",
-              "timezone": "Asia/Shanghai",
-              "continuity_relation": "same_scene_continuation",
-              "environment_mood": "warm evening atmosphere, weekend ease, grounded indoor routine",
-              "location_props": [
-                "desk"
-              ],
-              "lighting_hint": "warm indoor or dusk light",
-              "framing_hint": "half-body, seated, near-table framing",
-              "estimated_duration_minutes": 90,
-              "event_id": "fixture-8ce662ca-aca0-48b1-bb9c-61fec24b5543"
-            },
-            "selfie_ready": {
-              "location": "上海 家中书房",
-              "activity": "整理蓝色笔记本里的读书摘录 with desk nearby",
-              "emotion": "平静",
-              "appearance": "浅色家居服",
-              "time_of_day": "上海 weekend evening",
-              "summary": "上海 家中书房: 整理蓝色笔记本里的读书摘录 in 浅色家居服, feeling 平静."
-            }
-          },
-          "episodes": [
-            {
-              "episode_id": "sys-1793541129747-2766",
-              "schema_version": "1.0",
-              "document_type": "timeline.episode",
-              "temporal": {
-                "start": "2026-11-01T21:41:46+08:00",
-                "end": "2026-11-01T22:41:46+08:00",
-                "time_of_day": "evening",
-                "granularity": "block"
-              },
-              "narrative": {
-                "summary": "在家中书房整理蓝色笔记本里的读书摘录",
-                "detail": "慢慢把读过的内容理顺。"
-              },
-              "state_snapshot": {
-                "scene": {
-                  "location_kind": "literal",
-                  "location_label": "家中书房",
-                  "activity": "整理蓝色笔记本里的读书摘录",
-                  "time_of_day": "evening"
-                },
-                "emotion": {
-                  "primary": "平静",
-                  "secondary": null,
-                  "intensity": 0
-                },
-                "appearance": {
-                  "outfit_style": "浅色家居服",
-                  "grooming": null,
-                  "posture_energy": null
-                }
-              },
-              "world_hooks": {
-                "weekday": false,
-                "holiday_key": null
-              },
-              "provenance": {
-                "writer": "stella-timeline-plugin",
-                "written_at": "2026-11-01T13:52:09.747Z",
-                "idempotency_key": "20261101|家中书房|整理蓝色笔记本里的读书摘录|21:30",
-                "confidence": 1
-              }
-            }
-          ]
-        },
-        "notes": [
-          "命中了每日日记中 21:41:46 记录的事实，活动为在书房整理读书摘录，且处于持续有效窗口内。",
-          "Time interpretation: 用户询问‘刚才你在做什么？’，对应当前时刻前不久的时间范围（21:20:00 至 21:51:46）。候选记录中存在一条 21:41:46 记录的真实事实，预估持续 90 分钟，正好覆盖该时间段。"
-        ],
-        "trace": {
-          "trace_id": "timeline-1793541106189-95292",
-          "ts": "2026-11-01T13:52:09.747Z",
-          "requested_range": "past_range",
-          "actual_range": "past_range",
-          "source_order": [
-            "sessions_history",
-            "memory_get"
-          ],
-          "source_summary": {
-            "sessions_history_count": 0,
-            "sessions_history_preview": null,
-            "memory_chars": 329,
-            "memory_search_count": 0,
-            "memory_search_preview": [],
-            "parsed_episode_count": 1,
-            "selected_episode_timestamp": "2026-11-01T21:41:46+08:00"
-          },
-          "fingerprint": {
-            "checked": true,
-            "matched": true,
-            "compared_episodes": 1,
-            "idempotency_key": "20261101|家中书房|整理蓝色笔记本里的读书摘录|21:30",
-            "matched_episode_timestamp": "2026-11-01T21:41:46+08:00",
-            "reason": "命中了每日日记中 21:41:46 记录的事实，活动为在书房整理读书摘录，且处于持续有效窗口内。"
-          },
-          "appearance": {
-            "inherited": false,
-            "reason": "existing canon reused after LLM reasoner selected a matching fact",
-            "source_episode_timestamp": "2026-11-01T21:41:46+08:00"
-          },
-          "write": {
-            "attempted": false,
-            "succeeded": false,
-            "guard": "not_attempted",
-            "outcome": "not_attempted",
-            "writer": "stella-timeline-plugin"
-          },
-          "decision": {
-            "resolution_mode": "read_only_hit",
-            "write_outcome": "not_attempted",
-            "category": "past_range"
-          },
-          "notes": [
-            "命中了每日日记中 21:41:46 记录的事实，活动为在书房整理读书摘录，且处于持续有效窗口内。",
-            "Time interpretation: 用户询问‘刚才你在做什么？’，对应当前时刻前不久的时间范围（21:20:00 至 21:51:46）。候选记录中存在一条 21:41:46 记录的真实事实，预估持续 90 分钟，正好覆盖该时间段。"
-          ]
-        }
-      },
-      "second": {
-        "ok": true,
-        "schema_version": "1.0",
-        "trace_id": "timeline-1793541129790-27723",
-        "resolution_summary": {
-          "mode": "read_only_hit",
-          "writes_attempted": 0,
-          "writes_succeeded": 0,
-          "sources": [
-            "sessions_history",
-            "memory_get"
-          ],
-          "confidence_min": 1,
-          "confidence_max": 1
-        },
-        "result": {
-          "schema_version": "1.0",
-          "document_type": "timeline.window",
-          "anchor": {
-            "now": "2026-11-01T21:52:09+08:00",
-            "timezone": "Asia/Shanghai"
-          },
-          "window": {
-            "calendar_date": "2026-11-01",
-            "preset": "past_range",
-            "semantic_target": "past_range",
-            "collection_scope": "explicit_range",
-            "start": "2026-11-01T21:22:09+08:00",
-            "end": "2026-11-01T21:52:09+08:00",
-            "idempotency_key": "20261101|家中书房|整理蓝色笔记本里的读书摘录|21:30"
-          },
-          "resolution": {
-            "mode": "read_only_hit",
-            "notes": "在请求的过去时间窗口内存在完全匹配的每日日志记录，明确指明整理的是蓝色笔记本中的读书摘录。 | Time interpretation: 用户询问刚才整理的是哪本笔记，目标时间锁定在过去半小时内。日记记录显示21:41正在整理蓝色笔记本里的读书摘录，精准命中。"
-          },
-          "consumption": {
-            "schema_version": "1.0",
-            "document_type": "timeline.consumption",
-            "query": {
-              "preset": "past_range",
-              "semantic_target": "past_range",
-              "collection_scope": "explicit_range",
-              "resolution_mode": "read_only_hit",
-              "time_interpretation": {
-                "normalized_kind": "range",
-                "normalized_start": "2026-11-01T21:22:09+08:00",
-                "normalized_end": "2026-11-01T21:52:09+08:00",
-                "match_strategy": "exact_match",
-                "summary": "用户询问刚才整理的是哪本笔记，目标时间锁定在过去半小时内。日记记录显示21:41正在整理蓝色笔记本里的读书摘录，精准命中。"
-              }
-            },
-            "fact": {
-              "status": "resolved",
-              "source_type": "canon",
-              "timestamp": "2026-11-01T21:41:46+08:00",
-              "summary": "在家中书房整理蓝色笔记本里的读书摘录",
-              "confidence": 1,
-              "continuity": {
-                "judged": true,
-                "is_continuing": true,
-                "reason": "目标事实发生在21:41:46，处于查询的时间范围（21:22至21:52）内，且预估持续时长为90分钟，当前状态依然直接关联并延续该动作。"
-              }
-            },
-            "scene": {
-              "location": "家中书房",
-              "activity": "整理蓝色笔记本里的读书摘录",
-              "emotion_primary": "平静",
-              "emotion_secondary": null,
-              "appearance": "浅色家居服",
-              "time_of_day": "evening",
-              "summary": "在家中书房整理蓝色笔记本里的读书摘录",
-              "city": "上海",
-              "calendar_date": "2026-11-01",
-              "local_timestamp": "2026-11-01T21:41:46+08:00",
-              "timezone": "Asia/Shanghai",
-              "continuity_relation": "same_scene_continuation",
-              "environment_mood": "warm evening atmosphere, weekend ease, grounded indoor routine",
-              "location_props": [
-                "desk"
-              ],
-              "lighting_hint": "warm indoor or dusk light",
-              "framing_hint": "half-body, seated, near-table framing",
-              "estimated_duration_minutes": 90,
-              "event_id": "fixture-8ce662ca-aca0-48b1-bb9c-61fec24b5543"
-            },
-            "selfie_ready": {
-              "location": "上海 家中书房",
-              "activity": "整理蓝色笔记本里的读书摘录 with desk nearby",
-              "emotion": "平静",
-              "appearance": "浅色家居服",
-              "time_of_day": "上海 weekend evening",
-              "summary": "上海 家中书房: 整理蓝色笔记本里的读书摘录 in 浅色家居服, feeling 平静."
-            }
-          },
-          "episodes": [
-            {
-              "episode_id": "sys-1793541143538-4652",
-              "schema_version": "1.0",
-              "document_type": "timeline.episode",
-              "temporal": {
-                "start": "2026-11-01T21:41:46+08:00",
-                "end": "2026-11-01T22:41:46+08:00",
-                "time_of_day": "evening",
-                "granularity": "block"
-              },
-              "narrative": {
-                "summary": "在家中书房整理蓝色笔记本里的读书摘录",
-                "detail": "慢慢把读过的内容理顺。"
-              },
-              "state_snapshot": {
-                "scene": {
-                  "location_kind": "literal",
-                  "location_label": "家中书房",
-                  "activity": "整理蓝色笔记本里的读书摘录",
-                  "time_of_day": "evening"
-                },
-                "emotion": {
-                  "primary": "平静",
-                  "secondary": null,
-                  "intensity": 0
-                },
-                "appearance": {
-                  "outfit_style": "浅色家居服",
-                  "grooming": null,
-                  "posture_energy": null
-                }
-              },
-              "world_hooks": {
-                "weekday": false,
-                "holiday_key": null
-              },
-              "provenance": {
-                "writer": "stella-timeline-plugin",
-                "written_at": "2026-11-01T13:52:23.538Z",
-                "idempotency_key": "20261101|家中书房|整理蓝色笔记本里的读书摘录|21:30",
-                "confidence": 1
-              }
-            }
-          ]
-        },
-        "notes": [
-          "在请求的过去时间窗口内存在完全匹配的每日日志记录，明确指明整理的是蓝色笔记本中的读书摘录。",
-          "Time interpretation: 用户询问刚才整理的是哪本笔记，目标时间锁定在过去半小时内。日记记录显示21:41正在整理蓝色笔记本里的读书摘录，精准命中。"
-        ],
-        "trace": {
-          "trace_id": "timeline-1793541129790-27723",
-          "ts": "2026-11-01T13:52:23.538Z",
-          "requested_range": "past_range",
-          "actual_range": "past_range",
-          "source_order": [
-            "sessions_history",
-            "memory_get"
-          ],
-          "source_summary": {
-            "sessions_history_count": 0,
-            "sessions_history_preview": null,
-            "memory_chars": 329,
-            "memory_search_count": 0,
-            "memory_search_preview": [],
-            "parsed_episode_count": 1,
-            "selected_episode_timestamp": "2026-11-01T21:41:46+08:00"
-          },
-          "fingerprint": {
-            "checked": true,
-            "matched": true,
-            "compared_episodes": 1,
-            "idempotency_key": "20261101|家中书房|整理蓝色笔记本里的读书摘录|21:30",
-            "matched_episode_timestamp": "2026-11-01T21:41:46+08:00",
-            "reason": "在请求的过去时间窗口内存在完全匹配的每日日志记录，明确指明整理的是蓝色笔记本中的读书摘录。"
-          },
-          "appearance": {
-            "inherited": false,
-            "reason": "existing canon reused after LLM reasoner selected a matching fact",
-            "source_episode_timestamp": "2026-11-01T21:41:46+08:00"
-          },
-          "write": {
-            "attempted": false,
-            "succeeded": false,
-            "guard": "not_attempted",
-            "outcome": "not_attempted",
-            "writer": "stella-timeline-plugin"
-          },
-          "decision": {
-            "resolution_mode": "read_only_hit",
-            "write_outcome": "not_attempted",
-            "category": "past_range"
-          },
-          "notes": [
-            "在请求的过去时间窗口内存在完全匹配的每日日志记录，明确指明整理的是蓝色笔记本中的读书摘录。",
-            "Time interpretation: 用户询问刚才整理的是哪本笔记，目标时间锁定在过去半小时内。日记记录显示21:41正在整理蓝色笔记本里的读书摘录，精准命中。"
-          ]
-        }
-      },
-      "cacheFiles": [
-        "3dd270a45e1ccab5bdbd1cdfced82aaa55db87b28dc2930d0539a40c9d335591.json"
-      ],
-      "unchanged": true
-    },
-    "R14": {
-      "ordinary": {
-        "sessionKey": "agent:main:readme-c9043b89-e53f-4311-a268-e2ae79a39bf7",
-        "runId": "682730ab-4f82-406c-a7c1-8dbde625da34",
-        "text": "不客气。17 加 25 等于 42。",
-        "model": [
-          "gemini-3.8-flash"
-        ],
-        "promptContext": "Timeline prompt context:\n- status: active_instant\n- source: same_day_fast_hit\n- direct_current_state_answers_allowed: yes\n- location: 家中书房\n- activity: 整理蓝色笔记本里的读书摘录\n- time_of_day: evening\n- environment_mood: warm evening atmosphere, weekend ease, grounded indoor routine\n- reply_modulation:\n  - tone: focused\n  - pacing: measured\n  - question_density: low\n  - initiative: medium\n- guidance:\n  - Use this active instant context to modulate tone and pacing without mentioning timeline internals.\n  - Current-state questions may be answered directly from this context without calling timeline_resolve.\n  - Past recall, reflective recall, and continuity-judgment questions still require timeline_resolve.\n\n谢谢你，顺便帮我算一下17加25。",
-        "traces": []
-      },
-      "readOnly": {
-        "ok": true,
-        "schema_version": "1.0",
-        "trace_id": "timeline-1793541155506-13222",
-        "resolution_summary": {
-          "mode": "empty_window",
-          "writes_attempted": 0,
-          "writes_succeeded": 0,
-          "sources": [
-            "sessions_history",
-            "memory_get"
-          ],
-          "confidence_min": 0,
-          "confidence_max": 0
-        },
-        "result": {
-          "schema_version": "1.0",
-          "document_type": "timeline.window",
-          "anchor": {
-            "now": "2026-10-30T23:59:59+08:00",
-            "timezone": "Asia/Shanghai"
-          },
-          "window": {
-            "calendar_date": "2026-10-30",
-            "preset": "past_point",
-            "semantic_target": "past_point",
-            "collection_scope": "point_day",
-            "start": "2026-10-30T00:00:00+08:00",
-            "end": "2026-10-30T23:59:59+08:00",
-            "idempotency_key": "none"
-          },
-          "resolution": {
-            "mode": "empty_window",
-            "notes": "在只读查询模式下，2026-10-30 03:00 无已有正史记忆与硬事实记录，记忆呈现空白。 | Time interpretation: 用户查询前天（2026-10-30）凌晨03:00的时间点记录，明确要求只查询不补全。 | Raw error: 该时间段在日志中无记载"
-          },
-          "consumption": {
-            "schema_version": "1.0",
-            "document_type": "timeline.consumption",
-            "query": {
-              "preset": "past_point",
-              "semantic_target": "past_point",
-              "collection_scope": "point_day",
-              "resolution_mode": "empty_window",
-              "time_interpretation": {
-                "normalized_kind": "point",
-                "normalized_point": "2026-10-30T03:00:00+08:00",
-                "match_strategy": "exact_match",
-                "summary": "用户查询前天（2026-10-30）凌晨03:00的时间点记录，明确要求只查询不补全。"
-              }
-            },
-            "fact": {
-              "status": "empty",
-              "source_type": "none",
-              "summary": "在只读查询模式下，2026-10-30 03:00 无已有正史记忆与硬事实记录，记忆呈现空白。 当前没有命中可复用事实，这段经历记不清了。",
-              "continuity": {
-                "judged": false,
-                "is_continuing": false,
-                "reason": "目标时间点无现有候选事实，且当前模式为read_only，禁止生成新事实。"
-              }
-            }
-          },
-          "episodes": []
-        },
-        "notes": [
-          "在只读查询模式下，2026-10-30 03:00 无已有正史记忆与硬事实记录，记忆呈现空白。",
-          "Time interpretation: 用户查询前天（2026-10-30）凌晨03:00的时间点记录，明确要求只查询不补全。",
-          "Raw error: 该时间段在日志中无记载"
-        ],
-        "trace": {
-          "trace_id": "timeline-1793541155506-13222",
-          "ts": "2026-11-01T13:52:49.260Z",
-          "requested_range": "past_point",
-          "actual_range": "past_point",
-          "source_order": [
-            "sessions_history",
-            "memory_get"
-          ],
-          "source_summary": {
-            "sessions_history_count": 0,
-            "sessions_history_preview": null,
-            "memory_chars": 0,
-            "memory_search_count": 0,
-            "memory_search_preview": [],
-            "parsed_episode_count": 0
-          },
-          "fingerprint": {
-            "checked": false,
-            "matched": false,
-            "compared_episodes": 0,
-            "reason": "在只读查询模式下，2026-10-30 03:00 无已有正史记忆与硬事实记录，记忆呈现空白。"
-          },
-          "appearance": {
-            "inherited": false,
-            "reason": "no-canon-hit"
-          },
-          "write": {
-            "attempted": false,
-            "succeeded": false,
-            "guard": "not_attempted",
-            "outcome": "not_attempted",
-            "writer": "stella-timeline-plugin"
-          },
-          "decision": {
-            "resolution_mode": "empty_window",
-            "write_outcome": "not_attempted",
-            "category": "past_point"
-          },
-          "notes": [
-            "在只读查询模式下，2026-10-30 03:00 无已有正史记忆与硬事实记录，记忆呈现空白。",
-            "Time interpretation: 用户查询前天（2026-10-30）凌晨03:00的时间点记录，明确要求只查询不补全。",
-            "Raw error: 该时间段在日志中无记载"
-          ]
-        }
-      },
-      "stableMemoryUnchanged": true,
-      "personaUnchanged": true
-    },
-    "R15": {
-      "first": {
-        "sessionKey": "agent:main:readme-4b5b34fb-999c-4933-a72b-e561cc6d40cc",
-        "runId": "d23f1938-bbb1-4742-b252-3fdb04cd0b63",
-        "text": "我在书房里，正翻着那本蓝色笔记本，整理前阵子存下的读书摘录。周围挺安静的。你今天过得怎么样？",
-        "model": [
-          "gemini-3.8-flash"
-        ],
-        "promptContext": "Timeline prompt context:\n- status: active_instant\n- source: same_day_fast_hit\n- direct_current_state_answers_allowed: yes\n- location: 家中书房\n- activity: 整理蓝色笔记本里的读书摘录\n- time_of_day: evening\n- environment_mood: warm evening atmosphere, weekend ease, grounded indoor routine\n- reply_modulation:\n  - tone: focused\n  - pacing: measured\n  - question_density: low\n  - initiative: medium\n- guidance:\n  - Use this active instant context to modulate tone and pacing without mentioning timeline internals.\n  - Current-state questions may be answered directly from this context without calling timeline_resolve.\n  - Past recall, reflective recall, and continuity-judgment questions still require timeline_resolve.\n\n你现在在做什么？",
-        "traces": []
-      },
-      "second": {
-        "sessionKey": "agent:main:readme-a401ecb3-48a3-4e73-9209-fc11383eebd7",
-        "runId": "fa2f4402-e6c7-418c-ab14-46a2277c4f12",
-        "text": "我现在在书房里，正坐着慢慢整理蓝色笔记本里的读书摘录。身上穿着一件浅色的家居服，挺宽松舒适的。",
-        "model": [
-          "gemini-3.8-flash",
-          "gemini-3.8-flash",
-          "gemini-3.8-flash"
-        ],
-        "promptContext": "Timeline prompt context:\n- status: active_instant\n- source: same_day_fast_hit\n- direct_current_state_answers_allowed: yes\n- location: 家中书房\n- activity: 整理蓝色笔记本里的读书摘录\n- time_of_day: evening\n- environment_mood: warm evening atmosphere, weekend ease, grounded indoor routine\n- reply_modulation:\n  - tone: focused\n  - pacing: measured\n  - question_density: low\n  - initiative: medium\n- guidance:\n  - Use this active instant context to modulate tone and pacing without mentioning timeline internals.\n  - Current-state questions may be answered directly from this context without calling timeline_resolve.\n  - Past recall, reflective recall, and continuity-judgment questions still require timeline_resolve.\n\n你现在在做什么，穿的是什么？",
-        "traces": []
-      }
-    },
-    "R16": {
-      "first": {
-        "run": {
-          "ok": true,
-          "enqueued": true,
-          "runId": "manual:03db249e-53e8-479d-bd7e-08bc9b0b345d:1793541229271:1",
-          "processInstanceId": "f4125a00-83d9-42ee-8595-3f74a71d2769",
-          "run": {
-            "ts": 1793541237188,
-            "jobId": "03db249e-53e8-479d-bd7e-08bc9b0b345d",
-            "action": "finished",
-            "status": "ok",
-            "completionStatus": "succeeded",
-            "summary": "heartbeat completed",
-            "runId": "manual:03db249e-53e8-479d-bd7e-08bc9b0b345d:1793541229271:1",
-            "runAtMs": 1793541229361,
-            "durationMs": 7827,
-            "nextRunAtMs": 1793541125657,
-            "deliveryStatus": "not-requested",
-            "jobName": "heartbeat-main"
-          }
-        },
-        "heartbeat": {
-          "ts": 1793541237185,
-          "status": "skipped",
-          "preview": "晚上好呀，周末这会儿过得还舒服吗？我正在书房整理蓝色笔记本里的读书摘录，静静翻翻写写，感觉特别踏实。你今天过得怎么样？",
-          "reason": "no-route",
-          "hasMedia": false,
-          "durationMs": 7467,
-          "message": "Heartbeat has no delivery route yet. Message your bot once, or set agents.defaults.heartbeat.target."
-        },
-        "state": {
-          "schema_version": "1.0",
-          "state_revision": 1,
-          "user_timezone": "Asia/Shanghai",
-          "last_user_message_at": "2026-11-01T05:53:43.749Z",
-          "last_proactive_checkin_at": null,
-          "last_non_social_outbound_at": null,
-          "last_outbound_reason": null,
-          "last_successful_proactive_message_id": null,
-          "last_inbound_dedupe_key": null,
-          "last_outbound_dedupe_key": null,
-          "recent_inbound_dedupe_keys": [],
-          "recent_outbound_dedupe_keys": [],
-          "last_proactive_decision_token": "decision-1793541232782-674ae756-f162-4537-bae7-0fd81edbff35",
-          "pending_proactive_send": true,
-          "pending_proactive_send_started_at": "2026-11-01T13:53:52.782Z",
-          "pending_proactive_session_key": "agent:main:main:heartbeat",
-          "pending_proactive_run_id": "5f6cc68b-5da5-4bfe-a19f-0eee0005749d",
-          "pending_proactive_channel_id": null,
-          "pending_proactive_account_id": null,
-          "pending_proactive_target": null,
-          "proactive_greeting_enabled": true,
-          "idle_threshold_hours": 7,
-          "proactive_opt_out": false,
-          "unanswered_proactive_count": 0,
-          "last_heartbeat_checked_at": "2026-11-01T13:53:52.782Z",
-          "last_decision": {
-            "ts": "2026-11-01T13:53:52.782Z",
-            "ok": true,
-            "reason_code": "allowed",
-            "idle_hours": 8.003,
-            "local_time": "13:53",
-            "rule_snapshot": {
-              "configured_enabled": true,
-              "pending_proactive_send": false,
-              "local_time": "13:53",
-              "time_zone": "UTC",
-              "idle_threshold_hours": 7,
-              "effective_idle_threshold_hours": 7,
-              "min_hours_between_checkins": 24,
-              "unanswered_proactive_count": 0,
-              "contact_scope_status": "single"
-            }
-          },
-          "last_error": null,
-          "primary_contact_fingerprint": "0939e6a7ff50eb3c3af53013aa9746052ddfbd356baeffb8c7c1221d0a2caf65",
-          "contact_scope_status": "single"
-        }
-      },
-      "second": {
-        "heartbeat": {
-          "ts": 1793541251504,
-          "status": "ok-empty",
-          "reason": "interval",
-          "indicatorType": "ok",
-          "silent": true,
-          "durationMs": 7178
-        },
-        "state": {
-          "schema_version": "1.0",
-          "state_revision": 2,
-          "user_timezone": "Asia/Shanghai",
-          "last_user_message_at": "2026-11-01T05:53:43.749Z",
-          "last_proactive_checkin_at": null,
-          "last_non_social_outbound_at": null,
-          "last_outbound_reason": null,
-          "last_successful_proactive_message_id": null,
-          "last_inbound_dedupe_key": null,
-          "last_outbound_dedupe_key": null,
-          "recent_inbound_dedupe_keys": [],
-          "recent_outbound_dedupe_keys": [],
-          "last_proactive_decision_token": "decision-1793541232782-674ae756-f162-4537-bae7-0fd81edbff35",
-          "pending_proactive_send": true,
-          "pending_proactive_send_started_at": "2026-11-01T13:53:52.782Z",
-          "pending_proactive_session_key": "agent:main:main:heartbeat",
-          "pending_proactive_run_id": "5f6cc68b-5da5-4bfe-a19f-0eee0005749d",
-          "pending_proactive_channel_id": null,
-          "pending_proactive_account_id": null,
-          "pending_proactive_target": null,
-          "proactive_greeting_enabled": true,
-          "idle_threshold_hours": 7,
-          "proactive_opt_out": false,
-          "unanswered_proactive_count": 0,
-          "last_heartbeat_checked_at": "2026-11-01T13:54:08.350Z",
-          "last_decision": {
-            "ts": "2026-11-01T13:54:08.350Z",
-            "ok": false,
-            "reason_code": "pending_send_inflight",
-            "idle_hours": 8.007,
-            "local_time": "13:54",
-            "rule_snapshot": {
-              "configured_enabled": true,
-              "pending_proactive_send": true,
-              "local_time": "13:54",
-              "time_zone": "UTC",
-              "idle_threshold_hours": 7,
-              "effective_idle_threshold_hours": 7,
-              "min_hours_between_checkins": 24,
-              "unanswered_proactive_count": 0,
-              "contact_scope_status": "single"
-            }
-          },
-          "last_error": null,
-          "primary_contact_fingerprint": "0939e6a7ff50eb3c3af53013aa9746052ddfbd356baeffb8c7c1221d0a2caf65",
-          "contact_scope_status": "single"
-        }
-      },
-      "externalDelivery": "not verified: no configured external channel"
-    }
-  },
   "modelPreflight": {
     "sessionKey": "agent:main:readme-6ddcc635-6cca-4df1-9bf3-6b9a59dd7b88",
     "runId": "b762a39d-543b-414b-8132-6c00fd0daf27",
@@ -5680,5 +3429,416 @@
     "primary_contact_fingerprint": "0939e6a7ff50eb3c3af53013aa9746052ddfbd356baeffb8c7c1221d0a2caf65",
     "contact_scope_status": "single"
   },
-  "finishedAt": "2026-11-01T13:54:15.990Z"
+  "finishedAt": "2026-11-01T13:54:15.990Z",
+  "caseObservations": {
+    "R02": {
+      "first": {
+        "sessionKey": "agent:main:readme-463f5b7c-575c-45f1-ac02-f01ccf5491ff",
+        "runId": "c6356325-d82e-4278-ae73-57f8eb9a7d0a",
+        "text": "我现在手头其实没什么特别的事，刚才这一阵也有点记不清之前在忙什么了。你这会儿在忙什么呢，还是准备休息了？",
+        "model": [
+          "gemini-3.8-flash",
+          "gemini-3.8-flash"
+        ],
+        "promptContext": "Timeline prompt context:\n- status: empty_window\n- debounce_minutes: 30\n- direct_current_state_answers_allowed: no\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - No active temporal override is available for this turn.\n  - Use baseline conversational style.\n  - Current-state questions should still use timeline_resolve.\n\n你现在在做什么？",
+        "traces": [
+          {
+            "trace_id": "timeline-1793540798049-93479",
+            "event": "timeline_resolve",
+            "ts": "2026-11-01T13:46:38.929Z",
+            "payload": {
+              "ok": true,
+              "requested_range": "now",
+              "error": null,
+              "resolution_mode": "empty_window",
+              "notes": [
+                "Fallback reasoner returned empty because no reusable canon fact was available.",
+                "Time interpretation: Fallback reasoner treated the request as a current-moment query.",
+                "Raw error: agent.wait observation cancelled",
+                "目标时间窗 2026-11-01T00:00:00+08:00 -> 2026-11-01T21:46:38+08:00 缺少可复用事实；当前保持诚实表达：这段经历记不清了。"
+              ],
+              "trace": {
+                "trace_id": "timeline-1793540798049-93479",
+                "ts": "2026-11-01T13:46:38.929Z",
+                "requested_range": "now",
+                "actual_range": "now",
+                "source_order": [
+                  "sessions_history",
+                  "memory_get"
+                ],
+                "source_summary": {
+                  "sessions_history_count": 0,
+                  "sessions_history_preview": null,
+                  "memory_chars": 0,
+                  "memory_search_count": 0,
+                  "memory_search_preview": [],
+                  "parsed_episode_count": 0
+                },
+                "fingerprint": {
+                  "checked": false,
+                  "matched": false,
+                  "compared_episodes": 0,
+                  "reason": "Fallback reasoner returned empty because no reusable canon fact was available."
+                },
+                "appearance": {
+                  "inherited": false,
+                  "reason": "no-canon-hit"
+                },
+                "write": {
+                  "attempted": false,
+                  "succeeded": false,
+                  "guard": "not_attempted",
+                  "outcome": "not_attempted",
+                  "writer": "stella-timeline-plugin"
+                },
+                "decision": {
+                  "resolution_mode": "empty_window",
+                  "write_outcome": "not_attempted",
+                  "category": "now"
+                },
+                "notes": [
+                  "Fallback reasoner returned empty because no reusable canon fact was available.",
+                  "Time interpretation: Fallback reasoner treated the request as a current-moment query.",
+                  "Raw error: agent.wait observation cancelled",
+                  "目标时间窗 2026-11-01T00:00:00+08:00 -> 2026-11-01T21:46:38+08:00 缺少可复用事实；当前保持诚实表达：这段经历记不清了。"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "second": {
+        "sessionKey": "agent:main:readme-9a21fd63-734b-4166-987b-001b4a6e03c8",
+        "runId": "14f5012e-fa6c-4eef-915f-1aac16c0f8a1",
+        "text": "刚刚这段时间我有些记不太清了，手头也没有在继续做什么特别的事。\n\n你刚才在忙什么呢？",
+        "model": [
+          "gemini-3.8-flash",
+          "gemini-3.8-flash"
+        ],
+        "promptContext": "Timeline prompt context:\n- status: empty_window\n- debounce_minutes: 30\n- direct_current_state_answers_allowed: no\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - No active temporal override is available for this turn.\n  - Use baseline conversational style.\n  - Current-state questions should still use timeline_resolve.\n\n刚刚你在做什么？现在还在继续吗？",
+        "traces": [
+          {
+            "trace_id": "timeline-1793540814433-36608",
+            "event": "timeline_resolve",
+            "ts": "2026-11-01T13:46:54.904Z",
+            "payload": {
+              "ok": true,
+              "requested_range": "now",
+              "error": null,
+              "resolution_mode": "empty_window",
+              "notes": [
+                "Fallback reasoner returned empty because no reusable canon fact was available.",
+                "Time interpretation: Fallback reasoner treated the request as a current-moment query.",
+                "Raw error: agent.wait observation cancelled",
+                "目标时间窗 2026-11-01T00:00:00+08:00 -> 2026-11-01T21:46:54+08:00 缺少可复用事实；当前保持诚实表达：这段经历记不清了。"
+              ],
+              "trace": {
+                "trace_id": "timeline-1793540814433-36608",
+                "ts": "2026-11-01T13:46:54.904Z",
+                "requested_range": "now",
+                "actual_range": "now",
+                "source_order": [
+                  "sessions_history",
+                  "memory_get"
+                ],
+                "source_summary": {
+                  "sessions_history_count": 0,
+                  "sessions_history_preview": null,
+                  "memory_chars": 0,
+                  "memory_search_count": 0,
+                  "memory_search_preview": [],
+                  "parsed_episode_count": 0
+                },
+                "fingerprint": {
+                  "checked": false,
+                  "matched": false,
+                  "compared_episodes": 0,
+                  "reason": "Fallback reasoner returned empty because no reusable canon fact was available."
+                },
+                "appearance": {
+                  "inherited": false,
+                  "reason": "no-canon-hit"
+                },
+                "write": {
+                  "attempted": false,
+                  "succeeded": false,
+                  "guard": "not_attempted",
+                  "outcome": "not_attempted",
+                  "writer": "stella-timeline-plugin"
+                },
+                "decision": {
+                  "resolution_mode": "empty_window",
+                  "write_outcome": "not_attempted",
+                  "category": "now"
+                },
+                "notes": [
+                  "Fallback reasoner returned empty because no reusable canon fact was available.",
+                  "Time interpretation: Fallback reasoner treated the request as a current-moment query.",
+                  "Raw error: agent.wait observation cancelled",
+                  "目标时间窗 2026-11-01T00:00:00+08:00 -> 2026-11-01T21:46:54+08:00 缺少可复用事实；当前保持诚实表达：这段经历记不清了。"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "written": {},
+      "after": {}
+    },
+    "R05": {
+      "summary": {
+        "sessionKey": "agent:main:readme-f4f95953-d474-49a3-8aec-376462995f88",
+        "runId": "644b99aa-9171-47cd-95af-c5596b8474ed",
+        "text": "这几天过得挺平常的，主要就是看看书、散散步，整理整理手头的事情。\n\n昨晚还和朋友去了一趟烧烤店，点了烤茄子，一边吃一边聊了些篮球场上的趣事，感觉挺放松的。你呢，这几天过得怎么样？",
+        "model": [
+          "gemini-3.8-flash",
+          "gemini-3.8-flash"
+        ],
+        "promptContext": "Timeline prompt context:\n- status: empty_window\n- debounce_minutes: 30\n- direct_current_state_answers_allowed: no\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - No active temporal override is available for this turn.\n  - Use baseline conversational style.\n  - Current-state questions should still use timeline_resolve.\n\n你这几天都在忙什么？",
+        "traces": [
+          {
+            "trace_id": "timeline-1793540864558-83010",
+            "event": "timeline_resolve",
+            "ts": "2026-11-01T13:47:45.079Z",
+            "payload": {
+              "ok": true,
+              "requested_range": "past_range",
+              "error": null,
+              "resolution_mode": "read_only_hit",
+              "notes": [
+                "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
+                "Time interpretation: Fallback reasoner treated the request as a past range query.",
+                "Raw error: agent.wait observation cancelled"
+              ],
+              "trace": {
+                "trace_id": "timeline-1793540864558-83010",
+                "ts": "2026-11-01T13:47:45.079Z",
+                "requested_range": "past_range",
+                "actual_range": "past_range",
+                "source_order": [
+                  "sessions_history",
+                  "memory_get"
+                ],
+                "source_summary": {
+                  "sessions_history_count": 0,
+                  "sessions_history_preview": null,
+                  "memory_chars": 994,
+                  "memory_search_count": 0,
+                  "memory_search_preview": [],
+                  "parsed_episode_count": 3,
+                  "selected_episode_timestamp": "2026-10-31T20:00:00+08:00"
+                },
+                "fingerprint": {
+                  "checked": true,
+                  "matched": true,
+                  "compared_episodes": 3,
+                  "idempotency_key": "20261031|烧烤店|和朋友吃烤茄子聊篮球场的趣事|20:00",
+                  "matched_episode_timestamp": "2026-10-31T20:00:00+08:00",
+                  "reason": "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid."
+                },
+                "appearance": {
+                  "inherited": false,
+                  "reason": "existing canon reused after LLM reasoner selected a matching fact",
+                  "source_episode_timestamp": "2026-10-31T20:00:00+08:00"
+                },
+                "write": {
+                  "attempted": false,
+                  "succeeded": false,
+                  "guard": "not_attempted",
+                  "outcome": "not_attempted",
+                  "writer": "stella-timeline-plugin"
+                },
+                "decision": {
+                  "resolution_mode": "read_only_hit",
+                  "write_outcome": "not_attempted",
+                  "category": "past_range"
+                },
+                "notes": [
+                  "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
+                  "Time interpretation: Fallback reasoner treated the request as a past range query.",
+                  "Raw error: agent.wait observation cancelled"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "anecdote": {
+        "sessionKey": "agent:main:readme-a31815e0-9abd-4662-8f02-335bea1e0ed5",
+        "runId": "b98f56c7-9e9a-406b-8ebd-394219bec947",
+        "text": "前天晚上（周六）跟朋友去吃烧烤，点了他家的烤茄子，边吃边聊起之前在篮球场碰到的各种搞笑糗事，气氛挺轻松开心的。\n\n你这几天过得怎么样，有什么好玩或者新鲜的事吗？",
+        "model": [
+          "gemini-3.8-flash",
+          "gemini-3.8-flash"
+        ],
+        "promptContext": "Timeline prompt context:\n- status: empty_window\n- debounce_minutes: 30\n- direct_current_state_answers_allowed: no\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - No active temporal override is available for this turn.\n  - Use baseline conversational style.\n  - Current-state questions should still use timeline_resolve.\n\n最近有什么有趣的事吗？",
+        "traces": [
+          {
+            "trace_id": "timeline-1793540880080-26613",
+            "event": "timeline_resolve",
+            "ts": "2026-11-01T13:48:00.513Z",
+            "payload": {
+              "ok": true,
+              "requested_range": "past_range",
+              "error": null,
+              "resolution_mode": "read_only_hit",
+              "notes": [
+                "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
+                "Time interpretation: Fallback reasoner treated the request as a past range query.",
+                "Raw error: agent.wait observation cancelled"
+              ],
+              "trace": {
+                "trace_id": "timeline-1793540880080-26613",
+                "ts": "2026-11-01T13:48:00.513Z",
+                "requested_range": "past_range",
+                "actual_range": "past_range",
+                "source_order": [
+                  "sessions_history",
+                  "memory_get"
+                ],
+                "source_summary": {
+                  "sessions_history_count": 0,
+                  "sessions_history_preview": null,
+                  "memory_chars": 994,
+                  "memory_search_count": 0,
+                  "memory_search_preview": [],
+                  "parsed_episode_count": 3,
+                  "selected_episode_timestamp": "2026-10-31T20:00:00+08:00"
+                },
+                "fingerprint": {
+                  "checked": true,
+                  "matched": true,
+                  "compared_episodes": 3,
+                  "idempotency_key": "20261031|烧烤店|和朋友吃烤茄子聊篮球场的趣事|20:00",
+                  "matched_episode_timestamp": "2026-10-31T20:00:00+08:00",
+                  "reason": "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid."
+                },
+                "appearance": {
+                  "inherited": false,
+                  "reason": "existing canon reused after LLM reasoner selected a matching fact",
+                  "source_episode_timestamp": "2026-10-31T20:00:00+08:00"
+                },
+                "write": {
+                  "attempted": false,
+                  "succeeded": false,
+                  "guard": "not_attempted",
+                  "outcome": "not_attempted",
+                  "writer": "stella-timeline-plugin"
+                },
+                "decision": {
+                  "resolution_mode": "read_only_hit",
+                  "write_outcome": "not_attempted",
+                  "category": "past_range"
+                },
+                "notes": [
+                  "Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.",
+                  "Time interpretation: Fallback reasoner treated the request as a past range query.",
+                  "Raw error: agent.wait observation cancelled"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "files": {
+        "2026-10-29.md": "# 每日日记\n\n普通笔记：这里的自由文本必须保留。\n\n### [16:00:00]\n\n- Timestamp: 2026-10-29 16:00:00\n- Location: 家中书房\n- Action: 完成散文稿《雨巷》的校对\n- Emotion_Tags: [平静]\n- Appearance: 浅色家居服\n- Internal_Monologue: 慢慢把读过的内容理顺。\n- Estimated_Duration: 80\n- Event_Id: fixture-8c2f7e0d-459c-49d3-915f-918b196220d6\n<!-- timeline:timestamp=2026-10-29T16:00:00+08:00 -->\n\n",
+        "2026-10-30.md": "# 每日日记\n\n普通笔记：这里的自由文本必须保留。\n\n### [18:00:00]\n\n- Timestamp: 2026-10-30 18:00:00\n- Location: 社区篮球场\n- Action: 和朋友打篮球，最后投进一个漂亮的三分球\n- Emotion_Tags: [平静]\n- Appearance: 黑色运动服\n- Internal_Monologue: 慢慢把读过的内容理顺。\n- Estimated_Duration: 70\n- Event_Id: fixture-00534dd3-624c-4a23-bbc3-3b1d9b39779a\n<!-- timeline:timestamp=2026-10-30T18:00:00+08:00 -->\n\n",
+        "2026-10-31.md": "# 每日日记\n\n普通笔记：这里的自由文本必须保留。\n\n### [20:00:00]\n\n- Timestamp: 2026-10-31 20:00:00\n- Location: 烧烤店\n- Action: 和朋友吃烤茄子，聊篮球场的趣事\n- Emotion_Tags: [平静]\n- Appearance: 浅色家居服\n- Internal_Monologue: 慢慢把读过的内容理顺。\n- Estimated_Duration: 60\n- Event_Id: fixture-e8cacda0-74c7-4a0f-898d-f362cc579922\n<!-- timeline:timestamp=2026-10-31T20:00:00+08:00 -->\n\n"
+      }
+    },
+    "R07": {
+      "weekday": "Sunday",
+      "answer": {
+        "sessionKey": "agent:main:readme-05aaa555-8f6c-474c-9749-efc814bfe568",
+        "runId": "0ba36645-0dff-4884-9245-814181eab4b6",
+        "text": "今天早上我还真记不太清具体都做过些什么了，感觉时间一下子就滑过去了。\n\n你今天过得怎么样？早上有去哪里走走，还是睡了个舒服的懒觉？",
+        "model": [
+          "gemini-3.8-flash",
+          "gemini-3.8-flash"
+        ],
+        "promptContext": "Timeline prompt context:\n- status: empty_window\n- debounce_minutes: 30\n- direct_current_state_answers_allowed: no\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - No active temporal override is available for this turn.\n  - Use baseline conversational style.\n  - Current-state questions should still use timeline_resolve.\n\n今天周末，你早上是怎么过的？",
+        "traces": [
+          {
+            "trace_id": "timeline-1793540912564-94517",
+            "event": "timeline_resolve",
+            "ts": "2026-11-01T13:48:33.074Z",
+            "payload": {
+              "ok": true,
+              "requested_range": "now",
+              "error": null,
+              "resolution_mode": "empty_window",
+              "notes": [
+                "Fallback reasoner returned empty because no reusable canon fact was available.",
+                "Time interpretation: Fallback reasoner treated the request as a current-moment query.",
+                "Raw error: agent.wait observation cancelled",
+                "目标时间窗 2026-11-01T00:00:00+08:00 -> 2026-11-01T21:48:32+08:00 缺少可复用事实；当前保持诚实表达：这段经历记不清了。"
+              ],
+              "trace": {
+                "trace_id": "timeline-1793540912564-94517",
+                "ts": "2026-11-01T13:48:33.074Z",
+                "requested_range": "now",
+                "actual_range": "now",
+                "source_order": [
+                  "sessions_history",
+                  "memory_get"
+                ],
+                "source_summary": {
+                  "sessions_history_count": 0,
+                  "sessions_history_preview": null,
+                  "memory_chars": 0,
+                  "memory_search_count": 0,
+                  "memory_search_preview": [],
+                  "parsed_episode_count": 0
+                },
+                "fingerprint": {
+                  "checked": false,
+                  "matched": false,
+                  "compared_episodes": 0,
+                  "reason": "Fallback reasoner returned empty because no reusable canon fact was available."
+                },
+                "appearance": {
+                  "inherited": false,
+                  "reason": "no-canon-hit"
+                },
+                "write": {
+                  "attempted": false,
+                  "succeeded": false,
+                  "guard": "not_attempted",
+                  "outcome": "not_attempted",
+                  "writer": "stella-timeline-plugin"
+                },
+                "decision": {
+                  "resolution_mode": "empty_window",
+                  "write_outcome": "not_attempted",
+                  "category": "now"
+                },
+                "notes": [
+                  "Fallback reasoner returned empty because no reusable canon fact was available.",
+                  "Time interpretation: Fallback reasoner treated the request as a current-moment query.",
+                  "Raw error: agent.wait observation cancelled",
+                  "目标时间窗 2026-11-01T00:00:00+08:00 -> 2026-11-01T21:48:32+08:00 缺少可复用事实；当前保持诚实表达：这段经历记不清了。"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "files": {}
+    }
+  },
+  "caseObservationRefs": {
+    "R01": "tests[0].result",
+    "R03": "tests[2].result",
+    "R04": "tests[3].result",
+    "R06": "tests[5].result",
+    "R08": "tests[7].result",
+    "R09": "tests[8].result",
+    "R10": "tests[9].result",
+    "R11": "tests[10].result",
+    "R12": "tests[11].result",
+    "R13": "tests[12].result",
+    "R14": "tests[13].result",
+    "R15": "tests[14].result",
+    "R16": "tests[15].result"
+  }
 }
