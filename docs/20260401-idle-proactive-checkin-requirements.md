@@ -10,7 +10,7 @@
 
 本功能由三部分构成：
 
-1. **消息事件 hook（输入/输出）**：由 `stella-timeline-plugin` 在运行时注册 OpenClaw hook；入站以 `message:preprocessed` 作为“有效直接消息”的权威来源，出站以受控 heartbeat session 的 `message:sent` 回写状态文件（唯一事实源）
+1. **消息事件 hook（输入/输出）**：由 `stella-timeline-plugin` 在运行时注册 OpenClaw hook；入站以 `message:preprocessed` 作为“有效直接消息”的权威来源，出站以当前 heartbeat turn 捕获的动态 session key 匹配 `message:sent`，并回写状态文件（唯一事实源）
 2. **Heartbeat 巡检（触发器）**：OpenClaw 定期运行专用 Heartbeat，读取 `HEARTBEAT.md` + 状态文件，决定“发 / 不发”
 3. **问候生成（persona 驱动）**：当且仅当规则允许时，生成 1 条符合 persona 气质、低压力的问候并发送
 
@@ -282,9 +282,10 @@ src/
 
 - `every: 30m`（对 7h 阈值足够；误差上限可控）
 - `target: "last"`（必须显式配置；OpenClaw 默认不是自动回到最近联系人）
-- `session: "proactive-greeting"`（建议显式独立 session 名，避免与其他 heartbeat / cron 共用分类面）
-- `isolatedSession: true`（建议开启，避免消费完整主会话历史，同时给主动问候一个可识别的专用 session）
+- `directPolicy: "allow"`（允许 heartbeat 继续投递到最近一次直接会话）
+- `isolatedSession: true`（建议开启，避免消费完整主会话历史；每次运行的动态 session key 由插件在 preflight 时捕获）
 - `lightContext: true`（建议开启，降低 token 成本）
+- `skipWhenBusy: true`（主会话繁忙时跳过本轮，避免并发投递）
 
 ### 7.2 Heartbeat 目标与作用
 
@@ -301,8 +302,8 @@ Heartbeat 每次运行只做：
 生产版实现约束：
 
 - 必须显式设置 `target: "last"` 或明确的 `target + to + accountId`；仅配置 `every` 不足以形成对外投递
-- 若使用本需求推荐路径，Heartbeat 应运行在**专用 session** 中，以便 `message:sent` 回调能够按 `event.sessionKey` 将其稳定分类为 `proactive_greeting`
-- 若工作区还存在其他 heartbeat 任务，不得与主动问候复用同一 heartbeat session
+- 不配置固定 `heartbeat.session`；OpenClaw 默认从 agent 主 session 路由投递，并由 `isolatedSession: true` 创建本次运行的隔离上下文
+- 插件在 preflight 时把本次 `hookContext.sessionKey` 写入 `pending_proactive_session_key`，`message:sent` 只接受同一动态 key
 
 ### 7.3 `HEARTBEAT.md` 行为契约（建议模板）
 
@@ -414,7 +415,7 @@ Heartbeat 每次运行只做：
 
 分类规则（生产版必须显式实现）：
 
-- 若 `event.sessionKey` 命中专用 proactive heartbeat session，且当前存在 `pending_proactive_send = true`，则该次外发归类为 `proactive_greeting`
+- 若 `event.sessionKey` 命中 pending 状态捕获的 `pending_proactive_session_key`，且当前存在 `pending_proactive_send = true`，则该次外发归类为 `proactive_greeting`
 - v1 **不实现** reminder / task_update / cron 的通用 session 分类表；其他 session 默认只允许写调试审计，不得推进节流时间戳
 
 说明：`on_outbound_sent` 是 `pending_proactive_send` 的**主清理责任方**。
@@ -563,9 +564,9 @@ type IdleCheckinDecision =
 
 ### 14.1 接入点选择（建议）
 
-- Heartbeat：使用 OpenClaw 原生 `HEARTBEAT.md` + heartbeat 配置，且显式设置 `target: "last"`、`session: "proactive-greeting"`、`isolatedSession: true`、`lightContext: true`
+- Heartbeat：使用 OpenClaw 原生 `HEARTBEAT.md` + heartbeat 配置，显式设置 `target: "last"`、`directPolicy: "allow"`、`isolatedSession: true`、`lightContext: true`、`skipWhenBusy: true`，不固定 `heartbeat.session`
 - 入站：使用 internal hook `message:preprocessed` 作为事实源；typed `message_received` 只做可选辅助
-- 外发：使用 internal hook `message:sent` 按 `sessionKey` 做受控分类，不再依赖不存在的 `reason` 字段
+- 外发：使用 internal hook `message:sent`，按 preflight 捕获的动态 `sessionKey` 做受控分类，不再依赖不存在的 `reason` 字段
 - Persona：复用 Timeline 已有 persona contract 加载逻辑（避免重复造轮子）
 
 ### 14.2 具体实现步骤（建议按顺序）
@@ -577,7 +578,7 @@ type IdleCheckinDecision =
 3. **实现纯函数判定**：`shouldSendProactiveGreeting(state, now, config)`（第 11 节）
    - 输出 `{ok:false, reason}` 以便写入 `last_decision`
 4. **接入入站 hook**：`message:preprocessed` → 更新 `last_user_message_at`、清零未回复计数、处理 opt-out/opt-in（第 10.1 节）
-5. **接入外发 hook**：`message:sent` → 按 `sessionKey` 做受控分类，并在成功时更新 `last_proactive_checkin_at`（第 10.2 节）
+5. **接入外发 hook**：`message:sent` → 按 pending 状态中的动态 `sessionKey` 做受控分类，并在成功时更新 `last_proactive_checkin_at`（第 10.2 节）
 6. **编写 `HEARTBEAT.md`**
    - 明确“读 state → 判定 → 不发则 `HEARTBEAT_OK` → 发则生成 1 条问候”
 7. **补齐最小单测与手工用例**（第 15 节）
@@ -591,8 +592,8 @@ type IdleCheckinDecision =
 3. 以原子写入方式提交：
    - `last_proactive_decision_token = <token>`
    - `pending_proactive_send = true`
-4. 在专用 proactive heartbeat session 中执行消息发送（需显式 `target: "last"` 或明确的 `target + to + accountId`）
-5. 在 `message:sent(success)` 中按 `event.sessionKey` 回写成功状态
+4. 在隔离 heartbeat turn 中执行消息发送（需显式 `target: "last"` 或明确的 `target + to + accountId`）
+5. 在 `message:sent(success)` 中按 `event.sessionKey === pending_proactive_session_key` 回写成功状态
 6. 若发送失败：清除 `pending_proactive_send`，记录 `last_error`
 
 要求：

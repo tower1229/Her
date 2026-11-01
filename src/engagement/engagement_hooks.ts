@@ -201,6 +201,7 @@ function expirePendingIfNeeded(
         ...state,
         pending_proactive_send: false,
         pending_proactive_send_started_at: null,
+        pending_proactive_session_key: null,
       },
       {
         code: 'pending_send_invalid_started_at',
@@ -218,6 +219,7 @@ function expirePendingIfNeeded(
       ...state,
       pending_proactive_send: false,
       pending_proactive_send_started_at: null,
+      pending_proactive_session_key: null,
     },
     {
       code: 'pending_send_timeout',
@@ -287,14 +289,11 @@ export async function handleSentOutbound(
   params: EngagementHookParams,
 ): Promise<void> {
   const config = resolveProactiveGreetingConfig(params.pluginConfig, params.config);
-  // v1 only closes the dedicated proactive greeting loop. Other controlled
-  // automation sessions need their own explicit classification path before they
-  // can safely affect engagement throttles.
-  if (event.sessionKey !== config.sessionKey) {
-    return;
-  }
-
   const statePath = resolveEngagementStatePath(params.workspaceDir, config.canonicalMemoryRoot);
+  const currentState = loadEngagementState(statePath, params.config);
+  if (!currentState.pending_proactive_send) return;
+  const expectedSessionKey = currentState.pending_proactive_session_key || config.sessionKey;
+  if (event.sessionKey !== expectedSessionKey) return;
   const dedupeKey = createOutboundDedupeKey(event.context);
   const now = event.timestamp instanceof Date
     ? event.timestamp
@@ -329,6 +328,7 @@ export async function handleSentOutbound(
         unanswered_proactive_count: normalized.unanswered_proactive_count + 1,
         pending_proactive_send: false,
         pending_proactive_send_started_at: null,
+        pending_proactive_session_key: null,
       };
     }
 
@@ -336,6 +336,7 @@ export async function handleSentOutbound(
       ...next,
       pending_proactive_send: false,
       pending_proactive_send_started_at: null,
+      pending_proactive_session_key: null,
     };
     return withLastError(next, {
       code: 'proactive_send_failed',
@@ -366,7 +367,7 @@ export async function prepareProactiveGreetingHeartbeatContext(
   params: EngagementHookParams,
 ): Promise<{ prependContext?: string } | undefined> {
   const config = resolveProactiveGreetingConfig(params.pluginConfig, params.config);
-  if (!hookContext.workspaceDir || hookContext.sessionKey !== config.sessionKey) {
+  if (!hookContext.workspaceDir) {
     return undefined;
   }
   if (!isHeartbeatPreflightRun(event, hookContext)) {
@@ -396,6 +397,7 @@ export async function prepareProactiveGreetingHeartbeatContext(
       last_proactive_decision_token: createDecisionToken(now),
       pending_proactive_send: true,
       pending_proactive_send_started_at: now.toISOString(),
+      pending_proactive_session_key: hookContext.sessionKey || null,
     };
   });
 

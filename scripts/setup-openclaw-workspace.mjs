@@ -19,7 +19,6 @@ import {
 } from './workspace-contract.mjs';
 
 const TIMELINE_PLUGIN_ID = 'stella-timeline-plugin';
-const PROACTIVE_SESSION_KEY = 'proactive-greeting';
 const ENGAGEMENT_STATE_SCHEMA_VERSION = '1.0';
 
 function defaultOpenClawHome() {
@@ -242,10 +241,12 @@ function patchOpenClawConfig(config, workspace) {
     ...(next.agents.defaults.heartbeat ?? {}),
     every: '30m',
     target: 'last',
-    session: PROACTIVE_SESSION_KEY,
+    directPolicy: 'allow',
     isolatedSession: true,
     lightContext: true,
+    skipWhenBusy: true,
   };
+  delete next.agents.defaults.heartbeat.session;
   next.plugins ??= {};
   next.plugins.entries ??= {};
   next.plugins.entries[TIMELINE_PLUGIN_ID] ??= { enabled: true, config: {} };
@@ -254,9 +255,9 @@ function patchOpenClawConfig(config, workspace) {
   next.plugins.entries[TIMELINE_PLUGIN_ID].config.proactiveGreeting = {
     ...(next.plugins.entries[TIMELINE_PLUGIN_ID].config.proactiveGreeting ?? {}),
     enabled: true,
-    sessionKey: PROACTIVE_SESSION_KEY,
     singleUserGuard: true,
   };
+  delete next.plugins.entries[TIMELINE_PLUGIN_ID].config.proactiveGreeting.sessionKey;
   return next;
 }
 

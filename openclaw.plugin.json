@@ -1,16 +1,20 @@
 {
   "id": "stella-timeline-plugin",
   "name": "Stella Timeline Plugin",
-  "version": "2.8.9",
+  "version": "2.8.10",
   "description": "OpenClaw timeline runtime with canonical timeline_resolve and timeline_transition, LLM-based temporal reasoning, and guarded append-only writes.",
-  "entry": "dist/index.js",
   "skills": [
     "skills/timeline-skill"
   ],
-  "tools": [
-    "timeline_resolve",
-    "timeline_transition"
-  ],
+  "contracts": {
+    "tools": [
+      "timeline_resolve",
+      "timeline_transition"
+    ]
+  },
+  "activation": {
+    "onStartup": true
+  },
   "configSchema": {
     "type": "object",
     "properties": {
@@ -109,7 +113,7 @@
           "sessionKey": {
             "type": "string",
             "default": "proactive-greeting",
-            "description": "Dedicated heartbeat session key used for proactive greeting delivery."
+            "description": "Legacy fallback session key for pending sends created before dynamic heartbeat session tracking."
           },
           "pendingSendTimeoutMinutes": {
             "type": "integer",

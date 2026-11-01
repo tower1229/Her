@@ -54,9 +54,15 @@ describe('timeline plugin entry compatibility shape', () => {
     const pkg = require('../package.json');
 
     expect(manifest.id).toBe(timelinePluginEntry.id);
-    expect(manifest.entry).toBe(pkg.main);
     expect(manifest.skills).toEqual(['skills/timeline-skill']);
+    expect(manifest.contracts.tools).toEqual(['timeline_resolve', 'timeline_transition']);
+    expect(manifest.activation.onStartup).toBe(true);
+    expect(manifest.entry).toBeUndefined();
+    expect(manifest.tools).toBeUndefined();
     expect(pkg.openclaw.extensions).toEqual(['./dist/index.js']);
+    expect(pkg.main).toBe('dist/index.js');
+    expect(pkg.openclaw.compat.pluginApi).toBe('>=2026.6.10');
+    expect(pkg.openclaw.build.openclawVersion).toBe('2026.6.10');
   });
 
   it('wraps tool execution results in the content envelope expected by the OpenClaw runtime', async () => {

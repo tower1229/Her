@@ -79,7 +79,7 @@ Why that matters:
 ### 1. Install the plugin
 
 ```bash
-openclaw plugins install stella-timeline-plugin
+openclaw plugins install clawhub:stella-timeline-plugin
 openclaw plugins enable stella-timeline-plugin
 ```
 
@@ -128,9 +128,10 @@ Then add explicit OpenClaw heartbeat config. On the default OpenClaw workspace, 
       "heartbeat": {
         "every": "30m",
         "target": "last",
-        "session": "proactive-greeting",
+        "directPolicy": "allow",
         "isolatedSession": true,
-        "lightContext": true
+        "lightContext": true,
+        "skipWhenBusy": true
       }
     }
   }
