@@ -1,8 +1,11 @@
 {
   "id": "stella-timeline-plugin",
   "name": "Stella Timeline Plugin",
-  "version": "2.8.10",
+  "version": "2.9.0",
   "description": "OpenClaw timeline runtime with canonical timeline_resolve and timeline_transition, LLM-based temporal reasoning, and guarded append-only writes.",
+  "categories": [
+    "memory"
+  ],
   "skills": [
     "skills/timeline-skill"
   ],

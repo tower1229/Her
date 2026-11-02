@@ -11,6 +11,21 @@ const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(scriptPath), '..');
 const pluginId = 'stella-timeline-plugin';
 
+function readNpmPackFilename(stdout) {
+  const text = String(stdout || '');
+  const startCandidates = [text.indexOf('['), text.indexOf('{')].filter((index) => index >= 0);
+  assert.ok(startCandidates.length > 0, `npm pack --json produced no JSON: ${text.slice(0, 400)}`);
+  const parsed = JSON.parse(text.slice(Math.min(...startCandidates)));
+  const entries = Array.isArray(parsed)
+    ? parsed
+    : parsed?.filename
+      ? [parsed]
+      : Object.values(parsed ?? {});
+  const filename = entries.find((entry) => entry && typeof entry.filename === 'string')?.filename;
+  assert.ok(filename, `npm pack --json missing filename: ${text.slice(0, 400)}`);
+  return filename;
+}
+
 if (!process.argv.includes('--probe')) {
   // Explicit installation wins; do not silently test a different host on failure.
   const hostRoot = path.resolve(process.env.OPENCLAW_PACKAGE_ROOT || path.join(repoRoot, 'node_modules/openclaw'));
@@ -22,7 +37,7 @@ if (!process.argv.includes('--probe')) {
     assert.ok(npmCli, 'npm CLI required to validate the actual publication tarball');
     const packed = spawnSync(process.execPath, [npmCli, 'pack', '--ignore-scripts', '--json', '--pack-destination', temp], { cwd: repoRoot, encoding: 'utf8' });
     assert.equal(packed.status, 0, packed.stderr);
-    const tarball = path.join(temp, JSON.parse(packed.stdout)[0].filename);
+    const tarball = path.join(temp, readNpmPackFilename(packed.stdout));
     const extracted = spawnSync('tar', ['-xf', tarball, '-C', temp], { encoding: 'utf8' });
     assert.equal(extracted.status, 0, extracted.stderr);
     fs.renameSync(path.join(temp, 'package'), pluginRoot);
