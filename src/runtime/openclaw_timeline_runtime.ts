@@ -1,6 +1,6 @@
 import type { AnyAgentTool, OpenClawPluginApi, PluginHeartbeatPromptContributionEvent } from 'openclaw/plugin-sdk/core';
 import { parseMemoryFile } from '../lib/parse-memory';
-import { hostTimezone, isValidTimezone, timestampMillis } from '../lib/timeline-time';
+import { hostTimezone, isValidTimezone } from '../lib/timeline-time';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -10,7 +10,6 @@ import {
 } from '../core/timeline_reasoner_contract';
 import { buildConversationContextFromMessages } from './conversation_context';
 import { TimelineQueryPlan } from '../core/resolve_window';
-import { addHours, formatTimestamp, parseTimestampParts, TimestampParts } from '../lib/time-utils';
 import { writeEpisode } from '../storage/write-episode';
 import {
   timelineResolve,
@@ -104,7 +103,6 @@ interface TimelinePluginRuntimeConfig {
   personaExtractorTimeoutMs: number;
   personaExtractorSessionPrefix: string;
   sessionHistoryLimit: number;
-  memorySearchMaxResults: number;
   conversationStickinessWindowMinutes: number;
 }
 
@@ -146,7 +144,6 @@ function resolvePluginRuntimeConfig(pluginConfig?: Record<string, unknown>): Tim
     personaExtractorTimeoutMs: readInteger(pluginConfig?.personaExtractorTimeoutMs, 60000),
     personaExtractorSessionPrefix: readString(pluginConfig?.personaExtractorSessionPrefix) || 'timeline-persona-extractor',
     sessionHistoryLimit: readInteger(pluginConfig?.sessionHistoryLimit, 12),
-    memorySearchMaxResults: readInteger(pluginConfig?.memorySearchMaxResults, 6),
     conversationStickinessWindowMinutes: readInteger(pluginConfig?.conversationStickinessWindowMinutes, 10),
   };
 }
@@ -617,178 +614,27 @@ function buildTimelineReasonerSystemPrompt(requestId: string): string {
   ].join('\n');
 }
 
-function setClock(parts: TimestampParts, hour: number, minute = 0, second = 0): TimestampParts {
-  return {
-    ...parts,
-    hour,
-    minute,
-    second,
-  };
-}
-
-function normalizeHourFromQuery(query: string): number | null {
-  const digitMatch = query.match(/(\d{1,2})点/);
-  let hour: number | null = digitMatch ? Number(digitMatch[1]) : null;
-  if (hour === null) {
-    const chineseHourMap: Record<string, number> = {
-      零: 0,
-      一: 1,
-      二: 2,
-      两: 2,
-      三: 3,
-      四: 4,
-      五: 5,
-      六: 6,
-      七: 7,
-      八: 8,
-      九: 9,
-      十: 10,
-      十一: 11,
-      十二: 12,
-    };
-    const chineseMatch = query.match(/(十一|十二|十|零|一|二|两|三|四|五|六|七|八|九)点/);
-    if (chineseMatch) {
-      hour = chineseHourMap[chineseMatch[1]] ?? null;
-    }
-  }
-  if (hour === null) return null;
-  if ((/昨晚|晚上|傍晚|夜里/.test(query)) && hour < 12) {
-    return hour === 12 ? 12 : hour + 12;
-  }
-  if ((/下午/.test(query)) && hour < 12) {
-    return hour === 12 ? 12 : hour + 12;
-  }
-  return hour;
-}
-
-function buildFallbackTimelineQueryPlan(
-  input: TimelineResolveInput,
-  anchor: { now: string; timezone: string },
-): TimelineQueryPlan {
-  const query = String(input.query || '').trim();
-  const anchorParts = parseTimestampParts(anchor.now);
-  if (!anchorParts) {
-    return {
-      schema_version: '1.0',
-      target_time_range: 'now',
-      summary: 'Fallback planner defaulted to now because anchor.now was not parseable.',
-    };
-  }
-
-  if (/昨晚|昨天|上周|前天/.test(query) && /点/.test(query)) {
-    const targetHour = normalizeHourFromQuery(query) ?? 20;
-    const targetDay = addHours(anchorParts, -24);
-    return {
-      schema_version: '1.0',
-      target_time_range: 'past_point',
-      normalized_point: formatTimestamp(setClock(targetDay, targetHour, 0, 0)),
-      summary: 'Fallback planner normalized the query into a concrete past point.',
-    };
-  }
-
-  if (/最近|这几天|昨晚|今天都|昨天都/.test(query)) {
-    if (/昨晚/.test(query)) {
-      const targetDay = addHours(anchorParts, -24);
-      return {
-        schema_version: '1.0',
-        target_time_range: 'past_range',
-        normalized_start: formatTimestamp(setClock(targetDay, 18, 0, 0)),
-        normalized_end: formatTimestamp(setClock(targetDay, 23, 59, 59)),
-        summary: 'Fallback planner normalized the query into last night\'s evening range.',
-      };
-    }
-    const recentStart = addHours(anchorParts, -24 * 7);
-    return {
-      schema_version: '1.0',
-      target_time_range: 'past_range',
-      normalized_start: formatTimestamp(setClock(recentStart, 0, 0, 0)),
-      normalized_end: anchor.now,
-      summary: 'Fallback planner normalized the query into a recent past range.',
-    };
-  }
-
+function buildFallbackTimelineQueryPlan(): TimelineQueryPlan {
   return {
     schema_version: '1.0',
     target_time_range: 'now',
-    summary: 'Fallback planner normalized the query into the current moment.',
+    summary: 'Fallback planner defaulted to now because the query planner was unavailable.',
   };
 }
 
-function parseTimestampMs(timestamp: string | undefined, zone?: string): number {
-  if (!timestamp) return Number.NaN;
-  const parsed = timestampMillis(timestamp, zone);
-  return Number.isNaN(parsed) ? Number.NaN : parsed;
-}
-
-function selectLatestFact(facts: CollectedTimelineFact[], zone?: string): CollectedTimelineFact | null {
-  return [...facts]
-    .sort((left, right) => parseTimestampMs(right.timestamp, zone) - parseTimestampMs(left.timestamp, zone))[0] || null;
-}
-
-function scorePastRangeFact(fact: CollectedTimelineFact, query: string, zone?: string): number {
-  let score = parseTimestampMs(fact.timestamp, zone);
-  const haystack = `${fact.location} ${fact.action} ${(fact.emotion_tags || []).join(' ')}`;
-
-  if (/有趣|好玩|开心|趣事/.test(query) && /(朋友|球|篮球|烧烤|聊天|公园|运动|开心)/.test(haystack)) {
-    score += 1000 * 60 * 60 * 24 * 30;
-  }
-  if (/昨晚/.test(query)) {
-    const parts = parseTimestampParts(fact.timestamp);
-    if (parts && parts.hour >= 18 && parts.hour <= 23) {
-      score += 1000 * 60 * 60 * 12;
-    }
-  }
-
-  return score;
-}
-
-function selectFallbackFact(collector: TimelineCollectorOutput, zone?: string): CollectedTimelineFact | null {
-  const facts = (collector.candidate_facts || []).filter(f => Number.isFinite(parseTimestampMs(f.timestamp, zone)) && (collector.window.query_range !== 'now' || parseTimestampMs(f.timestamp, zone) <= Date.parse(collector.anchor.now)));
-  if (facts.length === 0) return null;
-
-  if (collector.window.query_range === 'now') {
-    return selectLatestFact(facts, zone);
-  }
-
-  if (collector.window.query_range === 'past_point') {
-    const query = String(collector.request.user_query || '');
-    const explicitHour = normalizeHourFromQuery(query);
-    if (explicitHour === null) {
-      return selectLatestFact(facts, zone);
-    }
-
-    return [...facts].sort((left, right) => {
-      const leftParts = parseTimestampParts(left.timestamp);
-      const rightParts = parseTimestampParts(right.timestamp);
-      const leftDistance = leftParts ? Math.abs((leftParts.hour * 60 + leftParts.minute) - explicitHour * 60) : Number.MAX_SAFE_INTEGER;
-      const rightDistance = rightParts ? Math.abs((rightParts.hour * 60 + rightParts.minute) - explicitHour * 60) : Number.MAX_SAFE_INTEGER;
-      return leftDistance - rightDistance || (parseTimestampMs(right.timestamp, zone) - parseTimestampMs(left.timestamp, zone));
-    })[0] || null;
-  }
-
-  const query = String(collector.request.user_query || '');
-  return [...facts].sort((left, right) =>
-    scorePastRangeFact(right, query, zone) - scorePastRangeFact(left, query, zone),
-  )[0] || null;
-}
-
-function buildFallbackTimeInterpretation(collector: TimelineCollectorOutput, selectedFact?: CollectedTimelineFact | null) {
+function buildFallbackTimeInterpretation(collector: TimelineCollectorOutput) {
   if (collector.window.query_range === 'now') {
     return {
       normalized_kind: 'now' as const,
-      match_strategy: selectedFact ? 'continuation' as const : 'generated' as const,
+      match_strategy: 'generated' as const,
       summary: 'Fallback reasoner treated the request as a current-moment query.',
     };
   }
   if (collector.window.query_range === 'past_point') {
-    const query = String(collector.request.user_query || '');
-    const hour = normalizeHourFromQuery(query);
-    const anchorParts = parseTimestampParts(collector.anchor.now);
-    const targetDay = anchorParts ? addHours(anchorParts, -24) : null;
     return {
       normalized_kind: 'point' as const,
-      normalized_point: targetDay && hour !== null ? formatTimestamp(setClock(targetDay, hour, 0, 0)) : selectedFact?.timestamp,
-      match_strategy: selectedFact ? 'continuation' as const : 'generated' as const,
+      normalized_point: collector.window.start,
+      match_strategy: 'generated' as const,
       summary: 'Fallback reasoner treated the request as a concrete past point query.',
     };
   }
@@ -796,7 +642,7 @@ function buildFallbackTimeInterpretation(collector: TimelineCollectorOutput, sel
     normalized_kind: 'range' as const,
     normalized_start: collector.window.start,
     normalized_end: collector.window.end,
-    match_strategy: selectedFact ? 'range_summary' as const : 'generated' as const,
+    match_strategy: 'generated' as const,
     summary: 'Fallback reasoner treated the request as a past range query.',
   };
 }
@@ -804,65 +650,26 @@ function buildFallbackTimeInterpretation(collector: TimelineCollectorOutput, sel
 function buildFallbackReasonerOutput(
   collector: TimelineCollectorOutput,
   error: unknown,
-  zone?: string,
 ): TimelineReasonerOutput {
-  const selectedFact = selectFallbackFact(collector, zone);
   const fallbackReason = error instanceof Error ? error.message : String(error);
-
-  if (!selectedFact) {
-    return {
-      schema_version: '1.0',
-      request_id: collector.request_id,
-      request_type: collector.window.query_range,
-      time_interpretation: buildFallbackTimeInterpretation(collector, null),
-      decision: {
-        action: 'return_empty',
-        should_write_canon: false,
-      },
-      continuity: {
-        judged: collector.window.query_range !== 'past_range',
-        is_continuing: false,
-        reason: `Fallback reasoner could not find a reusable canon fact after: ${fallbackReason}`,
-      },
-      rationale: {
-        summary: 'Fallback reasoner returned empty because no reusable canon fact was available.',
-        hard_fact_basis: collector.hard_facts.sessions_history.slice(0, 2),
-        canon_basis: [],
-        persona_basis: [],
-        constraint_basis: [],
-        uncertainty: fallbackReason,
-      },
-    };
-  }
-
-  const selectedParts = parseTimestampParts(selectedFact.timestamp);
-  const targetHour = normalizeHourFromQuery(String(collector.request.user_query || ''));
-  const isPastPointContinuation = Boolean(
-    collector.window.query_range === 'past_point'
-    && selectedParts
-    && targetHour !== null
-    && Math.abs((selectedParts.hour * 60 + selectedParts.minute) - targetHour * 60) <= 90,
-  );
-
   return {
     schema_version: '1.0',
     request_id: collector.request_id,
     request_type: collector.window.query_range,
-    time_interpretation: buildFallbackTimeInterpretation(collector, selectedFact),
+    time_interpretation: buildFallbackTimeInterpretation(collector),
     decision: {
-      action: 'reuse_existing_fact',
-      selected_fact_id: selectedFact.fact_id,
+      action: 'return_empty',
       should_write_canon: false,
     },
     continuity: {
       judged: collector.window.query_range !== 'past_range',
-      is_continuing: collector.window.query_range === 'now' || isPastPointContinuation,
-      reason: 'Fallback reasoner reused the strongest available canon fact when the subagent result was unavailable.',
+      is_continuing: false,
+      reason: `Fallback reasoner returned empty after: ${fallbackReason}`,
     },
     rationale: {
-      summary: 'Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.',
+      summary: 'Fallback reasoner returned empty because the subagent result was unavailable or invalid.',
       hard_fact_basis: collector.hard_facts.sessions_history.slice(0, 2),
-      canon_basis: [selectedFact.fact_id],
+      canon_basis: [],
       persona_basis: [],
       constraint_basis: [],
       uncertainty: fallbackReason,
@@ -894,7 +701,7 @@ function createTimelineQueryPlanner(
       pluginApi.logger?.warn?.('timeline query planner fallback engaged', {
         error: error instanceof Error ? error.message : String(error),
       });
-      return buildFallbackTimelineQueryPlan(input, anchor);
+      return buildFallbackTimelineQueryPlan();
     }
   };
 }
@@ -928,7 +735,7 @@ function createSubagentReasoner(
       pluginApi.logger?.warn?.('timeline reasoner fallback engaged', {
         error: error instanceof Error ? error.message : String(error),
       });
-      return buildFallbackReasonerOutput(collector, error, readString(pluginApi.pluginConfig?.legacyLogTimezone) || hostTimezone());
+      return buildFallbackReasonerOutput(collector, error);
     }
   };
 }
@@ -1010,7 +817,7 @@ export function createRuntimeJsonPromptRunner(pluginApi: PluginApiLike): (input:
 function createTimelineResolveDependencies(
   pluginApi: PluginApiLike,
   toolContext: PluginToolContextLike,
-): Partial<TimelineRuntimeDependencies> {
+): TimelineRuntimeDependencies {
   const runtimeConfig = resolvePluginRuntimeConfig(pluginApi.pluginConfig);
   const workspaceDir = resolveWorkspaceDir(pluginApi, toolContext);
   const canonicalRootPath = resolveConfiguredPath(workspaceDir, runtimeConfig.canonicalMemoryRoot, 'memory');
@@ -1218,18 +1025,6 @@ export function makeOpenClawTimelineMessagePreprocessedHook(pluginApi: PluginApi
   };
 }
 
-export function makeOpenClawTimelineMessageSentHook(pluginApi: PluginApiLike) {
-  return async (event: unknown) => {
-    const workspaceDir = pluginApi.workspaceDir || process.cwd();
-    await handleSentOutbound(event as any, {
-      workspaceDir,
-      pluginConfig: pluginApi.pluginConfig,
-      config: pluginApi.config,
-      logger: pluginApi.logger,
-    });
-  };
-}
-
 export function makeOpenClawTimelineResolveToolFactory(pluginApi: PluginApiLike) {
   return (toolContext: PluginToolContextLike): AgentToolLike => ({
     label: timelineResolveToolSpec.name,
@@ -1241,7 +1036,7 @@ export function makeOpenClawTimelineResolveToolFactory(pluginApi: PluginApiLike)
   });
 }
 
-import { timelineTransition, timelineTransitionToolSpec } from '../tools/timeline_transition';
+import { timelineTransition, timelineTransitionToolSpec, TimelineTransitionDependencies } from '../tools/timeline_transition';
 
 export function makeOpenClawTimelineTransitionToolFactory(pluginApi: PluginApiLike) {
   return (toolContext: PluginToolContextLike): AgentToolLike => ({
@@ -1251,11 +1046,11 @@ export function makeOpenClawTimelineTransitionToolFactory(pluginApi: PluginApiLi
     parameters: timelineTransitionToolSpec.inputSchema as AnyAgentTool['parameters'],
     execute: async (_toolCallId, params) => {
       const deps = createTimelineResolveDependencies(pluginApi, toolContext);
-      const transitionDeps = {
+      const transitionDeps: TimelineTransitionDependencies = {
         ...deps,
         planTransition: createSubagentTransitionPlanner(pluginApi, toolContext, resolvePluginRuntimeConfig(pluginApi.pluginConfig))
       };
-      return wrapToolPayload(await timelineTransition(params as any, transitionDeps as any));
+      return wrapToolPayload(await timelineTransition(params as TimelineTransitionInput, transitionDeps));
     }
   });
 }

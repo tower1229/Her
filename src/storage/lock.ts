@@ -2,6 +2,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 
+function isNodeErrorCode(error: unknown, code: string): boolean {
+  return Boolean(error && typeof error === 'object' && 'code' in error && (error as { code: unknown }).code === code);
+}
+
 export class FileLockError extends Error {
   code: 'LOCK_EXISTS';
 
@@ -22,8 +26,8 @@ export async function withFileLock<T>(targetPath: string, fn: () => Promise<T>):
   let fd: number;
   try {
     fd = fs.openSync(lockPath, 'wx');
-  } catch (error: any) {
-    if (error && typeof error === 'object' && error.code === 'EEXIST') {
+  } catch (error: unknown) {
+    if (isNodeErrorCode(error, 'EEXIST')) {
       throw new FileLockError(lockPath);
     }
     throw error;
@@ -42,8 +46,8 @@ export async function withFileLock<T>(targetPath: string, fn: () => Promise<T>):
       const sameFile = current.dev === identity.dev && current.ino === identity.ino;
       const contents = fs.readFileSync(lockPath, 'utf8');
       if (sameFile && (contents === owner || (!ownerWritten && contents === ''))) fs.unlinkSync(lockPath);
-    } catch (error: any) {
-      if (error.code !== 'ENOENT') throw error;
+    } catch (error: unknown) {
+      if (!isNodeErrorCode(error, 'ENOENT')) throw error;
     }
   }
 }

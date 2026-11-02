@@ -1,4 +1,5 @@
 import { parseTimestampParts } from '../lib/time-utils';
+import { timestampMillis, timestampWithOffset } from '../lib/timeline-time';
 
 export type TimelineSemanticTarget = 'now' | 'past_point' | 'past_range';
 export type TimelineCollectionScope = 'today_so_far' | 'point_day' | 'explicit_range';
@@ -37,6 +38,16 @@ function formatCalendarDate(parts: ReturnType<typeof parseRequiredTimestamp>): s
   return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
 }
 
+function civilWithZone(date: string, clock: string, parts: ReturnType<typeof parseRequiredTimestamp>, timezone: string): string {
+  if (parts.offset) return `${date}T${clock}${parts.offset}`;
+  return timestampWithOffset(`${date}T${clock}`, timezone);
+}
+
+function timestampWithZone(value: string, timezone: string): string {
+  const parts = parseRequiredTimestamp(value, 'timestamp');
+  return parts.offset ? value : timestampWithOffset(value, timezone);
+}
+
 function makeNowWindow(nowIso: string, timezone: string, notes: string[]): ResolvedWindow {
   const parts = parseRequiredTimestamp(nowIso, 'current time');
   const date = formatCalendarDate(parts);
@@ -44,8 +55,8 @@ function makeNowWindow(nowIso: string, timezone: string, notes: string[]): Resol
     query_range: 'now',
     semantic_target: 'now',
     collection_scope: 'today_so_far',
-    start: `${date}T00:00:00${parts.offset ?? ''}`,
-    end: nowIso,
+    start: civilWithZone(date, '00:00:00', parts, timezone),
+    end: timestampWithZone(nowIso, timezone),
     calendar_date: date,
     calendar_dates: [date],
     timezone,
@@ -61,8 +72,8 @@ function makePointDayWindow(pointTime: string, timezone: string, notes: string[]
     query_range: 'past_point',
     semantic_target: 'past_point',
     collection_scope: 'point_day',
-    start: `${date}T00:00:00${parts.offset ?? ''}`,
-    end: `${date}T23:59:59${parts.offset ?? ''}`,
+    start: civilWithZone(date, '00:00:00', parts, timezone),
+    end: civilWithZone(date, '23:59:59', parts, timezone),
     calendar_date: date,
     calendar_dates: [date],
     timezone,
@@ -74,8 +85,10 @@ function makePointDayWindow(pointTime: string, timezone: string, notes: string[]
 function makeExplicitRangeWindow(start: string, end: string, timezone: string, notes: string[]): ResolvedWindow {
   const startParts = parseRequiredTimestamp(start, 'normalized_start');
   parseRequiredTimestamp(end, 'normalized_end');
-  const startEpoch = new Date(start).getTime();
-  const endEpoch = new Date(end).getTime();
+  const resolvedStart = timestampWithZone(start, timezone);
+  const resolvedEnd = timestampWithZone(end, timezone);
+  const startEpoch = timestampMillis(resolvedStart, timezone);
+  const endEpoch = timestampMillis(resolvedEnd, timezone);
   if (Number.isNaN(startEpoch) || Number.isNaN(endEpoch) || startEpoch > endEpoch) {
     throw new Error(`Invalid explicit range: ${start} -> ${end}`);
   }
@@ -83,8 +96,8 @@ function makeExplicitRangeWindow(start: string, end: string, timezone: string, n
     query_range: 'past_range',
     semantic_target: 'past_range',
     collection_scope: 'explicit_range',
-    start,
-    end,
+    start: resolvedStart,
+    end: resolvedEnd,
     calendar_date: formatCalendarDate(startParts),
     calendar_dates: [],
     timezone,

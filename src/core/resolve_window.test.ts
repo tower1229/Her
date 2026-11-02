@@ -63,4 +63,27 @@ describe('resolveWindow', () => {
     expect(window.calendar_dates).toEqual([]);
     expect(window.target_timestamp_hint).toBeUndefined();
   });
+
+  it('fills missing offsets from the IANA timezone instead of host Date parsing', () => {
+    const window = resolveWindow(
+      { schema_version: '1.0', target_time_range: 'now', summary: 'now' },
+      '2026-03-22T14:30:00',
+      'Asia/Shanghai',
+    );
+    expect(window.start).toBe('2026-03-22T00:00:00+08:00');
+    expect(window.end).toBe('2026-03-22T14:30:00+08:00');
+
+    const point = resolveWindow(
+      {
+        schema_version: '1.0',
+        target_time_range: 'past_point',
+        normalized_point: '2026-03-21T20:00:00',
+        summary: 'point',
+      },
+      '2026-03-22T14:30:00',
+      'Asia/Shanghai',
+    );
+    expect(point.start).toBe('2026-03-21T00:00:00+08:00');
+    expect(point.end).toBe('2026-03-21T23:59:59+08:00');
+  });
 });

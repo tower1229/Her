@@ -180,10 +180,12 @@ function markContactScope(
     };
   }
   if (state.primary_contact_fingerprint === fingerprint) {
-    return {
-      ...state,
-      contact_scope_status: 'single',
-    };
+    return state.contact_scope_status === 'conflict'
+      ? state
+      : {
+        ...state,
+        contact_scope_status: 'single',
+      };
   }
   return {
     ...state,

@@ -44,4 +44,9 @@ describe('fingerprint', () => {
     });
     expect(resultMiss.hit).toBe(false);
   });
+
+  it('returns unknown_time when the timestamp is not canonical', () => {
+    expect(halfHourTimelineBucket('not-a-timestamp')).toBe('unknown_time');
+    expect(halfHourTimelineBucket('March 22, 2026 14:35:00 GMT')).toBe('unknown_time');
+  });
 });

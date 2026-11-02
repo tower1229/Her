@@ -146,4 +146,25 @@ describe('workspace setup heartbeat contract', () => {
       stdio: 'pipe', env: { ...process.env, OPENCLAW_CONFIG_PATH: openClawConfigPath },
     })).toThrow();
   });
+
+  it('fails doctor when host config is missing or not JSON', () => {
+    execFileSync(process.execPath, [scriptPath, '--workspace', tmpDir, '--with-heartbeat'], {
+      stdio: 'pipe',
+      env: { ...process.env, OPENCLAW_HOME: openClawHome },
+    });
+
+    const emptyHome = path.join(tmpDir, 'empty-home');
+    fs.mkdirSync(emptyHome);
+    expect(() => execFileSync(process.execPath, [doctorPath, '--workspace', tmpDir], {
+      stdio: 'pipe',
+      env: { ...process.env, OPENCLAW_HOME: emptyHome },
+    })).toThrow();
+
+    const badConfig = path.join(tmpDir, 'bad.json');
+    fs.writeFileSync(badConfig, '{ not json');
+    expect(() => execFileSync(process.execPath, [doctorPath, '--workspace', tmpDir], {
+      stdio: 'pipe',
+      env: { ...process.env, OPENCLAW_CONFIG_PATH: badConfig },
+    })).toThrow();
+  });
 });

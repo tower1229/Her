@@ -92,9 +92,10 @@ export function buildTimelineCollectorOutput(
       };
     })(),
     candidate_facts: [...dailyLogs.flatMap((entry) => {
-      const anchorMs = new Date(window.end).getTime();
+      const zone = sources.legacyLogTimezone ?? window.timezone;
+      const anchorMs = timestampMillis(window.end, zone);
       return entry.parsed_episodes.flatMap((episode, index) => {
-        const factMs = timestampMillis(episode.timestamp, sources.legacyLogTimezone ?? window.timezone);
+        const factMs = timestampMillis(episode.timestamp, zone);
         if (!Number.isFinite(factMs) || (window.query_range === 'now' && factMs > anchorMs)) return [];
         const elapsedMinutes = Math.round((anchorMs - factMs) / 60_000);
         const duration = episode.estimatedDurationMinutes ?? defaultDurationForActivityMode(undefined);

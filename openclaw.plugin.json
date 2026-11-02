@@ -74,7 +74,7 @@
       "memorySearchMaxResults": {
         "type": "integer",
         "default": 6,
-        "description": "Maximum number of results requested when the collector calls OpenClaw memory_search."
+        "description": "Ignored on OpenClaw 2026.10.9; internal semantic search is unavailable on this host."
       },
       "proactiveGreeting": {
         "type": "object",

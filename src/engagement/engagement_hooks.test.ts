@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import {
+  buildContactFingerprint,
   handlePreprocessedInbound,
   handleSentOutbound,
   prepareProactiveGreetingHeartbeatContext,
@@ -140,6 +141,52 @@ describe('engagement hooks', () => {
 
     const state = loadEngagementState(resolveEngagementStatePath(tmpDir));
     expect(state.contact_scope_status).toBe('conflict');
+  });
+
+  it('keeps contact conflict after the original contact returns', async () => {
+    await handlePreprocessedInbound(
+      {
+        sessionKey: 'telegram:main',
+        timestamp: new Date('2026-04-03T12:00:00.000Z'),
+        context: {
+          channelId: 'telegram',
+          conversationId: 'chat-1',
+          from: 'user-1',
+          bodyForAgent: '你好',
+        },
+      },
+      params,
+    );
+    await handlePreprocessedInbound(
+      {
+        sessionKey: 'telegram:main',
+        timestamp: new Date('2026-04-03T12:10:00.000Z'),
+        context: {
+          channelId: 'telegram',
+          conversationId: 'chat-2',
+          from: 'user-2',
+          bodyForAgent: '你好',
+        },
+      },
+      params,
+    );
+    await handlePreprocessedInbound(
+      {
+        sessionKey: 'telegram:main',
+        timestamp: new Date('2026-04-03T12:20:00.000Z'),
+        context: {
+          channelId: 'telegram',
+          conversationId: 'chat-1',
+          from: 'user-1',
+          bodyForAgent: '我回来了',
+        },
+      },
+      params,
+    );
+
+    const state = loadEngagementState(resolveEngagementStatePath(tmpDir));
+    expect(state.contact_scope_status).toBe('conflict');
+    expect(state.primary_contact_fingerprint).toBe(buildContactFingerprint({ from: 'user-1' }));
   });
 
   it('dedupes inbound events by fallback hash when messageId is missing', async () => {

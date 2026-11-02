@@ -96,7 +96,10 @@ function main() {
 
   let ok = true;
   const configPath = process.env.OPENCLAW_CONFIG_PATH || path.join(process.env.OPENCLAW_STATE_DIR || process.env.OPENCLAW_HOME || path.join(os.homedir(), '.openclaw'), 'openclaw.json');
-  if (fs.existsSync(configPath)) {
+  if (!fs.existsSync(configPath)) {
+    console.log(`[missing] Host config not found: ${configPath}`);
+    ok = false;
+  } else {
     try {
       const entry = JSON.parse(readText(configPath)).plugins?.entries?.['stella-timeline-plugin'];
       if (entry && entry.hooks?.allowConversationAccess !== true) { console.log('[missing] hooks.allowConversationAccess must be true'); ok = false; }
@@ -104,8 +107,11 @@ function main() {
       const zone = entry?.config?.legacyLogTimezone;
       if (!zone) console.log('[warning] legacyLogTimezone is not fixed; rerun setup on the original deployment host');
       else { try { new Intl.DateTimeFormat('en-US', { timeZone: zone }); } catch { console.log('[invalid] legacyLogTimezone'); ok = false; } }
-    } catch { console.log('[warning] Host config cannot be parsed as JSON; verify hook permissions and timezone in OpenClaw'); }
-  } else console.log('[warning] Host config not found; hook permissions and legacyLogTimezone not verified');
+    } catch {
+      console.log(`[invalid] Host config cannot be parsed as JSON: ${configPath}`);
+      ok = false;
+    }
+  }
   console.log('[info] Internal semantic search: unavailable on 2026.10.9; daily-log/session fallback active. Agent memory_search is unchanged.');
 
   ok = check(

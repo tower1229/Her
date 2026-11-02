@@ -1,4 +1,4 @@
-import { parseMemoryFile } from './parse-memory';
+import { parseMemoryFile, mapTimeOfDay } from './parse-memory';
 
 describe('parseMemoryFile', () => {
   it('should parse Level A correctly', () => {
@@ -190,5 +190,11 @@ describe('mapToEpisode', () => {
     expect(ep.narrative.summary).toBe('在卧室床边醒来');
     expect(ep.world_hooks).toEqual(worldHooks);
     expect(ep.provenance.idempotency_key).toBe('test-key');
+  });
+});
+
+describe('mapTimeOfDay', () => {
+  it('returns unknown for timestamps that are not canonical', () => {
+    expect(mapTimeOfDay('March 22, 2026 14:35:00 GMT')).toBe('unknown');
   });
 });

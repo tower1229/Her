@@ -2,9 +2,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 
+function isNodeErrorCode(error: unknown, code: string): boolean {
+  return Boolean(error && typeof error === 'object' && 'code' in error && (error as { code: unknown }).code === code);
+}
+
 export function readOptionalFile(filePath: string): string | null {
   try { return fs.readFileSync(filePath, 'utf8'); }
-  catch (error: any) { if (error.code === 'ENOENT') return null; throw error; }
+  catch (error: unknown) { if (isNodeErrorCode(error, 'ENOENT')) return null; throw error; }
 }
 
 // Optimistic external-change detection; other writers need not share our lock.
@@ -23,7 +27,7 @@ export function commitFile(filePath: string, expected: string | null, content: s
     owned = false;
   } finally {
     if (owned) {
-      try { fs.unlinkSync(temp); } catch (error: any) { if (error.code !== 'ENOENT') throw error; }
+      try { fs.unlinkSync(temp); } catch (error: unknown) { if (!isNodeErrorCode(error, 'ENOENT')) throw error; }
     }
   }
 }

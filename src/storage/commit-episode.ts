@@ -24,10 +24,23 @@ export async function commitEpisode(input: WriteEpisodeInput, options: {
         .map(ep => ep.eventId).filter((id): id is string => Boolean(id)) : [];
       const result = await options.writer({ ...input, sameBucketExemptEventIds: [...new Set([...(input.sameBucketExemptEventIds ?? []), ...bucketMates])], ...(sameFile ? { truncateEvent: target } : {}) });
       let truncated = Boolean(result.success && sameFile);
-      if (result.success && target && !sameFile) truncated = await truncateEpisodeDuration(target.filePath, target.eventId, target.timestamp, input.legacyLogTimezone);
+      if (result.success && target && !sameFile) {
+        try {
+          truncated = await truncateEpisodeDuration(target.filePath, target.eventId, target.timestamp, input.legacyLogTimezone);
+        } catch (error: unknown) {
+          return {
+            truncated: false,
+            result: {
+              ...result,
+              error_code: 'IO_ERROR',
+              error: error instanceof Error ? error.message : String(error),
+            },
+          };
+        }
+      }
       return { result, truncated };
     });
-  } catch (error: any) {
-    return { truncated: false, result: { success: false, written_at: '', outcome: error instanceof FileLockError ? 'conflict' : 'failed', error_code: error instanceof FileLockError ? 'LOCK_EXISTS' : 'IO_ERROR', error: error.message } };
+  } catch (error: unknown) {
+    return { truncated: false, result: { success: false, written_at: '', outcome: error instanceof FileLockError ? 'conflict' : 'failed', error_code: error instanceof FileLockError ? 'LOCK_EXISTS' : 'IO_ERROR', error: error instanceof Error ? error.message : String(error) } };
   }
 }

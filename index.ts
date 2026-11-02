@@ -6,7 +6,7 @@ import {
   TIMELINE_PLUGIN_VERSION,
   TIMELINE_TOOL_NAMES,
 } from './src/plugin_metadata';
-import { materializePlugin } from './src/openclaw-sdk-compat';
+import { materializePlugin, PluginEntryDefinition } from './src/openclaw-sdk-compat';
 import {
   makeOpenClawTimelineBeforePromptBuildHook,
   makeOpenClawTimelineHeartbeatHook,
@@ -51,5 +51,5 @@ const openClawTimelinePlugin = {
 };
 
 export const timelinePluginEntry = openClawTimelinePlugin;
-export const timelinePlugin = materializePlugin(openClawTimelinePlugin as any);
+export const timelinePlugin = materializePlugin(openClawTimelinePlugin as unknown as PluginEntryDefinition);
 export default openClawTimelinePlugin;

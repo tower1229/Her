@@ -22,8 +22,10 @@ export interface PluginToolRegistration {
   optional?: boolean;
 }
 
+export type PluginToolFactory = (context?: unknown) => PluginToolRegistration;
+
 export interface PluginEntryApi {
-  registerTool: (tool: PluginToolRegistration, options?: { optional?: boolean }) => void;
+  registerTool: (tool: PluginToolRegistration | PluginToolFactory, options?: { optional?: boolean }) => void;
   on?: (event: string, handler: PluginHookRegistration['execute'], options?: { priority?: number }) => void;
   registerHook?: (
     events: string | string[],
@@ -53,7 +55,7 @@ export function materializePlugin(definition: PluginEntryDefinition): Registered
 
   definition.register({
     registerTool(tool, options) {
-      const resolved = typeof tool === 'function' ? (tool as any)({}) : tool;
+      const resolved = typeof tool === 'function' ? tool({}) : tool;
       tools.push({ ...resolved, optional: options?.optional });
     },
     on(event, handler, options) {

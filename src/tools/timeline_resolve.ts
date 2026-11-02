@@ -25,7 +25,7 @@ import { reasonWithPolicy } from '../core/reason_with_policy';
 import { formatDate, parseTimestampParts } from '../lib/time-utils';
 import { appendTraceLog } from '../storage/trace_log';
 import { writeEpisode, WriteEpisodeInput, WriteResult } from '../storage/write-episode';
-import { resolveWindow, TimelineQueryPlan } from '../core/resolve_window';
+import { resolveWindow, ResolvedWindow, TimelineQueryPlan } from '../core/resolve_window';
 import { loadTimelinePersonaContractFromWorkspace } from '../persona/load_persona_contract';
 import { LegacyPersonaContractExtractor } from '../persona/extract_legacy_persona_contract';
 import { collectActiveFacts } from '../core/collect_active_facts';
@@ -207,7 +207,7 @@ function calendarDateFromTimestamp(timestamp: string): string {
 
 function isParsedEpisodeActiveAt(episode: ParsedEpisode, anchorIso: string, legacyLogTimezone?: string): boolean {
   const episodeMs = timestampMillis(episode.timestamp, legacyLogTimezone);
-  const anchorMs = new Date(anchorIso).getTime();
+  const anchorMs = timestampMillis(anchorIso, legacyLogTimezone);
   if (Number.isNaN(episodeMs) || Number.isNaN(anchorMs)) return false;
   const elapsedMinutes = (anchorMs - episodeMs) / 60_000;
   if (elapsedMinutes < 0) return false;
@@ -262,20 +262,22 @@ export async function resolveReadOnlyFastSnapshot(
   const nowISO = currentTime.now;
   const calendarDate = formatDate(parseTimestampParts(nowISO)!);
   const stubInput: TimelineResolveInput = { query: 'now', mode: 'read_only_fast' };
-  const stubWindow = {
+  const stubWindow: ResolvedWindow = {
     start: nowISO,
     end: nowISO,
     calendar_dates: [calendarDate],
-    query_range: 'now' as const,
+    query_range: 'now',
     semantic_target: 'now',
     collection_scope: 'today_so_far',
     timezone,
+    calendar_date: calendarDate,
+    normalization_notes: [],
   };
 
   const zone = deps.legacyLogTimezone ?? timezone;
   const currentDates = enumerateLogDates(nowISO, nowISO, zone);
   const currentHits = await Promise.all(currentDates.map(async date => ({ date,
-    episode: selectLatestUnexpiredParsedEpisode(parseMemoryFile(await deps.memoryGet(date, stubWindow as any, stubInput)), nowISO, zone),
+    episode: selectLatestUnexpiredParsedEpisode(parseMemoryFile(await deps.memoryGet(date, stubWindow, stubInput)), nowISO, zone),
   })));
   const currentDayHit = currentHits.filter(hit => hit.episode)
     .sort((a, b) => timestampMillis(b.episode!.timestamp, zone) - timestampMillis(a.episode!.timestamp, zone))[0];
@@ -296,7 +298,7 @@ export async function resolveReadOnlyFastSnapshot(
 
   if (lookbackDays > 1) {
     const activeFacts = await collectActiveFacts(
-      (candidateDate) => deps.memoryGet(candidateDate, stubWindow as any, stubInput),
+      (candidateDate) => deps.memoryGet(candidateDate, stubWindow, stubInput),
       nowISO,
       lookbackDays,
       deps.legacyLogTimezone ?? timezone,
@@ -724,7 +726,7 @@ export async function timelineResolve(
     }, traceId);
     output.trace = trace;
     return finalizeTimelineOutput(output, input, deps, requestedRange);
-  } catch (error: any) {
+  } catch (error: unknown) {
     const timelineError = error instanceof Error ? error : new Error(String(error));
     const errorCode = classifyTimelineResolveError(timelineError);
 

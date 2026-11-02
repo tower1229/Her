@@ -74,11 +74,13 @@ describe('openclaw timeline runtime factories', () => {
   });
 
   it('injects workspace/session/pluginConfig into timeline_resolve through the real runtime factory', async () => {
-    const today = formatLocalCalendarDate(new Date());
+    const now = new Date();
+    const today = formatLocalCalendarDate(now);
+    const thirtyMinutesAgo = formatLocalTimestamp(new Date(now.getTime() - 30 * 60_000));
 
     fs.writeFileSync(
       path.join(canonicalRoot, `${today}.md`),
-      `### [Episode]\n- Timestamp: ${today}T18:00:00+08:00\n- Location: 家里书房\n- Action: 继续整理今天的工作记录\n- Emotion_Tags: [专注, 平静]\n- Appearance: 宽松的家居服\n- Internal_Monologue: 再收一下尾就差不多了。\n她傍晚还在家里书房继续整理今天的工作记录。`,
+      `### [Episode]\n- Timestamp: ${thirtyMinutesAgo}\n- Location: 家里书房\n- Action: 继续整理今天的工作记录\n- Emotion_Tags: [专注, 平静]\n- Appearance: 宽松的家居服\n- Estimated_Duration: 120\n- Internal_Monologue: 再收一下尾就差不多了。\n她傍晚还在家里书房继续整理今天的工作记录。`,
       'utf8',
     );
 
@@ -214,7 +216,9 @@ describe('openclaw timeline runtime factories', () => {
   });
 
   it('prefers persona/PERSONA_PROFILE.md over legacy core files in the runtime factory path', async () => {
-    const today = formatLocalCalendarDate(new Date());
+    const now = new Date();
+    const today = formatLocalCalendarDate(now);
+    const thirtyMinutesAgo = formatLocalTimestamp(new Date(now.getTime() - 30 * 60_000));
     let latestReasonerRequestId = '';
     let latestPlannerRequestId = '';
     let latestReasonerMessage = '';
@@ -242,7 +246,7 @@ describe('openclaw timeline runtime factories', () => {
     fs.writeFileSync(path.join(tmpDir, 'IDENTITY.md'), 'She lives in Beijing.', 'utf8');
     fs.writeFileSync(
       path.join(canonicalRoot, `${today}.md`),
-      `### [Episode]\n- Timestamp: ${today}T18:00:00+08:00\n- Location: 家里书房\n- Action: 继续整理今天的工作记录\n- Emotion_Tags: [专注, 平静]\n- Appearance: 宽松的家居服\n- Internal_Monologue: 再收一下尾就差不多了。\n她傍晚还在家里书房继续整理今天的工作记录。`,
+      `### [Episode]\n- Timestamp: ${thirtyMinutesAgo}\n- Location: 家里书房\n- Action: 继续整理今天的工作记录\n- Emotion_Tags: [专注, 平静]\n- Appearance: 宽松的家居服\n- Estimated_Duration: 120\n- Internal_Monologue: 再收一下尾就差不多了。\n她傍晚还在家里书房继续整理今天的工作记录。`,
       'utf8',
     );
 
@@ -364,11 +368,13 @@ describe('openclaw timeline runtime factories', () => {
   });
 
   it('recovers the matching planner and reasoner JSON from mixed assistant transcripts', async () => {
-    const today = formatLocalCalendarDate(new Date());
+    const now = new Date();
+    const today = formatLocalCalendarDate(now);
+    const thirtyMinutesAgo = formatLocalTimestamp(new Date(now.getTime() - 30 * 60_000));
 
     fs.writeFileSync(
       path.join(canonicalRoot, `${today}.md`),
-      `### [Episode]\n- Timestamp: ${today}T18:00:00+08:00\n- Location: 家里书房\n- Action: 继续整理今天的工作记录\n- Emotion_Tags: [专注, 平静]\n- Appearance: 宽松的家居服\n- Internal_Monologue: 再收一下尾就差不多了。\n她傍晚还在家里书房继续整理今天的工作记录。`,
+      `### [Episode]\n- Timestamp: ${thirtyMinutesAgo}\n- Location: 家里书房\n- Action: 继续整理今天的工作记录\n- Emotion_Tags: [专注, 平静]\n- Appearance: 宽松的家居服\n- Estimated_Duration: 120\n- Internal_Monologue: 再收一下尾就差不多了。\n她傍晚还在家里书房继续整理今天的工作记录。`,
       'utf8',
     );
 
@@ -641,15 +647,21 @@ describe('openclaw timeline runtime factories', () => {
       query: '你在干嘛',
     });
 
-    const payload = result.details as { ok: boolean; resolution_summary?: { mode: string }; result?: { episodes: any[] } };
+    const payload = result.details as { ok: boolean; resolution_summary?: { mode: string }; result?: { episodes: unknown[]; consumption?: { fact?: { status?: string } } } };
     expect(payload.ok).toBe(true);
-    expect(payload.resolution_summary?.mode).toBe('read_only_hit');
-    expect(String(payload.result?.episodes?.[0]?.state_snapshot?.scene?.location_label || '')).toContain('书房');
+    expect(payload.resolution_summary?.mode).toBe('empty_window');
+    expect(payload.result?.consumption?.fact?.status).toBe('empty');
   });
 
-  it('falls back to heuristic planner and reasoner decisions when subagents time out', async () => {
+  it('falls back to empty_window when subagents time out instead of keyword-picking canon', async () => {
     const today = formatLocalCalendarDate(new Date());
+    const yesterday = formatLocalCalendarDate(new Date(Date.now() - 24 * 60 * 60_000));
 
+    fs.writeFileSync(
+      path.join(canonicalRoot, `${yesterday}.md`),
+      `### [Episode]\n- Timestamp: ${yesterday}T19:00:00+08:00\n- Location: 公园\n- Action: 和朋友烧烤聊天\n- Emotion_Tags: [开心, 有趣]\n- Appearance: 休闲外套\n- Internal_Monologue: 今晚挺好玩的。\n昨晚和朋友在公园烧烤。`,
+      'utf8',
+    );
     fs.writeFileSync(
       path.join(canonicalRoot, `${today}.md`),
       `### [Episode]\n- Timestamp: ${today}T18:00:00+08:00\n- Location: 家里书房\n- Action: 继续整理今天的工作记录\n- Emotion_Tags: [专注, 平静]\n- Appearance: 宽松的家居服\n- Internal_Monologue: 再收一下尾就差不多了。\n她傍晚还在家里书房继续整理今天的工作记录。`,
@@ -690,13 +702,14 @@ describe('openclaw timeline runtime factories', () => {
     });
 
     const result = await tool.execute('call-timeout', {
-      query: '你在干嘛',
+      query: '昨晚有什么有趣的事',
     });
 
-    const payload = result.details as { ok: boolean; resolution_summary: { mode: string }; result?: { episodes: any[] } };
+    const payload = result.details as { ok: boolean; resolution_summary: { mode: string }; result?: { episodes: unknown[]; consumption?: { fact?: { status?: string } } } };
     expect(payload.ok).toBe(true);
-    expect(payload.resolution_summary.mode).toBe('read_only_hit');
-    expect(String(payload.result?.episodes?.[0]?.state_snapshot?.scene?.location_label || '')).toContain('书房');
+    expect(payload.resolution_summary.mode).toBe('empty_window');
+    expect(payload.result?.consumption?.fact?.status).toBe('empty');
+    expect(payload.result?.episodes ?? []).toEqual([]);
   });
 
   it('injects active_instant prompt context through before_prompt_build', async () => {

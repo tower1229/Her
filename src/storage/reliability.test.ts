@@ -111,6 +111,32 @@ describe('daily log reliability', () => {
     expect(partial.truncated).toBe(false);
   });
 
+  it('keeps the new write and reports IO_ERROR when cross-day truncation throws', async () => {
+    await writeEpisode({ ...event, timestamp: '2026-11-01T23:30:00+08:00', filePath: file });
+    const tomorrow = path.join(root, '2026-11-02.md');
+    const input = { ...event, timestamp: '2026-11-02T00:15:00+08:00', action: 'walking', eventId: 'two', filePath: tomorrow };
+    const fsModule = require('fs') as typeof fs;
+    const originalRename = fsModule.renameSync.bind(fsModule);
+    const rename = jest.spyOn(fsModule, 'renameSync');
+    let count = 0;
+    rename.mockImplementation((...args: Parameters<typeof fs.renameSync>) => {
+      count += 1;
+      if (count > 1) throw new Error('disk full');
+      return originalRename(...args);
+    });
+    try {
+      const result = await commitEpisode(input, { writer: writeEpisode, rootPath: root, truncate: { filePath: file, eventId: event.eventId, timestamp: input.timestamp } });
+      expect(result.result.success).toBe(true);
+      expect(result.truncated).toBe(false);
+      expect(result.result.error_code).toBe('IO_ERROR');
+      expect(result.result.error).toBe('disk full');
+      expect(fs.existsSync(tomorrow)).toBe(true);
+      expect(parseMemoryFile(fs.readFileSync(file, 'utf8'))[0].estimatedDurationMinutes).toBe(120);
+    } finally {
+      rename.mockRestore();
+    }
+  });
+
   it('rejects a different directory with the same basename and records offsets for naive new entries', async () => {
     const escaped = await commitEpisode({ ...event, filePath: file }, { writer: writeEpisode, rootPath: path.join(root, 'other') });
     expect(escaped.result.success).toBe(false);

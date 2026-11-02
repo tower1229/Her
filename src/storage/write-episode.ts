@@ -230,13 +230,13 @@ export async function writeEpisode(input: WriteEpisodeInput): Promise<WriteResul
       outcome: 'appended',
       idempotency_key: conflictCheck.fingerprint,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
       written_at: '',
       outcome: 'failed',
       error_code: 'IO_ERROR',
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       recovery_hint: 'Check file permissions and retry after confirming the timeline path is writable.',
     };
   }
@@ -248,12 +248,10 @@ export async function truncateEpisodeDuration(
   interruptionTimeISO: string,
   legacyLogTimezone?: string,
 ): Promise<boolean> {
-  try {
-    const original = readOptionalFile(filePath);
-    if (original === null) return false;
-    const updated = truncateDocument(original, eventId, interruptionTimeISO, legacyLogTimezone);
-    if (updated === null) return false;
-    commitFile(filePath, original, updated);
-    return true;
-  } catch { return false; }
+  const original = readOptionalFile(filePath);
+  if (original === null) return false;
+  const updated = truncateDocument(original, eventId, interruptionTimeISO, legacyLogTimezone);
+  if (updated === null) return false;
+  commitFile(filePath, original, updated);
+  return true;
 }
