@@ -197,5 +197,21 @@ describe('reasonWithPolicy', () => {
       }),
     ).rejects.toThrow('Timeline reasoner returned no decision during guard recovery');
   });
+
+  it('does not retry prefer_generation when the reasoner throws', async () => {
+    const collector = makeCollector();
+    const reasonTimeline = jest.fn(async () => {
+      throw new Error('Timeline reasoner returned no decision');
+    });
+
+    await expect(
+      reasonWithPolicy({
+        collector,
+        mode: 'allow_generate',
+        reasonTimeline,
+      }),
+    ).rejects.toThrow('Timeline reasoner returned no decision');
+    expect(reasonTimeline).toHaveBeenCalledTimes(1);
+  });
 });
 

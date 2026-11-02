@@ -6,12 +6,18 @@ import { readOptionalFile } from './atomic-file';
 import { parseMemoryFile } from '../lib/parse-memory';
 import { halfHourTimelineBucket } from '../lib/fingerprint';
 
+export interface CommitEpisodeResult {
+  result: WriteResult;
+  truncated: boolean;
+  truncate_error?: string;
+}
+
 export async function commitEpisode(input: WriteEpisodeInput, options: {
   rootName?: string; rootPath?: string;
   exemptCurrentBucket?: boolean;
   writer: (input: WriteEpisodeInput) => Promise<WriteResult>;
   truncate?: { filePath: string; eventId: string; timestamp: string };
-}): Promise<{ result: WriteResult; truncated: boolean }> {
+}): Promise<CommitEpisodeResult> {
   const target = options.truncate;
   try {
     const date = input.timestamp.slice(0, 10);
@@ -30,11 +36,8 @@ export async function commitEpisode(input: WriteEpisodeInput, options: {
         } catch (error: unknown) {
           return {
             truncated: false,
-            result: {
-              ...result,
-              error_code: 'IO_ERROR',
-              error: error instanceof Error ? error.message : String(error),
-            },
+            truncate_error: error instanceof Error ? error.message : String(error),
+            result,
           };
         }
       }

@@ -111,7 +111,7 @@ describe('daily log reliability', () => {
     expect(partial.truncated).toBe(false);
   });
 
-  it('keeps the new write and reports IO_ERROR when cross-day truncation throws', async () => {
+  it('keeps the new write and reports truncate_error when cross-day truncation throws', async () => {
     await writeEpisode({ ...event, timestamp: '2026-11-01T23:30:00+08:00', filePath: file });
     const tomorrow = path.join(root, '2026-11-02.md');
     const input = { ...event, timestamp: '2026-11-02T00:15:00+08:00', action: 'walking', eventId: 'two', filePath: tomorrow };
@@ -128,8 +128,9 @@ describe('daily log reliability', () => {
       const result = await commitEpisode(input, { writer: writeEpisode, rootPath: root, truncate: { filePath: file, eventId: event.eventId, timestamp: input.timestamp } });
       expect(result.result.success).toBe(true);
       expect(result.truncated).toBe(false);
-      expect(result.result.error_code).toBe('IO_ERROR');
-      expect(result.result.error).toBe('disk full');
+      expect(result.result.error_code).toBeUndefined();
+      expect(result.result.error).toBeUndefined();
+      expect(result.truncate_error).toBe('disk full');
       expect(fs.existsSync(tomorrow)).toBe(true);
       expect(parseMemoryFile(fs.readFileSync(file, 'utf8'))[0].estimatedDurationMinutes).toBe(120);
     } finally {

@@ -622,61 +622,6 @@ function buildFallbackTimelineQueryPlan(): TimelineQueryPlan {
   };
 }
 
-function buildFallbackTimeInterpretation(collector: TimelineCollectorOutput) {
-  if (collector.window.query_range === 'now') {
-    return {
-      normalized_kind: 'now' as const,
-      match_strategy: 'generated' as const,
-      summary: 'Fallback reasoner treated the request as a current-moment query.',
-    };
-  }
-  if (collector.window.query_range === 'past_point') {
-    return {
-      normalized_kind: 'point' as const,
-      normalized_point: collector.window.start,
-      match_strategy: 'generated' as const,
-      summary: 'Fallback reasoner treated the request as a concrete past point query.',
-    };
-  }
-  return {
-    normalized_kind: 'range' as const,
-    normalized_start: collector.window.start,
-    normalized_end: collector.window.end,
-    match_strategy: 'generated' as const,
-    summary: 'Fallback reasoner treated the request as a past range query.',
-  };
-}
-
-function buildFallbackReasonerOutput(
-  collector: TimelineCollectorOutput,
-  error: unknown,
-): TimelineReasonerOutput {
-  const fallbackReason = error instanceof Error ? error.message : String(error);
-  return {
-    schema_version: '1.0',
-    request_id: collector.request_id,
-    request_type: collector.window.query_range,
-    time_interpretation: buildFallbackTimeInterpretation(collector),
-    decision: {
-      action: 'return_empty',
-      should_write_canon: false,
-    },
-    continuity: {
-      judged: collector.window.query_range !== 'past_range',
-      is_continuing: false,
-      reason: `Fallback reasoner returned empty after: ${fallbackReason}`,
-    },
-    rationale: {
-      summary: 'Fallback reasoner returned empty because the subagent result was unavailable or invalid.',
-      hard_fact_basis: collector.hard_facts.sessions_history.slice(0, 2),
-      canon_basis: [],
-      persona_basis: [],
-      constraint_basis: [],
-      uncertainty: fallbackReason,
-    },
-  };
-}
-
 function createTimelineQueryPlanner(
   pluginApi: PluginApiLike,
   toolContext: PluginToolContextLike,
@@ -732,10 +677,10 @@ function createSubagentReasoner(
         message: buildTimelineReasonerMessage(collector), extraSystemPrompt: buildTimelineReasonerSystemPrompt(collector.request_id),
         timeoutMs: runtimeConfig.reasonerTimeoutMs, sourceLabel: 'Timeline reasoner', messageLimit: runtimeConfig.reasonerMessageLimit }) as unknown as TimelineReasonerOutput;
     } catch (error) {
-      pluginApi.logger?.warn?.('timeline reasoner fallback engaged', {
+      pluginApi.logger?.warn?.('timeline reasoner unavailable', {
         error: error instanceof Error ? error.message : String(error),
       });
-      return buildFallbackReasonerOutput(collector, error);
+      throw error;
     }
   };
 }

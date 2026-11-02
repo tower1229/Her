@@ -28,6 +28,25 @@ describe('workspace setup heartbeat contract', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
+  function expectDoctorFailure(envOverrides: NodeJS.ProcessEnv, marker: string): void {
+    const env: NodeJS.ProcessEnv = { ...process.env, ...envOverrides };
+    if (envOverrides.OPENCLAW_CONFIG_PATH === undefined) delete env.OPENCLAW_CONFIG_PATH;
+    try {
+      execFileSync(process.execPath, [doctorPath, '--workspace', tmpDir], {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env,
+      });
+    } catch (error: unknown) {
+      expect(error).toEqual(expect.objectContaining({ status: 1 }));
+      const stdout = error && typeof error === 'object' && 'stdout' in error ? String(error.stdout ?? '') : '';
+      const stderr = error && typeof error === 'object' && 'stderr' in error ? String(error.stderr ?? '') : '';
+      expect(`${stdout}${stderr}`).toContain(marker);
+      return;
+    }
+    throw new Error(`expected doctor to exit 1 (${marker})`);
+  }
+
   it('does not create HEARTBEAT.md unless explicitly requested', () => {
     execFileSync(process.execPath, [scriptPath, '--workspace', tmpDir], {
       stdio: 'pipe',
@@ -155,16 +174,16 @@ describe('workspace setup heartbeat contract', () => {
 
     const emptyHome = path.join(tmpDir, 'empty-home');
     fs.mkdirSync(emptyHome);
-    expect(() => execFileSync(process.execPath, [doctorPath, '--workspace', tmpDir], {
-      stdio: 'pipe',
-      env: { ...process.env, OPENCLAW_HOME: emptyHome },
-    })).toThrow();
+    expectDoctorFailure(
+      { OPENCLAW_HOME: emptyHome },
+      '[missing] Host config not found:',
+    );
 
     const badConfig = path.join(tmpDir, 'bad.json');
     fs.writeFileSync(badConfig, '{ not json');
-    expect(() => execFileSync(process.execPath, [doctorPath, '--workspace', tmpDir], {
-      stdio: 'pipe',
-      env: { ...process.env, OPENCLAW_CONFIG_PATH: badConfig },
-    })).toThrow();
+    expectDoctorFailure(
+      { OPENCLAW_CONFIG_PATH: badConfig },
+      '[invalid] Host config cannot be parsed as JSON:',
+    );
   });
 });

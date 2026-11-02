@@ -668,6 +668,7 @@ describe('openclaw timeline runtime factories', () => {
       'utf8',
     );
 
+    const reasonerSessionKeys: string[] = [];
     const pluginApi = {
       workspaceDir: tmpDir,
       pluginConfig: {
@@ -675,7 +676,10 @@ describe('openclaw timeline runtime factories', () => {
       },
       runtime: {
         subagent: {
-          run: async () => ({ runId: 'reasoner-run-timeout' }),
+          run: async (input: { sessionKey?: string }) => {
+            if (typeof input.sessionKey === 'string') reasonerSessionKeys.push(input.sessionKey);
+            return { runId: `reasoner-run-timeout-${reasonerSessionKeys.length}` };
+          },
           waitForRun: async () => ({ status: 'timeout' }),
           getSessionMessages: async () => ({ messages: [] }),
           deleteSession: async () => undefined,
@@ -703,13 +707,21 @@ describe('openclaw timeline runtime factories', () => {
 
     const result = await tool.execute('call-timeout', {
       query: '昨晚有什么有趣的事',
+      trace: true,
     });
 
-    const payload = result.details as { ok: boolean; resolution_summary: { mode: string }; result?: { episodes: unknown[]; consumption?: { fact?: { status?: string } } } };
+    const payload = result.details as {
+      ok: boolean;
+      resolution_summary: { mode: string };
+      trace?: { decision?: { error_code?: string } };
+      result?: { episodes: unknown[]; consumption?: { fact?: { status?: string } } };
+    };
     expect(payload.ok).toBe(true);
     expect(payload.resolution_summary.mode).toBe('empty_window');
     expect(payload.result?.consumption?.fact?.status).toBe('empty');
     expect(payload.result?.episodes ?? []).toEqual([]);
+    expect(payload.trace?.decision?.error_code).toBe('REASONER_UNAVAILABLE');
+    expect(reasonerSessionKeys.filter((key) => key.includes('timeline-reasoner:') && !key.includes(':planner:'))).toHaveLength(1);
   });
 
   it('injects active_instant prompt context through before_prompt_build', async () => {

@@ -171,7 +171,11 @@ export async function timelineTransition(
       if (!activeFacts[0].event_id) {
         notes.push('Interrupt: active episode has no Event_Id; prior duration was not truncated.');
       } else if (writeResult.success && !truncateOk) {
-        notes.push('Interrupt: write succeeded but could not truncate the prior episode.');
+        notes.push(
+          committed.truncate_error
+            ? `Interrupt: write succeeded but could not truncate the prior episode: ${committed.truncate_error}`
+            : 'Interrupt: write succeeded but could not truncate the prior episode.',
+        );
       }
     }
     if (writeResult.success) {
