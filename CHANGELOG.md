@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.9.0]
+
+- **OpenClaw 2026.10.9**：把插件 API / 构建宿主钉到已验收的 `2026.10.9`，并完成该宿主上的 timeline 可靠性与工作区接线修复。
+- **ClawHub 发布**：在 manifest 中声明 `memory` 分类；修复嵌套 `npm run` 下 `npm pack --json` 解析，使 `release:clawhub` smoke 能打到真实 tarball。
+
 ## [2.8.10]
 
 - **ClawHub package compatibility**: declare the tested OpenClaw plugin API floor and build version required by ClawHub package publishing.

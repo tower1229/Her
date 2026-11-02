@@ -1,0 +1,413 @@
+{
+  "host": "2026.10.9",
+  "model": "deepseek/deepseek-v4-flash",
+  "query": "昨晚21点你在做什么？",
+  "first": {
+    "ok": true,
+    "schema_version": "1.0",
+    "trace_id": "timeline-1793538635354-2139",
+    "resolution_summary": {
+      "mode": "generated_new",
+      "writes_attempted": 1,
+      "writes_succeeded": 1,
+      "sources": [
+        "sessions_history",
+        "memory_get"
+      ],
+      "confidence_min": 0.78,
+      "confidence_max": 0.78
+    },
+    "result": {
+      "schema_version": "1.0",
+      "document_type": "timeline.window",
+      "anchor": {
+        "now": "2026-10-31T23:59:59+08:00",
+        "timezone": "Asia/Shanghai"
+      },
+      "window": {
+        "calendar_date": "2026-10-31",
+        "preset": "past_point",
+        "semantic_target": "past_point",
+        "collection_scope": "point_day",
+        "start": "2026-10-31T00:00:00+08:00",
+        "end": "2026-10-31T23:59:59+08:00",
+        "idempotency_key": "20261031|家中书房|坐在书房靠窗的单人沙发上就着落地灯的光读一本散文集手边放着一杯还温着的茶|21:00"
+      },
+      "resolution": {
+        "mode": "generated_new",
+        "notes": "2026-10-31 是周六晚上九点，秋季上海，家中居家休闲最自然；人设偏好阅读、安静，因此以书房夜读承接。 | Time interpretation: 用户问“昨晚21点”做了什么，归为过去时间点，定位到2026-10-31 21:00:00（Asia/Shanghai）。当天没有日志或候选事实，需要生成。 | Raw error: 具体读什么书、是否中途泡茶没有依据，这里只给出稳定的场景骨架。 | generated candidate persisted via append-only writer"
+      },
+      "consumption": {
+        "schema_version": "1.0",
+        "document_type": "timeline.consumption",
+        "query": {
+          "preset": "past_point",
+          "semantic_target": "past_point",
+          "collection_scope": "point_day",
+          "resolution_mode": "generated_new",
+          "time_interpretation": {
+            "normalized_kind": "point",
+            "normalized_point": "2026-10-31T21:00:00+08:00",
+            "match_strategy": "generated",
+            "summary": "用户问“昨晚21点”做了什么，归为过去时间点，定位到2026-10-31 21:00:00（Asia/Shanghai）。当天没有日志或候选事实，需要生成。"
+          }
+        },
+        "fact": {
+          "status": "resolved",
+          "source_type": "generated",
+          "timestamp": "2026-10-31T21:00:00+08:00",
+          "summary": "在家中书房坐在书房靠窗的单人沙发上，就着落地灯的光读一本散文集，手边放着一杯还温着的茶",
+          "confidence": 0.78,
+          "continuity": {
+            "judged": true,
+            "is_continuing": false,
+            "reason": "当天没有任何已存记忆，没有可延续的场景；依据人设与周末晚间节奏生成一个独立可信的状态。"
+          }
+        },
+        "scene": {
+          "location": "家中书房",
+          "activity": "坐在书房靠窗的单人沙发上，就着落地灯的光读一本散文集，手边放着一杯还温着的茶",
+          "emotion_primary": "平静",
+          "emotion_secondary": "放松",
+          "appearance": "米色薄针织长袖上衣配深色家居长裤，头发松松挽在脑后，肩上搭了一条薄毯",
+          "time_of_day": "evening",
+          "summary": "在家中书房坐在书房靠窗的单人沙发上，就着落地灯的光读一本散文集，手边放着一杯还温着的茶",
+          "city": "Shanghai",
+          "calendar_date": "2026-10-31",
+          "local_timestamp": "2026-10-31T21:00:00+08:00",
+          "timezone": "Asia/Shanghai",
+          "activity_mode": "leisure",
+          "continuity_relation": "fresh_moment",
+          "environment_mood": "warm evening atmosphere, weekend ease, grounded indoor routine",
+          "appearance_change_expected": false,
+          "location_props": [
+            "desk",
+            "window"
+          ],
+          "lighting_hint": "warm indoor or dusk light",
+          "framing_hint": "half-body, seated, near-table framing",
+          "estimated_duration_minutes": 60,
+          "event_id": "evt-20261031-210000"
+        },
+        "selfie_ready": {
+          "location": "Shanghai 家中书房",
+          "activity": "坐在书房靠窗的单人沙发上，就着落地灯的光读一本散文集，手边放着一杯还温着的茶 with desk and window nearby",
+          "emotion": "平静 with a 放松 undertone",
+          "appearance": "米色薄针织长袖上衣配深色家居长裤，头发松松挽在脑后，肩上搭了一条薄毯",
+          "time_of_day": "Shanghai weekend evening",
+          "summary": "Shanghai 家中书房: 坐在书房靠窗的单人沙发上，就着落地灯的光读一本散文集，手边放着一杯还温着的茶 in 米色薄针织长袖上衣配深色家居长裤，头发松松挽在脑后，肩上搭了一条薄毯, feeling 平静 with a 放松 undertone."
+        }
+      },
+      "episodes": [
+        {
+          "episode_id": "sys-1793538647539-1477",
+          "schema_version": "1.0",
+          "document_type": "timeline.episode",
+          "temporal": {
+            "start": "2026-10-31T21:00:00+08:00",
+            "end": "2026-10-31T22:00:00+08:00",
+            "time_of_day": "evening",
+            "granularity": "block"
+          },
+          "narrative": {
+            "summary": "在家中书房坐在书房靠窗的单人沙发上，就着落地灯的光读一本散文集，手边放着一杯还温着的茶",
+            "detail": "周六的晚上不太想安排事情，读到喜欢的段落就多停一会儿，等眼睛酸了再去洗个热水澡。"
+          },
+          "state_snapshot": {
+            "scene": {
+              "location_kind": "literal",
+              "location_label": "家中书房",
+              "activity": "坐在书房靠窗的单人沙发上，就着落地灯的光读一本散文集，手边放着一杯还温着的茶",
+              "time_of_day": "evening"
+            },
+            "emotion": {
+              "primary": "平静",
+              "secondary": "放松",
+              "intensity": 0
+            },
+            "appearance": {
+              "outfit_style": "米色薄针织长袖上衣配深色家居长裤，头发松松挽在脑后，肩上搭了一条薄毯",
+              "grooming": null,
+              "posture_energy": null
+            }
+          },
+          "world_hooks": {
+            "weekday": false,
+            "holiday_key": null
+          },
+          "provenance": {
+            "writer": "stella-timeline-plugin",
+            "written_at": "2026-11-01T13:10:47.539Z",
+            "idempotency_key": "20261031|家中书房|坐在书房靠窗的单人沙发上就着落地灯的光读一本散文集手边放着一杯还温着的茶|21:00",
+            "confidence": 0.78
+          }
+        }
+      ]
+    },
+    "notes": [
+      "2026-10-31 是周六晚上九点，秋季上海，家中居家休闲最自然；人设偏好阅读、安静，因此以书房夜读承接。",
+      "Time interpretation: 用户问“昨晚21点”做了什么，归为过去时间点，定位到2026-10-31 21:00:00（Asia/Shanghai）。当天没有日志或候选事实，需要生成。",
+      "Raw error: 具体读什么书、是否中途泡茶没有依据，这里只给出稳定的场景骨架。",
+      "No reusable canon entry found; generated a timeline memory from the LLM draft.",
+      "Generation basis: 周末晚间、秋季、安静性格的人设共同指向居家的低强度阅读场景，与既有的 plausible_locations/activities 一致。",
+      "Persona context loaded: persona contract signals available",
+      "Appearance resolution: no prior same-day appearance found; kept the LLM-provided appearance",
+      "Generated episode persisted to C:/Users/shixiong/AppData/Local/Temp/her-live-COIjqb/workspace/memory/2026-10-31.md."
+    ],
+    "trace": {
+      "trace_id": "timeline-1793538635354-2139",
+      "ts": "2026-11-01T13:10:47.550Z",
+      "requested_range": "past_point",
+      "actual_range": "past_point",
+      "source_order": [
+        "sessions_history",
+        "memory_get"
+      ],
+      "source_summary": {
+        "sessions_history_count": 0,
+        "sessions_history_preview": null,
+        "memory_chars": 0,
+        "memory_search_count": 0,
+        "memory_search_preview": [],
+        "parsed_episode_count": 0
+      },
+      "fingerprint": {
+        "checked": true,
+        "matched": false,
+        "compared_episodes": 0,
+        "idempotency_key": "20261031|家中书房|坐在书房靠窗的单人沙发上就着落地灯的光读一本散文集手边放着一杯还温着的茶|21:00",
+        "reason": "周末晚间、秋季、安静性格的人设共同指向居家的低强度阅读场景，与既有的 plausible_locations/activities 一致。"
+      },
+      "appearance": {
+        "inherited": false,
+        "reason": "no prior same-day appearance found; kept the LLM-provided appearance",
+        "transition": "inherit",
+        "outfit_mode": "casual_home",
+        "change_reason": "same_day_continuation"
+      },
+      "write": {
+        "attempted": true,
+        "succeeded": true,
+        "file_path": "C:/Users/shixiong/AppData/Local/Temp/her-live-COIjqb/workspace/memory/2026-10-31.md",
+        "outcome": "appended",
+        "guard": "canonical_path",
+        "writer": "stella-timeline-plugin"
+      },
+      "decision": {
+        "resolution_mode": "generated_new",
+        "write_outcome": "appended",
+        "category": "past_point"
+      },
+      "notes": [
+        "2026-10-31 是周六晚上九点，秋季上海，家中居家休闲最自然；人设偏好阅读、安静，因此以书房夜读承接。",
+        "Time interpretation: 用户问“昨晚21点”做了什么，归为过去时间点，定位到2026-10-31 21:00:00（Asia/Shanghai）。当天没有日志或候选事实，需要生成。",
+        "Raw error: 具体读什么书、是否中途泡茶没有依据，这里只给出稳定的场景骨架。",
+        "No reusable canon entry found; generated a timeline memory from the LLM draft.",
+        "Generation basis: 周末晚间、秋季、安静性格的人设共同指向居家的低强度阅读场景，与既有的 plausible_locations/activities 一致。",
+        "Persona context loaded: persona contract signals available",
+        "Appearance resolution: no prior same-day appearance found; kept the LLM-provided appearance",
+        "Generated episode persisted to C:/Users/shixiong/AppData/Local/Temp/her-live-COIjqb/workspace/memory/2026-10-31.md."
+      ]
+    }
+  },
+  "second": {
+    "ok": true,
+    "schema_version": "1.0",
+    "trace_id": "timeline-1793538647594-38891",
+    "resolution_summary": {
+      "mode": "read_only_hit",
+      "writes_attempted": 0,
+      "writes_succeeded": 0,
+      "sources": [
+        "sessions_history",
+        "memory_get"
+      ],
+      "confidence_min": 1,
+      "confidence_max": 1
+    },
+    "result": {
+      "schema_version": "1.0",
+      "document_type": "timeline.window",
+      "anchor": {
+        "now": "2026-10-31T23:59:59+08:00",
+        "timezone": "Asia/Shanghai"
+      },
+      "window": {
+        "calendar_date": "2026-10-31",
+        "preset": "past_point",
+        "semantic_target": "past_point",
+        "collection_scope": "point_day",
+        "start": "2026-10-31T00:00:00+08:00",
+        "end": "2026-10-31T23:59:59+08:00",
+        "idempotency_key": "20261031|家中书房|坐在书房靠窗的单人沙发上就着落地灯的光读一本散文集手边放着一杯还温着的茶|21:00"
+      },
+      "resolution": {
+        "mode": "read_only_hit",
+        "notes": "2026-10-31 21:00 的日志中有精确到整点的结构化记录，直接复用作为答案。 | Time interpretation: 用户问的是昨晚21点这个具体时刻，归一化为 2026-10-31 21:00（Asia/Shanghai），在当日日志中有精确匹配的记录。 | Raw error: 无"
+      },
+      "consumption": {
+        "schema_version": "1.0",
+        "document_type": "timeline.consumption",
+        "query": {
+          "preset": "past_point",
+          "semantic_target": "past_point",
+          "collection_scope": "point_day",
+          "resolution_mode": "read_only_hit",
+          "time_interpretation": {
+            "normalized_kind": "point",
+            "normalized_point": "2026-10-31T21:00:00+08:00",
+            "match_strategy": "exact_match",
+            "summary": "用户问的是昨晚21点这个具体时刻，归一化为 2026-10-31 21:00（Asia/Shanghai），在当日日志中有精确匹配的记录。"
+          }
+        },
+        "fact": {
+          "status": "resolved",
+          "source_type": "canon",
+          "timestamp": "2026-10-31T21:00:00+08:00",
+          "summary": "在家中书房坐在书房靠窗的单人沙发上，就着落地灯的光读一本散文集，手边放着一杯还温着的茶",
+          "confidence": 1,
+          "continuity": {
+            "judged": true,
+            "is_continuing": false,
+            "reason": "该事实记录自 21:00 起持续 60 分钟，已超出其时长窗口（elapsed 180 分钟），说明之后状态已切换；但目标时间点恰好落在该事实起点上，属精确命中，直接复用即可，无需延伸。"
+          }
+        },
+        "scene": {
+          "location": "家中书房",
+          "activity": "坐在书房靠窗的单人沙发上，就着落地灯的光读一本散文集，手边放着一杯还温着的茶",
+          "emotion_primary": "平静",
+          "emotion_secondary": "放松",
+          "appearance": "米色薄针织长袖上衣配深色家居长裤，头发松松挽在脑后，肩上搭了一条薄毯",
+          "time_of_day": "evening",
+          "summary": "在家中书房坐在书房靠窗的单人沙发上，就着落地灯的光读一本散文集，手边放着一杯还温着的茶",
+          "city": "Shanghai",
+          "calendar_date": "2026-10-31",
+          "local_timestamp": "2026-10-31T21:00:00+08:00",
+          "timezone": "Asia/Shanghai",
+          "continuity_relation": "fresh_moment",
+          "environment_mood": "warm evening atmosphere, weekend ease, grounded indoor routine",
+          "location_props": [
+            "desk",
+            "window"
+          ],
+          "lighting_hint": "warm indoor or dusk light",
+          "framing_hint": "half-body, seated, near-table framing",
+          "estimated_duration_minutes": 60,
+          "event_id": "evt-20261031-210000"
+        },
+        "selfie_ready": {
+          "location": "Shanghai 家中书房",
+          "activity": "坐在书房靠窗的单人沙发上，就着落地灯的光读一本散文集，手边放着一杯还温着的茶 with desk and window nearby",
+          "emotion": "平静 with a 放松 undertone",
+          "appearance": "米色薄针织长袖上衣配深色家居长裤，头发松松挽在脑后，肩上搭了一条薄毯",
+          "time_of_day": "Shanghai weekend evening",
+          "summary": "Shanghai 家中书房: 坐在书房靠窗的单人沙发上，就着落地灯的光读一本散文集，手边放着一杯还温着的茶 in 米色薄针织长袖上衣配深色家居长裤，头发松松挽在脑后，肩上搭了一条薄毯, feeling 平静 with a 放松 undertone."
+        }
+      },
+      "episodes": [
+        {
+          "episode_id": "sys-1793538657321-2355",
+          "schema_version": "1.0",
+          "document_type": "timeline.episode",
+          "temporal": {
+            "start": "2026-10-31T21:00:00+08:00",
+            "end": "2026-10-31T22:00:00+08:00",
+            "time_of_day": "evening",
+            "granularity": "block"
+          },
+          "narrative": {
+            "summary": "在家中书房坐在书房靠窗的单人沙发上，就着落地灯的光读一本散文集，手边放着一杯还温着的茶",
+            "detail": "周六的晚上不太想安排事情，读到喜欢的段落就多停一会儿，等眼睛酸了再去洗个热水澡。"
+          },
+          "state_snapshot": {
+            "scene": {
+              "location_kind": "literal",
+              "location_label": "家中书房",
+              "activity": "坐在书房靠窗的单人沙发上，就着落地灯的光读一本散文集，手边放着一杯还温着的茶",
+              "time_of_day": "evening"
+            },
+            "emotion": {
+              "primary": "平静",
+              "secondary": "放松",
+              "intensity": 0
+            },
+            "appearance": {
+              "outfit_style": "米色薄针织长袖上衣配深色家居长裤，头发松松挽在脑后，肩上搭了一条薄毯",
+              "grooming": null,
+              "posture_energy": null
+            }
+          },
+          "world_hooks": {
+            "weekday": false,
+            "holiday_key": null
+          },
+          "provenance": {
+            "writer": "stella-timeline-plugin",
+            "written_at": "2026-11-01T13:10:57.321Z",
+            "idempotency_key": "20261031|家中书房|坐在书房靠窗的单人沙发上就着落地灯的光读一本散文集手边放着一杯还温着的茶|21:00",
+            "confidence": 1
+          }
+        }
+      ]
+    },
+    "notes": [
+      "2026-10-31 21:00 的日志中有精确到整点的结构化记录，直接复用作为答案。",
+      "Time interpretation: 用户问的是昨晚21点这个具体时刻，归一化为 2026-10-31 21:00（Asia/Shanghai），在当日日志中有精确匹配的记录。",
+      "Raw error: 无"
+    ],
+    "trace": {
+      "trace_id": "timeline-1793538647594-38891",
+      "ts": "2026-11-01T13:10:57.321Z",
+      "requested_range": "past_point",
+      "actual_range": "past_point",
+      "source_order": [
+        "sessions_history",
+        "memory_get"
+      ],
+      "source_summary": {
+        "sessions_history_count": 0,
+        "sessions_history_preview": null,
+        "memory_chars": 368,
+        "memory_search_count": 0,
+        "memory_search_preview": [],
+        "parsed_episode_count": 1,
+        "selected_episode_timestamp": "2026-10-31T21:00:00+08:00"
+      },
+      "fingerprint": {
+        "checked": true,
+        "matched": true,
+        "compared_episodes": 1,
+        "idempotency_key": "20261031|家中书房|坐在书房靠窗的单人沙发上就着落地灯的光读一本散文集手边放着一杯还温着的茶|21:00",
+        "matched_episode_timestamp": "2026-10-31T21:00:00+08:00",
+        "reason": "2026-10-31 21:00 的日志中有精确到整点的结构化记录，直接复用作为答案。"
+      },
+      "appearance": {
+        "inherited": false,
+        "reason": "existing canon reused after LLM reasoner selected a matching fact",
+        "source_episode_timestamp": "2026-10-31T21:00:00+08:00"
+      },
+      "write": {
+        "attempted": false,
+        "succeeded": false,
+        "guard": "not_attempted",
+        "outcome": "not_attempted",
+        "writer": "stella-timeline-plugin"
+      },
+      "decision": {
+        "resolution_mode": "read_only_hit",
+        "write_outcome": "not_attempted",
+        "category": "past_point"
+      },
+      "notes": [
+        "2026-10-31 21:00 的日志中有精确到整点的结构化记录，直接复用作为答案。",
+        "Time interpretation: 用户问的是昨晚21点这个具体时刻，归一化为 2026-10-31 21:00（Asia/Shanghai），在当日日志中有精确匹配的记录。",
+        "Raw error: 无"
+      ]
+    }
+  },
+  "files": {
+    "2026-10-31.md": "### [21:00:00]\n\n- Timestamp: 2026-10-31 21:00:00\n- Location: 家中书房\n- Action: 坐在书房靠窗的单人沙发上，就着落地灯的光读一本散文集，手边放着一杯还温着的茶\n- Emotion_Tags: [平静, 放松, 专注]\n- Appearance: 米色薄针织长袖上衣配深色家居长裤，头发松松挽在脑后，肩上搭了一条薄毯\n- Internal_Monologue: 周六的晚上不太想安排事情，读到喜欢的段落就多停一会儿，等眼睛酸了再去洗个热水澡。\n- Estimated_Duration: 60\n- Event_Id: evt-20261031-210000\n<!-- timeline:timestamp=2026-10-31T21:00:00+08:00 -->\n\n",
+    "2026-11-01.md": "# 日记\n\n普通笔记：这段文字必须保留。\n\n### [21:05:22]\n\n- Timestamp: 2026-11-01 21:05:22\n- Location: 家中书房\n- Action: 整理蓝色笔记本里的读书摘录\n- Emotion_Tags: [平静]\n- Appearance: 浅色家居服\n- Estimated_Duration: 4\n- Event_Id: live-existing-episode\n<!-- timeline:timestamp=2026-11-01T21:05:22+08:00 -->\n\n### [21:09:28]\n\n- Timestamp: 2026-11-01 21:09:28\n- Location: 家中客厅\n- Action: 从书房起身走到客厅，靠在沙发上小憩，喝点水让眼睛歇一歇\n- Emotion_Tags: [放松, 平静]\n- Appearance: 浅色家居服，手里还带着刚合上的蓝色笔记本\n- Internal_Monologue: 整理了一整晚摘录，先把本子搁下，歇十分钟再回书房继续。\n- Estimated_Duration: 10\n- Event_Id: trans-1793538573848\n<!-- timeline:timestamp=2026-11-01T21:09:28+08:00 -->\n\n"
+  },
+  "unchanged": true
+}

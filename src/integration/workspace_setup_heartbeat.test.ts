@@ -28,6 +28,25 @@ describe('workspace setup heartbeat contract', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
+  function expectDoctorFailure(envOverrides: NodeJS.ProcessEnv, marker: string): void {
+    const env: NodeJS.ProcessEnv = { ...process.env, ...envOverrides };
+    if (envOverrides.OPENCLAW_CONFIG_PATH === undefined) delete env.OPENCLAW_CONFIG_PATH;
+    try {
+      execFileSync(process.execPath, [doctorPath, '--workspace', tmpDir], {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env,
+      });
+    } catch (error: unknown) {
+      expect(error).toEqual(expect.objectContaining({ status: 1 }));
+      const stdout = error && typeof error === 'object' && 'stdout' in error ? String(error.stdout ?? '') : '';
+      const stderr = error && typeof error === 'object' && 'stderr' in error ? String(error.stderr ?? '') : '';
+      expect(`${stdout}${stderr}`).toContain(marker);
+      return;
+    }
+    throw new Error(`expected doctor to exit 1 (${marker})`);
+  }
+
   it('does not create HEARTBEAT.md unless explicitly requested', () => {
     execFileSync(process.execPath, [scriptPath, '--workspace', tmpDir], {
       stdio: 'pipe',
@@ -104,7 +123,6 @@ describe('workspace setup heartbeat contract', () => {
       directPolicy: 'allow',
       isolatedSession: true,
       lightContext: true,
-      skipWhenBusy: true,
     }));
     expect(config.agents.defaults.heartbeat.session).toBeUndefined();
     expect(config.plugins.entries['stella-timeline-plugin']).toEqual(expect.objectContaining({
@@ -129,5 +147,43 @@ describe('workspace setup heartbeat contract', () => {
         env: { ...process.env, OPENCLAW_HOME: openClawHome },
       });
     }).not.toThrow();
+  });
+
+  it('preserves explicit policy and heartbeat settings while fixing timezone and canonical root', () => {
+    const heartbeat = { every: '2h', target: 'telegram', session: 'custom', lightContext: false, skipWhenBusy: true };
+    fs.writeFileSync(openClawConfigPath, JSON.stringify({ agents: { defaults: { heartbeat } }, plugins: { entries: {
+      'stella-timeline-plugin': { enabled: false, hooks: { allowConversationAccess: false, allowPromptInjection: false }, config: { legacyLogTimezone: 'America/New_York', proactiveGreeting: { enabled: false, sessionKey: 'custom-greeting' } } },
+    } } }));
+    execFileSync(process.execPath, [scriptPath, '--workspace', defaultWorkspaceDir, '--canonical-root-name', 'journal'], {
+      stdio: 'pipe', env: { ...process.env, OPENCLAW_HOME: openClawHome, OPENCLAW_CONFIG_PATH: openClawConfigPath },
+    });
+    const updated = JSON.parse(fs.readFileSync(openClawConfigPath, 'utf8'));
+    expect(updated.agents.defaults.heartbeat).toMatchObject({ every: '2h', target: 'telegram', session: 'custom', lightContext: false });
+    expect(updated.agents.defaults.heartbeat.skipWhenBusy).toBeUndefined();
+    expect(updated.plugins.entries['stella-timeline-plugin']).toMatchObject({ enabled: false, hooks: { allowConversationAccess: false, allowPromptInjection: false }, config: { canonicalMemoryRoot: 'journal', legacyLogTimezone: 'America/New_York', proactiveGreeting: { enabled: false, sessionKey: 'custom-greeting' } } });
+    expect(() => execFileSync(process.execPath, [doctorPath, '--workspace', defaultWorkspaceDir, '--canonical-root-name', 'journal'], {
+      stdio: 'pipe', env: { ...process.env, OPENCLAW_CONFIG_PATH: openClawConfigPath },
+    })).toThrow();
+  });
+
+  it('fails doctor when host config is missing or not JSON', () => {
+    execFileSync(process.execPath, [scriptPath, '--workspace', tmpDir, '--with-heartbeat'], {
+      stdio: 'pipe',
+      env: { ...process.env, OPENCLAW_HOME: openClawHome },
+    });
+
+    const emptyHome = path.join(tmpDir, 'empty-home');
+    fs.mkdirSync(emptyHome);
+    expectDoctorFailure(
+      { OPENCLAW_HOME: emptyHome },
+      '[missing] Host config not found:',
+    );
+
+    const badConfig = path.join(tmpDir, 'bad.json');
+    fs.writeFileSync(badConfig, '{ not json');
+    expectDoctorFailure(
+      { OPENCLAW_CONFIG_PATH: badConfig },
+      '[invalid] Host config cannot be parsed as JSON:',
+    );
   });
 });

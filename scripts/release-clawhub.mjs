@@ -106,6 +106,7 @@ function main() {
   try {
     run(commandName('npm'), ['run', 'generate:holidays']);
     run(commandName('npm'), ['run', 'verify']);
+    run(commandName('npm'), ['run', 'test:smoke']);
 
     if (options.publish && gitOutput(['status', '--porcelain'])) {
       throw new Error('Release preparation changed tracked files. Commit the generated output before publishing.');

@@ -158,7 +158,7 @@ describe('timelineTransition', () => {
   });
 
   it('passes sameBucketExemptEventIds when interrupting an active episode in the same half-hour bucket', async () => {
-    const tempFile = path.join(__dirname, 'transition_interrupt_bucket.md');
+    const tempFile = path.join(__dirname, '2026-04-01.md');
     const canon = [
       '### [13:39:00]',
       '',

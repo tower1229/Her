@@ -1,3 +1,6 @@
+import type { AnyAgentTool, OpenClawPluginApi, PluginHeartbeatPromptContributionEvent } from 'openclaw/plugin-sdk/core';
+import { parseMemoryFile } from '../lib/parse-memory';
+import { hostTimezone, isValidTimezone } from '../lib/timeline-time';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -7,7 +10,6 @@ import {
 } from '../core/timeline_reasoner_contract';
 import { buildConversationContextFromMessages } from './conversation_context';
 import { TimelineQueryPlan } from '../core/resolve_window';
-import { addHours, formatTimestamp, parseTimestampParts, TimestampParts } from '../lib/time-utils';
 import { writeEpisode } from '../storage/write-episode';
 import {
   timelineResolve,
@@ -44,15 +46,21 @@ interface PluginToolContextLike {
   agentId?: string;
   sessionKey?: string;
   trigger?: string;
+  runId?: string;
+  channelId?: string;
+  accountId?: string;
+  channel?: string;
+  chatId?: string;
 }
 
 interface AgentToolLike {
+  label: string;
   name: string;
   description: string;
-  parameters: Record<string, unknown>;
+  parameters: AnyAgentTool['parameters'];
   execute: (toolCallId: string, params: unknown) => Promise<{
     content: Array<{ type: 'text'; text: string }>;
-    details?: unknown;
+    details: unknown;
   }>;
 }
 
@@ -60,6 +68,7 @@ interface PluginApiLike {
   config?: unknown;
   pluginConfig?: Record<string, unknown>;
   runtime?: {
+    agent?: Pick<OpenClawPluginApi['runtime']['agent'], 'resolveAgentWorkspaceDir'>;
     subagent?: {
       run?: (params: {
         sessionKey: string;
@@ -68,29 +77,16 @@ interface PluginApiLike {
         lane?: string;
         deliver?: boolean;
         idempotencyKey?: string;
-      }) => Promise<{ runId: string }>;
+      }) => Promise<{ runId: string; sessionKey?: string }>;
       waitForRun?: (params: { runId: string; timeoutMs?: number }) => Promise<{ status: string; error?: string }>;
       getSessionMessages?: (params: { sessionKey: string; limit?: number }) => Promise<{ messages: unknown[] }>;
       deleteSession?: (params: { sessionKey: string; deleteTranscript?: boolean }) => Promise<void>;
     };
-    tools?: {
-      createMemorySearchTool?: (options: { config?: unknown; agentSessionKey?: string }) => AgentToolLike | null;
-    };
+    tools?: unknown;
   };
   workspaceDir?: string;
   logger?: PluginLoggerLike;
   resolvePath?: (input: string) => string;
-  on?: (
-    hookName: string,
-    handler: (event: unknown, ctx: PluginToolContextLike) => unknown,
-    options?: { priority?: number },
-  ) => void;
-}
-
-interface OpenClawPluginRuntimeModuleLike {
-  createPluginRuntime?: (options?: {
-    allowGatewaySubagentBinding?: boolean;
-  }) => PluginApiLike['runtime'];
 }
 
 interface TimelinePluginRuntimeConfig {
@@ -107,27 +103,15 @@ interface TimelinePluginRuntimeConfig {
   personaExtractorTimeoutMs: number;
   personaExtractorSessionPrefix: string;
   sessionHistoryLimit: number;
-  memorySearchMaxResults: number;
   conversationStickinessWindowMinutes: number;
 }
 
-type OpenClawPluginRuntimeModuleLoader = () => OpenClawPluginRuntimeModuleLike | null;
 type SubagentRuntimeLike = {
   run: NonNullable<NonNullable<NonNullable<PluginApiLike['runtime']>['subagent']>['run']>;
   waitForRun: NonNullable<NonNullable<NonNullable<PluginApiLike['runtime']>['subagent']>['waitForRun']>;
   getSessionMessages: NonNullable<NonNullable<NonNullable<PluginApiLike['runtime']>['subagent']>['getSessionMessages']>;
   deleteSession?: NonNullable<NonNullable<NonNullable<PluginApiLike['runtime']>['subagent']>['deleteSession']>;
 };
-
-let openClawPluginRuntimeModuleLoader: OpenClawPluginRuntimeModuleLoader = () => {
-  try {
-    return require('openclaw/plugin-sdk/runtime') as OpenClawPluginRuntimeModuleLike;
-  } catch {
-    return null;
-  }
-};
-
-let cachedLateBoundGatewaySubagentRuntime: SubagentRuntimeLike | null | undefined;
 
 function readString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
@@ -160,7 +144,6 @@ function resolvePluginRuntimeConfig(pluginConfig?: Record<string, unknown>): Tim
     personaExtractorTimeoutMs: readInteger(pluginConfig?.personaExtractorTimeoutMs, 60000),
     personaExtractorSessionPrefix: readString(pluginConfig?.personaExtractorSessionPrefix) || 'timeline-persona-extractor',
     sessionHistoryLimit: readInteger(pluginConfig?.sessionHistoryLimit, 12),
-    memorySearchMaxResults: readInteger(pluginConfig?.memorySearchMaxResults, 6),
     conversationStickinessWindowMinutes: readInteger(pluginConfig?.conversationStickinessWindowMinutes, 10),
   };
 }
@@ -183,94 +166,18 @@ function isSubagentRuntimeAvailable(
   );
 }
 
-function isUnavailableSubagentRuntimeError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.includes('Plugin runtime subagent methods are only available during a gateway request.');
-}
-
-function getLateBoundGatewaySubagentRuntime(
-  pluginApi: PluginApiLike,
-): SubagentRuntimeLike | undefined {
-  if (cachedLateBoundGatewaySubagentRuntime !== undefined) {
-    return cachedLateBoundGatewaySubagentRuntime || undefined;
-  }
-
-  const runtimeModule = openClawPluginRuntimeModuleLoader();
-  const lateBoundRuntime = runtimeModule?.createPluginRuntime?.({
-    allowGatewaySubagentBinding: true,
-  });
-  const lateBoundSubagent = lateBoundRuntime?.subagent;
-  const subagentRuntime = isSubagentRuntimeAvailable(lateBoundSubagent)
-    ? lateBoundSubagent
-    : undefined;
-
-  if (!subagentRuntime) {
-    pluginApi.logger?.debug?.('timeline late-bound gateway subagent runtime unavailable');
-  }
-
-  cachedLateBoundGatewaySubagentRuntime = subagentRuntime ?? null;
-  return subagentRuntime;
-}
-
-async function withPreferredSubagentRuntime<T>(
-  pluginApi: PluginApiLike,
-  purpose: string,
-  execute: (subagentRuntime: SubagentRuntimeLike) => Promise<T>,
-): Promise<T> {
-  const injectedSubagent = pluginApi.runtime?.subagent;
-  const injectedRuntime = isSubagentRuntimeAvailable(injectedSubagent)
-    ? injectedSubagent
-    : undefined;
-  let injectedError: unknown;
-
-  if (injectedRuntime) {
-    try {
-      return await execute(injectedRuntime);
-    } catch (error) {
-      injectedError = error;
-      if (!isUnavailableSubagentRuntimeError(error)) {
-        throw error;
-      }
-      pluginApi.logger?.debug?.(`timeline ${purpose} retrying with late-bound gateway subagent runtime`, {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-
-  const lateBoundRuntime = getLateBoundGatewaySubagentRuntime(pluginApi);
-  if (lateBoundRuntime && lateBoundRuntime !== injectedRuntime) {
-    return execute(lateBoundRuntime);
-  }
-
-  if (injectedError) {
-    throw injectedError;
-  }
-  throw new Error(`${purpose} dependency missing`);
-}
-
-export function setOpenClawPluginRuntimeModuleLoaderForTests(
-  loader: OpenClawPluginRuntimeModuleLoader,
-): void {
-  openClawPluginRuntimeModuleLoader = loader;
-  cachedLateBoundGatewaySubagentRuntime = undefined;
-}
-
-export function resetOpenClawPluginRuntimeModuleLoaderForTests(): void {
-  openClawPluginRuntimeModuleLoader = () => {
-    try {
-      return require('openclaw/plugin-sdk/runtime') as OpenClawPluginRuntimeModuleLike;
-    } catch {
-      return null;
-    }
-  };
-  cachedLateBoundGatewaySubagentRuntime = undefined;
+async function withPreferredSubagentRuntime<T>(pluginApi: PluginApiLike, purpose: string, execute: (runtime: SubagentRuntimeLike) => Promise<T>): Promise<T> {
+  if (!isSubagentRuntimeAvailable(pluginApi.runtime?.subagent)) throw new Error(`${purpose} dependency missing: injected subagent runtime unavailable`);
+  return execute(pluginApi.runtime!.subagent! as SubagentRuntimeLike);
 }
 
 function resolveWorkspaceDir(pluginApi: PluginApiLike, toolContext: PluginToolContextLike): string {
   if (toolContext.workspaceDir) return toolContext.workspaceDir;
   if (pluginApi.workspaceDir) return pluginApi.workspaceDir;
   if (typeof pluginApi.resolvePath === 'function') return pluginApi.resolvePath('.');
-  return process.cwd();
+  const resolved = workspaceForSession(pluginApi, toolContext.sessionKey);
+  if (resolved) return resolved;
+  throw new Error('Timeline workspace unavailable in invocation context');
 }
 
 function isPromptInjectionAllowed(pluginApi: PluginApiLike): boolean {
@@ -314,21 +221,6 @@ function readWorkspaceTextFile(filePath: string): string {
   } catch {
     return '';
   }
-}
-
-function buildMemorySearchQuery(input: { query?: string }): string | null {
-  const explicit = readString(input.query);
-  if (explicit) return explicit;
-  return null;
-}
-
-function stringifySearchResult(entry: unknown): string {
-  if (!entry || typeof entry !== 'object') {
-    return typeof entry === 'string' ? entry : JSON.stringify(entry);
-  }
-  const record = entry as Record<string, unknown>;
-  if (typeof record.snippet === 'string' && record.snippet.trim()) return record.snippet.trim();
-  return JSON.stringify(entry);
 }
 
 function extractMessageText(value: unknown): string {
@@ -393,20 +285,6 @@ function normalizeSessionHistory(messages: unknown[], limit: number): string[] {
     })
     .filter(Boolean)
     .slice(-limit);
-}
-
-function extractLatestAssistantText(messages: unknown[]): string {
-  const reversed = [...messages].reverse();
-  for (const message of reversed) {
-    const role = extractMessageRole(message);
-    const text = extractMessageText(message);
-    if (role === 'assistant' && text) return text;
-  }
-  for (const message of reversed) {
-    const text = extractMessageText(message);
-    if (text) return text;
-  }
-  return '';
 }
 
 function collectBalancedJsonObjects(text: string): string[] {
@@ -736,255 +614,11 @@ function buildTimelineReasonerSystemPrompt(requestId: string): string {
   ].join('\n');
 }
 
-function setClock(parts: TimestampParts, hour: number, minute = 0, second = 0): TimestampParts {
-  return {
-    ...parts,
-    hour,
-    minute,
-    second,
-  };
-}
-
-function normalizeHourFromQuery(query: string): number | null {
-  const digitMatch = query.match(/(\d{1,2})点/);
-  let hour: number | null = digitMatch ? Number(digitMatch[1]) : null;
-  if (hour === null) {
-    const chineseHourMap: Record<string, number> = {
-      零: 0,
-      一: 1,
-      二: 2,
-      两: 2,
-      三: 3,
-      四: 4,
-      五: 5,
-      六: 6,
-      七: 7,
-      八: 8,
-      九: 9,
-      十: 10,
-      十一: 11,
-      十二: 12,
-    };
-    const chineseMatch = query.match(/(十一|十二|十|零|一|二|两|三|四|五|六|七|八|九)点/);
-    if (chineseMatch) {
-      hour = chineseHourMap[chineseMatch[1]] ?? null;
-    }
-  }
-  if (hour === null) return null;
-  if ((/昨晚|晚上|傍晚|夜里/.test(query)) && hour < 12) {
-    return hour === 12 ? 12 : hour + 12;
-  }
-  if ((/下午/.test(query)) && hour < 12) {
-    return hour === 12 ? 12 : hour + 12;
-  }
-  return hour;
-}
-
-function buildFallbackTimelineQueryPlan(
-  input: TimelineResolveInput,
-  anchor: { now: string; timezone: string },
-): TimelineQueryPlan {
-  const query = String(input.query || '').trim();
-  const anchorParts = parseTimestampParts(anchor.now);
-  if (!anchorParts) {
-    return {
-      schema_version: '1.0',
-      target_time_range: 'now',
-      summary: 'Fallback planner defaulted to now because anchor.now was not parseable.',
-    };
-  }
-
-  if (/昨晚|昨天|上周|前天/.test(query) && /点/.test(query)) {
-    const targetHour = normalizeHourFromQuery(query) ?? 20;
-    const targetDay = addHours(anchorParts, -24);
-    return {
-      schema_version: '1.0',
-      target_time_range: 'past_point',
-      normalized_point: formatTimestamp(setClock(targetDay, targetHour, 0, 0)),
-      summary: 'Fallback planner normalized the query into a concrete past point.',
-    };
-  }
-
-  if (/最近|这几天|昨晚|今天都|昨天都/.test(query)) {
-    if (/昨晚/.test(query)) {
-      const targetDay = addHours(anchorParts, -24);
-      return {
-        schema_version: '1.0',
-        target_time_range: 'past_range',
-        normalized_start: formatTimestamp(setClock(targetDay, 18, 0, 0)),
-        normalized_end: formatTimestamp(setClock(targetDay, 23, 59, 59)),
-        summary: 'Fallback planner normalized the query into last night\'s evening range.',
-      };
-    }
-    const recentStart = addHours(anchorParts, -24 * 7);
-    return {
-      schema_version: '1.0',
-      target_time_range: 'past_range',
-      normalized_start: formatTimestamp(setClock(recentStart, 0, 0, 0)),
-      normalized_end: anchor.now,
-      summary: 'Fallback planner normalized the query into a recent past range.',
-    };
-  }
-
+function buildFallbackTimelineQueryPlan(): TimelineQueryPlan {
   return {
     schema_version: '1.0',
     target_time_range: 'now',
-    summary: 'Fallback planner normalized the query into the current moment.',
-  };
-}
-
-function parseTimestampMs(timestamp: string | undefined): number {
-  if (!timestamp) return Number.NaN;
-  const parsed = Date.parse(timestamp);
-  return Number.isNaN(parsed) ? Number.NaN : parsed;
-}
-
-function selectLatestFact(facts: CollectedTimelineFact[]): CollectedTimelineFact | null {
-  return [...facts]
-    .sort((left, right) => parseTimestampMs(right.timestamp) - parseTimestampMs(left.timestamp))[0] || null;
-}
-
-function scorePastRangeFact(fact: CollectedTimelineFact, query: string): number {
-  let score = parseTimestampMs(fact.timestamp);
-  const haystack = `${fact.location} ${fact.action} ${(fact.emotion_tags || []).join(' ')}`;
-
-  if (/有趣|好玩|开心|趣事/.test(query) && /(朋友|球|篮球|烧烤|聊天|公园|运动|开心)/.test(haystack)) {
-    score += 1000 * 60 * 60 * 24 * 30;
-  }
-  if (/昨晚/.test(query)) {
-    const parts = parseTimestampParts(fact.timestamp);
-    if (parts && parts.hour >= 18 && parts.hour <= 23) {
-      score += 1000 * 60 * 60 * 12;
-    }
-  }
-
-  return score;
-}
-
-function selectFallbackFact(collector: TimelineCollectorOutput): CollectedTimelineFact | null {
-  const facts = collector.candidate_facts || [];
-  if (facts.length === 0) return null;
-
-  if (collector.window.query_range === 'now') {
-    return selectLatestFact(facts);
-  }
-
-  if (collector.window.query_range === 'past_point') {
-    const query = String(collector.request.user_query || '');
-    const explicitHour = normalizeHourFromQuery(query);
-    if (explicitHour === null) {
-      return selectLatestFact(facts);
-    }
-
-    return [...facts].sort((left, right) => {
-      const leftParts = parseTimestampParts(left.timestamp);
-      const rightParts = parseTimestampParts(right.timestamp);
-      const leftDistance = leftParts ? Math.abs((leftParts.hour * 60 + leftParts.minute) - explicitHour * 60) : Number.MAX_SAFE_INTEGER;
-      const rightDistance = rightParts ? Math.abs((rightParts.hour * 60 + rightParts.minute) - explicitHour * 60) : Number.MAX_SAFE_INTEGER;
-      return leftDistance - rightDistance || (parseTimestampMs(right.timestamp) - parseTimestampMs(left.timestamp));
-    })[0] || null;
-  }
-
-  const query = String(collector.request.user_query || '');
-  return [...facts].sort((left, right) =>
-    scorePastRangeFact(right, query) - scorePastRangeFact(left, query),
-  )[0] || null;
-}
-
-function buildFallbackTimeInterpretation(collector: TimelineCollectorOutput, selectedFact?: CollectedTimelineFact | null) {
-  if (collector.window.query_range === 'now') {
-    return {
-      normalized_kind: 'now' as const,
-      match_strategy: selectedFact ? 'continuation' as const : 'generated' as const,
-      summary: 'Fallback reasoner treated the request as a current-moment query.',
-    };
-  }
-  if (collector.window.query_range === 'past_point') {
-    const query = String(collector.request.user_query || '');
-    const hour = normalizeHourFromQuery(query);
-    const anchorParts = parseTimestampParts(collector.anchor.now);
-    const targetDay = anchorParts ? addHours(anchorParts, -24) : null;
-    return {
-      normalized_kind: 'point' as const,
-      normalized_point: targetDay && hour !== null ? formatTimestamp(setClock(targetDay, hour, 0, 0)) : selectedFact?.timestamp,
-      match_strategy: selectedFact ? 'continuation' as const : 'generated' as const,
-      summary: 'Fallback reasoner treated the request as a concrete past point query.',
-    };
-  }
-  return {
-    normalized_kind: 'range' as const,
-    normalized_start: collector.window.start,
-    normalized_end: collector.window.end,
-    match_strategy: selectedFact ? 'range_summary' as const : 'generated' as const,
-    summary: 'Fallback reasoner treated the request as a past range query.',
-  };
-}
-
-function buildFallbackReasonerOutput(
-  collector: TimelineCollectorOutput,
-  error: unknown,
-): TimelineReasonerOutput {
-  const selectedFact = selectFallbackFact(collector);
-  const fallbackReason = error instanceof Error ? error.message : String(error);
-
-  if (!selectedFact) {
-    return {
-      schema_version: '1.0',
-      request_id: collector.request_id,
-      request_type: collector.window.query_range,
-      time_interpretation: buildFallbackTimeInterpretation(collector, null),
-      decision: {
-        action: 'return_empty',
-        should_write_canon: false,
-      },
-      continuity: {
-        judged: collector.window.query_range !== 'past_range',
-        is_continuing: false,
-        reason: `Fallback reasoner could not find a reusable canon fact after: ${fallbackReason}`,
-      },
-      rationale: {
-        summary: 'Fallback reasoner returned empty because no reusable canon fact was available.',
-        hard_fact_basis: collector.hard_facts.sessions_history.slice(0, 2),
-        canon_basis: [],
-        persona_basis: [],
-        constraint_basis: [],
-        uncertainty: fallbackReason,
-      },
-    };
-  }
-
-  const selectedParts = parseTimestampParts(selectedFact.timestamp);
-  const targetHour = normalizeHourFromQuery(String(collector.request.user_query || ''));
-  const isPastPointContinuation = Boolean(
-    collector.window.query_range === 'past_point'
-    && selectedParts
-    && targetHour !== null
-    && Math.abs((selectedParts.hour * 60 + selectedParts.minute) - targetHour * 60) <= 90,
-  );
-
-  return {
-    schema_version: '1.0',
-    request_id: collector.request_id,
-    request_type: collector.window.query_range,
-    time_interpretation: buildFallbackTimeInterpretation(collector, selectedFact),
-    decision: {
-      action: 'reuse_existing_fact',
-      selected_fact_id: selectedFact.fact_id,
-      should_write_canon: false,
-    },
-    continuity: {
-      judged: collector.window.query_range !== 'past_range',
-      is_continuing: collector.window.query_range === 'now' || isPastPointContinuation,
-      reason: 'Fallback reasoner reused the strongest available canon fact when the subagent result was unavailable.',
-    },
-    rationale: {
-      summary: 'Fallback reasoner reused an existing canon fact because the subagent result was unavailable or invalid.',
-      hard_fact_basis: collector.hard_facts.sessions_history.slice(0, 2),
-      canon_basis: [selectedFact.fact_id],
-      persona_basis: [],
-      constraint_basis: [],
-      uncertainty: fallbackReason,
-    },
+    summary: 'Fallback planner defaulted to now because the query planner was unavailable.',
   };
 }
 
@@ -1003,61 +637,16 @@ function createTimelineQueryPlanner(
       const baseSessionKey = toolContext.sessionKey || `plugin:${runtimeConfig.reasonerSessionPrefix}`;
       const plannerSessionKey = `${baseSessionKey}:${runtimeConfig.reasonerSessionPrefix}:planner:${requestId}`;
 
-      return await withPreferredSubagentRuntime(pluginApi, 'Timeline query planner', async (subagentRuntime) => {
-        try {
-          const runResult = await subagentRuntime.run({
-            sessionKey: plannerSessionKey,
-            message: buildTimelineQueryPlannerMessage(input, anchor, requestId),
-            extraSystemPrompt: buildTimelineQueryPlannerSystemPrompt(),
-            deliver: false,
-            idempotencyKey: requestId,
-          });
-          const waitResult = await subagentRuntime.waitForRun({
-            runId: runResult.runId,
-            timeoutMs: runtimeConfig.reasonerTimeoutMs,
-          });
-          if (waitResult.status === 'timeout') {
-            throw new Error('Timeline query planner returned no decision');
-          }
-          if (waitResult.status === 'error') {
-            throw new Error(waitResult.error || 'Timeline query planner returned no decision');
-          }
-
-          const session = await subagentRuntime.getSessionMessages({
-            sessionKey: plannerSessionKey,
-            limit: runtimeConfig.reasonerMessageLimit,
-          });
-          const jsonText = extractJsonObjectFromMessages(
-            session.messages || [],
-            'Timeline query planner',
-            requestId,
-          );
-          const parsed = JSON.parse(jsonText) as TimelineQueryPlan & { request_id?: string };
-          if (parsed.request_id && parsed.request_id !== requestId) {
-            throw new Error('Timeline query planner returned mismatched request_id');
-          }
-          if (!['now', 'past_point', 'past_range'].includes(parsed.target_time_range)) {
-            throw new Error('Timeline query planner returned an invalid target_time_range');
-          }
-          return parsed;
-        } finally {
-          try {
-            await subagentRuntime.deleteSession?.({
-              sessionKey: plannerSessionKey,
-              deleteTranscript: true,
-            });
-          } catch (error) {
-            pluginApi.logger?.debug?.('timeline query planner session cleanup skipped', {
-              error: error instanceof Error ? error.message : String(error),
-            });
-          }
-        }
-      });
+      const parsed = await createRuntimeJsonPromptRunner(pluginApi)({ sessionKey: plannerSessionKey, requestId,
+        message: buildTimelineQueryPlannerMessage(input, anchor, requestId), extraSystemPrompt: buildTimelineQueryPlannerSystemPrompt(),
+        timeoutMs: runtimeConfig.reasonerTimeoutMs, sourceLabel: 'Timeline query planner', messageLimit: runtimeConfig.reasonerMessageLimit }) as unknown as TimelineQueryPlan;
+      if (!['now', 'past_point', 'past_range'].includes(parsed.target_time_range)) throw new Error('Timeline query planner returned an invalid target_time_range');
+      return parsed;
     } catch (error) {
       pluginApi.logger?.warn?.('timeline query planner fallback engaged', {
         error: error instanceof Error ? error.message : String(error),
       });
-      return buildFallbackTimelineQueryPlan(input, anchor);
+      return buildFallbackTimelineQueryPlan();
     }
   };
 }
@@ -1084,54 +673,14 @@ function createSubagentReasoner(
       const baseSessionKey = toolContext.sessionKey || `plugin:${runtimeConfig.reasonerSessionPrefix}`;
       const reasonerSessionKey = `${baseSessionKey}:${runtimeConfig.reasonerSessionPrefix}:${collector.request_id}`;
 
-      return await withPreferredSubagentRuntime(pluginApi, 'Timeline reasoner', async (subagentRuntime) => {
-        try {
-          const runResult = await subagentRuntime.run({
-            sessionKey: reasonerSessionKey,
-            message: buildTimelineReasonerMessage(collector),
-            extraSystemPrompt: buildTimelineReasonerSystemPrompt(collector.request_id),
-            deliver: false,
-            idempotencyKey: collector.request_id,
-          });
-          const waitResult = await subagentRuntime.waitForRun({
-            runId: runResult.runId,
-            timeoutMs: runtimeConfig.reasonerTimeoutMs,
-          });
-          if (waitResult.status === 'timeout') {
-            throw new Error('Timeline reasoner returned no decision');
-          }
-          if (waitResult.status === 'error') {
-            throw new Error(waitResult.error || 'Timeline reasoner returned no decision');
-          }
-
-          const session = await subagentRuntime.getSessionMessages({
-            sessionKey: reasonerSessionKey,
-            limit: runtimeConfig.reasonerMessageLimit,
-          });
-          const jsonText = extractJsonObjectFromMessages(
-            session.messages || [],
-            'Timeline reasoner',
-            collector.request_id,
-          );
-          return JSON.parse(jsonText) as TimelineReasonerOutput;
-        } finally {
-          try {
-            await subagentRuntime.deleteSession?.({
-              sessionKey: reasonerSessionKey,
-              deleteTranscript: true,
-            });
-          } catch (error) {
-            pluginApi.logger?.debug?.('timeline reasoner session cleanup skipped', {
-              error: error instanceof Error ? error.message : String(error),
-            });
-          }
-        }
-      });
+      return await createRuntimeJsonPromptRunner(pluginApi)({ sessionKey: reasonerSessionKey, requestId: collector.request_id,
+        message: buildTimelineReasonerMessage(collector), extraSystemPrompt: buildTimelineReasonerSystemPrompt(collector.request_id),
+        timeoutMs: runtimeConfig.reasonerTimeoutMs, sourceLabel: 'Timeline reasoner', messageLimit: runtimeConfig.reasonerMessageLimit }) as unknown as TimelineReasonerOutput;
     } catch (error) {
-      pluginApi.logger?.warn?.('timeline reasoner fallback engaged', {
+      pluginApi.logger?.warn?.('timeline reasoner unavailable', {
         error: error instanceof Error ? error.message : String(error),
       });
-      return buildFallbackReasonerOutput(collector, error);
+      throw error;
     }
   };
 }
@@ -1158,115 +707,70 @@ function createSubagentTransitionPlanner(
     const baseSessionKey = toolContext.sessionKey || `plugin:${runtimeConfig.reasonerSessionPrefix}`;
     const transitionSessionKey = `${baseSessionKey}:transition-planner:${requestId}`;
 
-    return await withPreferredSubagentRuntime(pluginApi, 'Timeline transition planner', async (subagentRuntime) => {
-      try {
-        const runResult = await subagentRuntime.run({
-          sessionKey: transitionSessionKey,
-          message: buildTransitionPlannerMessage(input, anchor, persona, activeFacts, requestId),
-          extraSystemPrompt: buildTransitionPlannerSystemPrompt(),
-          deliver: false,
-          idempotencyKey: requestId,
-        });
-        const waitResult = await subagentRuntime.waitForRun({
-          runId: runResult.runId,
-          timeoutMs: runtimeConfig.reasonerTimeoutMs,
-        });
-        if (waitResult.status === 'timeout') {
-          throw new Error('Timeline transition planner returned no decision');
-        }
-        if (waitResult.status === 'error') {
-          throw new Error(waitResult.error || 'Timeline transition planner returned no decision');
-        }
-
-        const session = await subagentRuntime.getSessionMessages({
-          sessionKey: transitionSessionKey,
-          limit: runtimeConfig.reasonerMessageLimit,
-        });
-        const jsonText = extractJsonObjectFromMessages(
-          session.messages || [],
-          'Timeline transition planner',
-        );
-        return JSON.parse(jsonText) as TransitionPlan;
-      } finally {
-        try {
-          await subagentRuntime.deleteSession?.({
-            sessionKey: transitionSessionKey,
-            deleteTranscript: true,
-          });
-        } catch (error) {
-          pluginApi.logger?.debug?.('timeline transition planner session cleanup skipped', {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
-    });
+    return await createRuntimeJsonPromptRunner(pluginApi)({ sessionKey: transitionSessionKey, requestId,
+      message: buildTransitionPlannerMessage(input, anchor, persona, activeFacts, requestId), extraSystemPrompt: buildTransitionPlannerSystemPrompt(),
+      timeoutMs: runtimeConfig.reasonerTimeoutMs, sourceLabel: 'Timeline transition planner', messageLimit: runtimeConfig.reasonerMessageLimit }) as unknown as TransitionPlan;
   };
 }
 
-function createRuntimeJsonPromptRunner(
-  pluginApi: PluginApiLike,
-): (input: {
-  sessionKey: string;
-  requestId: string;
-  message: string;
-  extraSystemPrompt: string;
-  timeoutMs: number;
-  sourceLabel: string;
+export function createRuntimeJsonPromptRunner(pluginApi: PluginApiLike): (input: {
+  sessionKey: string; requestId: string; message: string; extraSystemPrompt: string;
+  timeoutMs: number; sourceLabel: string; messageLimit?: number;
 }) => Promise<Record<string, unknown>> {
-  return async (input) => {
-    return withPreferredSubagentRuntime(pluginApi, input.sourceLabel, async (subagentRuntime) => {
+  return input => withPreferredSubagentRuntime(pluginApi, input.sourceLabel, async runtime => {
+    let acceptedSession: string | undefined;
+    let terminal = false;
+    const deadline = Date.now() + input.timeoutMs;
+    const withinBudget = async <T>(operation: () => Promise<T>): Promise<T> => {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) throw new Error(`${input.sourceLabel} returned no decision`);
+      let timer: ReturnType<typeof setTimeout> | undefined;
       try {
-        const runResult = await subagentRuntime.run({
-          sessionKey: input.sessionKey,
-          message: input.message,
-          extraSystemPrompt: input.extraSystemPrompt,
-          deliver: false,
-          idempotencyKey: input.requestId,
-        });
-        const waitResult = await subagentRuntime.waitForRun({
-          runId: runResult.runId,
-          timeoutMs: input.timeoutMs,
-        });
-        if (waitResult.status === 'timeout') {
-          throw new Error(`${input.sourceLabel} returned no decision`);
-        }
-        if (waitResult.status === 'error') {
-          throw new Error(waitResult.error || `${input.sourceLabel} returned no decision`);
-        }
-        const session = await subagentRuntime.getSessionMessages({
-          sessionKey: input.sessionKey,
-          limit: 24,
-        });
-        const jsonText = extractJsonObjectFromMessages(
-          session.messages || [],
-          input.sourceLabel,
-          input.requestId,
-        );
-        return JSON.parse(jsonText) as Record<string, unknown>;
-      } finally {
-        try {
-          await subagentRuntime.deleteSession?.({
-            sessionKey: input.sessionKey,
-            deleteTranscript: true,
-          });
-        } catch (error) {
-          pluginApi.logger?.debug?.('timeline structured prompt session cleanup skipped', {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
+        return await Promise.race([operation(), new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`${input.sourceLabel} returned no decision`)), remaining);
+        })]);
+      } finally { if (timer) clearTimeout(timer); }
+    };
+    try {
+      const run = await withinBudget(() => runtime.run({ sessionKey: input.sessionKey, message: input.message,
+        extraSystemPrompt: input.extraSystemPrompt, deliver: false, idempotencyKey: input.requestId }));
+      acceptedSession = run.sessionKey || input.sessionKey;
+      while (true) {
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) throw new Error(`${input.sourceLabel} returned no decision`);
+        const wait = await withinBudget(() => runtime.waitForRun({ runId: run.runId, timeoutMs: remaining }));
+        if (Date.now() >= deadline) throw new Error(`${input.sourceLabel} returned no decision`);
+        if (wait.status === 'ok') { terminal = true; break; }
+        if (wait.status === 'error') { terminal = true; throw new Error(wait.error || `${input.sourceLabel} failed`); }
+        if (wait.status !== 'pending') throw new Error(`${input.sourceLabel} returned no decision`);
+        await new Promise(resolve => setTimeout(resolve, Math.min(25, Math.max(0, deadline - Date.now()))));
       }
-    });
-  };
+      const session = await withinBudget(() => runtime.getSessionMessages({ sessionKey: acceptedSession!, limit: input.messageLimit ?? 24 }));
+      const parsed = JSON.parse(extractJsonObjectFromMessages(session.messages || [], input.sourceLabel, input.requestId));
+      if (parsed.request_id && parsed.request_id !== input.requestId) throw new Error(`${input.sourceLabel} returned mismatched request_id`);
+      return parsed;
+    } finally {
+      // A wait timeout is not run cancellation; do not delete a still-running session.
+      if (acceptedSession && terminal) {
+        try { if (runtime.deleteSession) await withinBudget(() => runtime.deleteSession!({ sessionKey: acceptedSession!, deleteTranscript: true })); }
+        catch (error) { pluginApi.logger?.debug?.('timeline structured prompt session cleanup skipped', { error: String(error) }); }
+      }
+    }
+  });
 }
 
 function createTimelineResolveDependencies(
   pluginApi: PluginApiLike,
   toolContext: PluginToolContextLike,
-): Partial<TimelineRuntimeDependencies> {
+): TimelineRuntimeDependencies {
   const runtimeConfig = resolvePluginRuntimeConfig(pluginApi.pluginConfig);
   const workspaceDir = resolveWorkspaceDir(pluginApi, toolContext);
   const canonicalRootPath = resolveConfiguredPath(workspaceDir, runtimeConfig.canonicalMemoryRoot, 'memory');
   const canonicalRootName = path.basename(canonicalRootPath);
+  const legacyTimezone = readString(pluginApi.pluginConfig?.legacyLogTimezone) || hostTimezone();
+  if (!isValidTimezone(legacyTimezone)) throw new Error('Invalid legacyLogTimezone');
+  if (!pluginApi.pluginConfig?.legacyLogTimezone) pluginApi.logger?.debug?.('legacyLogTimezone is not fixed; using host timezone', { timezone: legacyTimezone });
+  pluginApi.logger?.debug?.('timeline internal memory search unavailable; using daily logs and session history');
   const traceLogPath = runtimeConfig.enableTrace
     ? resolveConfiguredPath(workspaceDir, runtimeConfig.traceLogPath, path.join(canonicalRootName, '.timeline-trace.log'))
     : undefined;
@@ -1287,6 +791,7 @@ function createTimelineResolveDependencies(
     }),
     writeEpisode,
     readOnlyFastLookbackDays: runtimeConfig.promptTimelineLookbackDays,
+    currentStateLookbackDays: runtimeConfig.promptTimelineLookbackDays,
     sessionsHistory: async () => {
       const sessionKey = toolContext.sessionKey;
       if (!sessionKey) return [];
@@ -1345,35 +850,11 @@ function createTimelineResolveDependencies(
     },
     memoryGet: async (calendarDate) => {
       const filePath = path.join(canonicalRootPath, `${calendarDate}.md`);
-      return readWorkspaceTextFile(filePath);
+      const content = readWorkspaceTextFile(filePath);
+      parseMemoryFile(content, message => pluginApi.logger?.debug?.(message));
+      return content;
     },
-    memorySearch: async (window, input) => {
-      const createMemorySearchTool = pluginApi.runtime?.tools?.createMemorySearchTool;
-      if (!createMemorySearchTool) return [];
-      const query = buildMemorySearchQuery(input);
-      if (!query) return [];
-
-      const tool = createMemorySearchTool({
-        config: pluginApi.config,
-        agentSessionKey: toolContext.sessionKey,
-      });
-      if (!tool) return [];
-
-      try {
-        const result = await tool.execute(`timeline-memory-search-${Date.now()}`, {
-          query,
-          maxResults: runtimeConfig.memorySearchMaxResults,
-        });
-        const payload = result?.details as { disabled?: boolean; results?: unknown[] } | undefined;
-        if (!payload || payload.disabled || !Array.isArray(payload.results)) return [];
-        return payload.results.map((entry) => stringifySearchResult(entry)).filter(Boolean);
-      } catch (error) {
-        pluginApi.logger?.debug?.('timeline memorySearch fallback to empty', {
-          error: error instanceof Error ? error.message : String(error),
-        });
-        return [];
-      }
-    },
+    memorySearchStatus: { state: 'unavailable', reason: 'OpenClaw 2026.10.9 exposes no supported direct search factory to this plugin.' },
     personaContext: async () => {
       const loaded = await loadTimelinePersonaContractFromWorkspace(workspaceDir, {
         extractLegacyPersonaContract: legacyPersonaExtractor,
@@ -1391,6 +872,8 @@ function createTimelineResolveDependencies(
     personaExtractionMaxAttempts: 3,
     memoryFilePath: (calendarDate) => path.join(canonicalRootPath, `${calendarDate}.md`),
     canonicalRootName,
+    canonicalRootPath,
+    legacyLogTimezone: legacyTimezone,
     traceLogPath,
     planTimelineQuery: createTimelineQueryPlanner(pluginApi, toolContext, runtimeConfig),
     reasonTimeline: createSubagentReasoner(pluginApi, toolContext, runtimeConfig),
@@ -1403,21 +886,12 @@ type BeforePromptBuildEventLike = {
 };
 
 export function makeOpenClawTimelineBeforePromptBuildHook(pluginApi: PluginApiLike) {
-  return async (event: BeforePromptBuildEventLike, hookContext: PluginToolContextLike) => {
+  return async (_event: BeforePromptBuildEventLike, hookContext: PluginToolContextLike) => {
     const runtimeConfig = resolvePluginRuntimeConfig(pluginApi.pluginConfig);
-    const heartbeatPreflight = await prepareProactiveGreetingHeartbeatContext(
-      event,
-      hookContext as any,
-      {
-        workspaceDir: hookContext.workspaceDir || pluginApi.workspaceDir || process.cwd(),
-        pluginConfig: pluginApi.pluginConfig,
-        config: pluginApi.config,
-        logger: pluginApi.logger,
-      },
-    );
+
 
     if (!runtimeConfig.enablePromptTimelineContext || !isPromptInjectionAllowed(pluginApi)) {
-      return heartbeatPreflight;
+      return undefined;
     }
 
     const prependSystemContext = buildTimelinePromptSystemGuidance({
@@ -1430,6 +904,7 @@ export function makeOpenClawTimelineBeforePromptBuildHook(pluginApi: PluginApiLi
         currentTime: deps.currentTime!,
         memoryGet: deps.memoryGet!,
         readOnlyFastLookbackDays: deps.readOnlyFastLookbackDays,
+        legacyLogTimezone: deps.legacyLogTimezone,
       });
       const promptContext = buildTimelinePromptContextFromFastSnapshot(snapshot, {
         macroThresholdMinutes: runtimeConfig.promptTimelineMacroThresholdMinutes,
@@ -1439,7 +914,6 @@ export function makeOpenClawTimelineBeforePromptBuildHook(pluginApi: PluginApiLi
       return {
         prependSystemContext,
         prependContext: [
-          heartbeatPreflight?.prependContext,
           buildTimelinePromptContextText(promptContext),
         ].filter(Boolean).join('\n\n'),
       };
@@ -1450,7 +924,6 @@ export function makeOpenClawTimelineBeforePromptBuildHook(pluginApi: PluginApiLi
       return {
         prependSystemContext,
         prependContext: [
-          heartbeatPreflight?.prependContext,
           buildTimelinePromptContextText(createDegradedTimelinePromptContext('resolver_unavailable')),
         ].filter(Boolean).join('\n\n'),
       };
@@ -1459,53 +932,97 @@ export function makeOpenClawTimelineBeforePromptBuildHook(pluginApi: PluginApiLi
 }
 
 export function makeOpenClawTimelineMessagePreprocessedHook(pluginApi: PluginApiLike) {
-  return async (event: unknown) => {
-    const workspaceDir = pluginApi.workspaceDir || process.cwd();
-    await handlePreprocessedInbound(event as any, {
-      workspaceDir,
-      pluginConfig: pluginApi.pluginConfig,
-      config: pluginApi.config,
-      logger: pluginApi.logger,
+  type Incoming = Parameters<typeof handlePreprocessedInbound>[0] & { action?: string };
+  const admitted = new Map<string, { at: number; received: boolean; enriched?: Incoming }>();
+  const record = async (incoming: Incoming) => {
+    const workspaceDir = workspaceForSession(pluginApi, incoming.sessionKey, readString(incoming.context.workspaceDir));
+    if (!workspaceDir) { pluginApi.logger?.debug?.('timeline inbound ignored: workspace unavailable'); return; }
+    await handlePreprocessedInbound(incoming, {
+      workspaceDir, pluginConfig: pluginApi.pluginConfig, config: pluginApi.config, logger: pluginApi.logger,
     });
   };
-}
-
-export function makeOpenClawTimelineMessageSentHook(pluginApi: PluginApiLike) {
   return async (event: unknown) => {
-    const workspaceDir = pluginApi.workspaceDir || process.cwd();
-    await handleSentOutbound(event as any, {
-      workspaceDir,
-      pluginConfig: pluginApi.pluginConfig,
-      config: pluginApi.config,
-      logger: pluginApi.logger,
-    });
+    const incoming = event as Incoming;
+    if (!incoming.context || !['received', 'preprocessed'].includes(incoming.action || '')) return;
+    // 2026.10.9 emits preprocessed for internal heartbeat turns as well. Only
+    // message:received establishes an inbound user message; never infer this
+    // from the sender, session name, or prompt text (all can resemble a user).
+    const id = readString(incoming.context.messageId);
+    if (!id) {
+      if (incoming.action === 'received') await record({ ...incoming, context: {
+        ...incoming.context, body: readString(incoming.context.content) || incoming.context.body,
+      } });
+      return;
+    }
+    const now = Date.now();
+    for (const [key, entry] of admitted) if (now - entry.at > 30 * 60_000) admitted.delete(key);
+    const key = JSON.stringify([incoming.sessionKey, incoming.context.channelId, id]);
+    const entry = admitted.get(key) || { at: now, received: false };
+    if (incoming.action === 'received') entry.received = true;
+    else entry.enriched = incoming;
+    if (entry.received && entry.enriched) {
+      admitted.delete(key);
+      await record(entry.enriched);
+    } else {
+      admitted.set(key, entry);
+      while (admitted.size > 512) admitted.delete(admitted.keys().next().value!);
+    }
   };
 }
 
 export function makeOpenClawTimelineResolveToolFactory(pluginApi: PluginApiLike) {
   return (toolContext: PluginToolContextLike): AgentToolLike => ({
+    label: timelineResolveToolSpec.name,
     name: timelineResolveToolSpec.name,
     description: timelineResolveToolSpec.description,
-    parameters: timelineResolveToolSpec.inputSchema,
+    parameters: timelineResolveToolSpec.inputSchema as AnyAgentTool['parameters'],
     execute: async (_toolCallId, params) =>
       wrapToolPayload(await timelineResolve(params as never, createTimelineResolveDependencies(pluginApi, toolContext))),
   });
 }
 
-import { timelineTransition, timelineTransitionToolSpec } from '../tools/timeline_transition';
+import { timelineTransition, timelineTransitionToolSpec, TimelineTransitionDependencies } from '../tools/timeline_transition';
 
 export function makeOpenClawTimelineTransitionToolFactory(pluginApi: PluginApiLike) {
   return (toolContext: PluginToolContextLike): AgentToolLike => ({
+    label: timelineTransitionToolSpec.name,
     name: timelineTransitionToolSpec.name,
     description: timelineTransitionToolSpec.description,
-    parameters: timelineTransitionToolSpec.inputSchema,
+    parameters: timelineTransitionToolSpec.inputSchema as AnyAgentTool['parameters'],
     execute: async (_toolCallId, params) => {
       const deps = createTimelineResolveDependencies(pluginApi, toolContext);
-      const transitionDeps = {
+      const transitionDeps: TimelineTransitionDependencies = {
         ...deps,
         planTransition: createSubagentTransitionPlanner(pluginApi, toolContext, resolvePluginRuntimeConfig(pluginApi.pluginConfig))
       };
-      return wrapToolPayload(await timelineTransition(params as any, transitionDeps as any));
+      return wrapToolPayload(await timelineTransition(params as TimelineTransitionInput, transitionDeps));
     }
   });
+}
+
+export function makeOpenClawTimelineHeartbeatHook(pluginApi: PluginApiLike) {
+  return async (event: PluginHeartbeatPromptContributionEvent, ctx: PluginToolContextLike) => {
+    if (!isPromptInjectionAllowed(pluginApi)) return;
+    const workspaceDir = resolveWorkspaceDir(pluginApi, ctx);
+    return prepareProactiveGreetingHeartbeatContext({ prompt: '', messages: [] }, { ...ctx, workspaceDir, sessionKey: ctx.sessionKey || event.sessionKey, trigger: 'heartbeat' }, {
+      workspaceDir, pluginConfig: pluginApi.pluginConfig, config: pluginApi.config, logger: pluginApi.logger,
+    });
+  };
+}
+
+function workspaceForSession(pluginApi: PluginApiLike, sessionKey?: string, workspaceDir?: string): string | undefined {
+  if (workspaceDir || pluginApi.workspaceDir) return workspaceDir || pluginApi.workspaceDir;
+  const agentId = sessionKey?.match(/^agent:([^:]+):/)?.[1];
+  if (!agentId || !pluginApi.config || !pluginApi.runtime?.agent) return undefined;
+  return pluginApi.runtime.agent.resolveAgentWorkspaceDir(pluginApi.config as OpenClawPluginApi['config'], agentId);
+}
+
+export function makeOpenClawTimelineTypedSentHook(pluginApi: PluginApiLike) {
+  return async (event: { to: string; content: string; success: boolean; sessionKey?: string; runId?: string; messageId?: string; error?: string }, ctx: { channelId: string; accountId?: string; sessionKey?: string }) => {
+    const workspaceDir = workspaceForSession(pluginApi, event.sessionKey || ctx.sessionKey);
+    if (!workspaceDir) { pluginApi.logger?.debug?.('timeline delivery ignored: workspace unavailable'); return; }
+    await handleSentOutbound({ sessionKey: event.sessionKey || ctx.sessionKey, timestamp: new Date(),
+      context: { ...event, channelId: ctx.channelId, accountId: ctx.accountId } },
+      { workspaceDir, pluginConfig: pluginApi.pluginConfig, config: pluginApi.config, logger: pluginApi.logger });
+  };
 }

@@ -1,4 +1,4 @@
-import { PersonaContractV1, emptyPersonaContract } from './persona_contract';
+import { PersonaContractV1 } from './persona_contract';
 
 export interface PersonaContractValidationResult {
   ok: boolean;
@@ -214,7 +214,6 @@ export function validateCandidatePersonaContractPayload(
 }
 
 export function normalizeCandidatePersonaContract(value: unknown): PersonaContractV1 {
-  const empty = emptyPersonaContract();
   const candidate = (value && typeof value === 'object') ? value as Record<string, unknown> : {};
   const identity = (candidate.identity && typeof candidate.identity === 'object') ? candidate.identity as Record<string, unknown> : {};
   const soul = (candidate.soul && typeof candidate.soul === 'object') ? candidate.soul as Record<string, unknown> : {};

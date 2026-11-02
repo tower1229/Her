@@ -1,38 +1,22 @@
+import { commitEpisode } from '../storage/commit-episode';
 import { TimelineTransitionInput, TimelineTransitionOutput, TransitionPlan } from '../core/transition_planner_contract';
 import { collectActiveFacts } from '../core/collect_active_facts';
+import { CollectedTimelineFact } from '../core/timeline_reasoner_contract';
 import { makeTraceId } from '../core/trace';
-import { truncateEpisodeDuration } from '../storage/write-episode';
 import { formatDate, parseTimestampParts, addMinutesToTimestampString } from '../lib/time-utils';
+import { PersonaContractV1 } from '../persona/persona_contract';
 import { TimelineRuntimeDependencies } from './timeline_resolve';
-import { buildTransitionTrace, TimelineTransitionTrace } from '../core/trace';
+import { buildTransitionTrace } from '../core/trace';
 import { appendTraceLog } from '../storage/trace_log';
-import { halfHourTimelineBucket } from '../lib/fingerprint';
-import { parseMemoryFile } from '../lib/parse-memory';
-import * as fs from 'fs';
+import { ResolvedWindow } from '../core/resolve_window';
 
 export interface TimelineTransitionDependencies extends TimelineRuntimeDependencies {
   planTransition?: (
     input: TimelineTransitionInput,
     anchor: { now: string; timezone: string },
-    persona: any,
-    activeFacts: any[]
+    persona: PersonaContractV1,
+    activeFacts: CollectedTimelineFact[]
   ) => Promise<TransitionPlan>;
-}
-
-/** Finds all event IDs in the same 30-minute bucket as targetTimestamp on the target date. */
-function getBucketMateIds(filePath: string, targetTimestamp: string): string[] {
-  if (!fs.existsSync(filePath)) return [];
-  try {
-    const content = fs.readFileSync(filePath, 'utf8');
-    const episodes = parseMemoryFile(content);
-    const targetBucket = halfHourTimelineBucket(targetTimestamp);
-    return episodes
-      .filter((ep) => halfHourTimelineBucket(ep.timestamp) === targetBucket)
-      .map((ep) => ep.eventId)
-      .filter(Boolean) as string[];
-  } catch {
-    return [];
-  }
 }
 
 function persistTransitionTraceIfConfigured(
@@ -76,12 +60,26 @@ export async function timelineTransition(
 
     const { now, timezone } = await deps.currentTime!();
     const personaCtx = await deps.personaContext!();
-    
+    const nowParts = parseTimestampParts(now);
+    if (!nowParts) throw new Error(`Invalid current time: ${now}`);
+
     // Look up to 7 days back for any still active events
+    const lookupWindow: ResolvedWindow = {
+      query_range: 'now',
+      semantic_target: 'now',
+      collection_scope: 'today_so_far',
+      start: now,
+      end: now,
+      calendar_date: formatDate(nowParts),
+      calendar_dates: [],
+      timezone,
+      normalization_notes: [],
+    };
     const activeFacts = await collectActiveFacts(
-      (calendarDate) => deps.memoryGet!(calendarDate, {} as any, {} as any),
+      (calendarDate) => deps.memoryGet!(calendarDate, lookupWindow, {}),
       now,
-      7
+      7,
+      deps.legacyLogTimezone ?? timezone,
     );
 
     if (!deps.planTransition) {
@@ -119,7 +117,7 @@ export async function timelineTransition(
 
     // Identify all bucket-mates that could cause CONFLICT_EXISTS. 
     // timeline_transition is an explicit world-state override, so it should exempt its own neighbors.
-    const bucketMateIds = getBucketMateIds(writeFilePath, generatedWriteInput.timestamp);
+    const bucketMateIds: string[] = []; // Current bucket mates are read inside commitEpisode's lock.
     const activeFactIds = activeFacts.map(f => f.event_id).filter((id): id is string => Boolean(id));
 
     if (plan.interruption_handling === 'interrupt' && activeFacts.length > 0) {
@@ -131,7 +129,7 @@ export async function timelineTransition(
       sameBucketExemptEventIds = Array.from(new Set([...bucketMateIds, ...activeFactIds]));
       
       if (interruptedFact.event_id) {
-        // Defer truncation until AFTER the new write succeeds (atomicity)
+        // Same-day edits commit together; cross-day truncation can partially fail.
         truncateTarget = { filePath, eventId: interruptedFact.event_id, timestamp: generatedWriteInput.timestamp };
       }
     } else if (plan.interruption_handling === 'insert_micro_task' && activeFacts.length > 0) {
@@ -149,11 +147,13 @@ export async function timelineTransition(
     }
 
     // Write the new transition episode
-    const writeResult = await deps.writeEpisode!({
+    const committed = await commitEpisode({
       ...generatedWriteInput,
       filePath: writeFilePath,
       sameBucketExemptEventIds,
-    });
+      legacyLogTimezone: deps.legacyLogTimezone ?? timezone,
+    }, { writer: deps.writeEpisode!, rootName: deps.canonicalRootName, rootPath: deps.canonicalRootPath, truncate: truncateTarget, exemptCurrentBucket: true });
+    const writeResult = committed.result;
 
     const computedEndAt = addMinutesToTimestampString(
       generatedWriteInput.timestamp,
@@ -161,12 +161,8 @@ export async function timelineTransition(
     );
     const expectedEndAt = computedEndAt ?? generatedWriteInput.timestamp;
 
-    let truncateOk = false;
-    if (writeResult.success && truncateTarget) {
-      // Perform truncation only after a successful new write
-      truncateOk = await truncateEpisodeDuration(truncateTarget.filePath, truncateTarget.eventId, truncateTarget.timestamp);
-    }
-    
+    const truncateOk = committed.truncated;
+
     const notes: string[] = [];
     if (!computedEndAt) {
       notes.push('expected_end_at could not be computed from started_at; falling back to started_at.');
@@ -175,7 +171,11 @@ export async function timelineTransition(
       if (!activeFacts[0].event_id) {
         notes.push('Interrupt: active episode has no Event_Id; prior duration was not truncated.');
       } else if (writeResult.success && !truncateOk) {
-        notes.push('Interrupt: write succeeded but could not truncate the prior episode.');
+        notes.push(
+          committed.truncate_error
+            ? `Interrupt: write succeeded but could not truncate the prior episode: ${committed.truncate_error}`
+            : 'Interrupt: write succeeded but could not truncate the prior episode.',
+        );
       }
     }
     if (writeResult.success) {
@@ -230,11 +230,11 @@ export async function timelineTransition(
     persistTransitionTraceIfConfigured(result, input, deps);
     return result;
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     const output: TimelineTransitionOutput = {
       ok: false,
       trace_id: traceId,
-      notes: [`Transition failed: ${error.message}`]
+      notes: [`Transition failed: ${error instanceof Error ? error.message : String(error)}`]
     };
     persistTransitionTraceIfConfigured(output, input, deps);
     return output;

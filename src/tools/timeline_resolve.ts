@@ -1,3 +1,5 @@
+import { timestampMillis } from '../lib/timeline-time';
+import { enumerateLogDates } from '../core/calendar_dates';
 import * as path from 'path';
 import { collectSources, TimelineSourceDependencies } from '../core/collect_sources';
 import { buildTimelineCollectorOutput } from '../core/collect_timeline_request';
@@ -23,7 +25,7 @@ import { reasonWithPolicy } from '../core/reason_with_policy';
 import { formatDate, parseTimestampParts } from '../lib/time-utils';
 import { appendTraceLog } from '../storage/trace_log';
 import { writeEpisode, WriteEpisodeInput, WriteResult } from '../storage/write-episode';
-import { resolveWindow, TimelineQueryPlan } from '../core/resolve_window';
+import { resolveWindow, ResolvedWindow, TimelineQueryPlan } from '../core/resolve_window';
 import { loadTimelinePersonaContractFromWorkspace } from '../persona/load_persona_contract';
 import { LegacyPersonaContractExtractor } from '../persona/extract_legacy_persona_contract';
 import { collectActiveFacts } from '../core/collect_active_facts';
@@ -76,6 +78,8 @@ export interface TimelineRuntimeDependencies extends TimelineSourceDependencies 
   writeEpisode?: (input: WriteEpisodeInput) => Promise<WriteResult>;
   memoryFilePath?: (calendarDate: string) => string;
   canonicalRootName?: string;
+  canonicalRootPath?: string;
+  legacyLogTimezone?: string;
   traceLogPath?: string;
   readOnlyFastLookbackDays?: number;
   extractLegacyPersonaContract?: LegacyPersonaContractExtractor;
@@ -95,7 +99,6 @@ function createDefaultDependencies(
     }),
     sessionsHistory: async () => [],
     memoryGet: async () => '',
-    memorySearch: async () => [],
     writeEpisode,
     memoryFilePath: (calendarDate: string) => `memory/${calendarDate}.md`,
     canonicalRootName: 'memory',
@@ -202,9 +205,9 @@ function calendarDateFromTimestamp(timestamp: string): string {
   return formatDate(parts);
 }
 
-function isParsedEpisodeActiveAt(episode: ParsedEpisode, anchorIso: string): boolean {
-  const episodeMs = new Date(episode.timestamp.replace(' ', 'T')).getTime();
-  const anchorMs = new Date(anchorIso).getTime();
+function isParsedEpisodeActiveAt(episode: ParsedEpisode, anchorIso: string, legacyLogTimezone?: string): boolean {
+  const episodeMs = timestampMillis(episode.timestamp, legacyLogTimezone);
+  const anchorMs = timestampMillis(anchorIso, legacyLogTimezone);
   if (Number.isNaN(episodeMs) || Number.isNaN(anchorMs)) return false;
   const elapsedMinutes = (anchorMs - episodeMs) / 60_000;
   if (elapsedMinutes < 0) return false;
@@ -212,14 +215,9 @@ function isParsedEpisodeActiveAt(episode: ParsedEpisode, anchorIso: string): boo
   return elapsedMinutes < duration;
 }
 
-function selectLatestUnexpiredParsedEpisode(episodes: ParsedEpisode[], anchorIso: string): ParsedEpisode | undefined {
-  for (let index = episodes.length - 1; index >= 0; index -= 1) {
-    const episode = episodes[index];
-    if (isParsedEpisodeActiveAt(episode, anchorIso)) {
-      return episode;
-    }
-  }
-  return undefined;
+function selectLatestUnexpiredParsedEpisode(episodes: ParsedEpisode[], anchorIso: string, legacyLogTimezone?: string): ParsedEpisode | undefined {
+  return episodes.filter(episode => isParsedEpisodeActiveAt(episode, anchorIso, legacyLogTimezone))
+    .sort((a, b) => timestampMillis(b.timestamp, legacyLogTimezone) - timestampMillis(a.timestamp, legacyLogTimezone))[0];
 }
 
 function mapCollectedFactToParsedEpisode(fact: CollectedTimelineFact): ParsedEpisode {
@@ -257,34 +255,40 @@ export type TimelineReadOnlyFastSnapshot =
     };
 
 export async function resolveReadOnlyFastSnapshot(
-  deps: Pick<TimelineRuntimeDependencies, 'currentTime' | 'memoryGet' | 'readOnlyFastLookbackDays'>,
+  deps: Pick<TimelineRuntimeDependencies, 'currentTime' | 'memoryGet' | 'readOnlyFastLookbackDays' | 'legacyLogTimezone'>,
 ): Promise<TimelineReadOnlyFastSnapshot> {
   const currentTime = await deps.currentTime();
   const timezone = currentTime.timezone;
   const nowISO = currentTime.now;
   const calendarDate = formatDate(parseTimestampParts(nowISO)!);
   const stubInput: TimelineResolveInput = { query: 'now', mode: 'read_only_fast' };
-  const stubWindow = {
+  const stubWindow: ResolvedWindow = {
     start: nowISO,
     end: nowISO,
     calendar_dates: [calendarDate],
-    query_range: 'now' as const,
+    query_range: 'now',
     semantic_target: 'now',
     collection_scope: 'today_so_far',
     timezone,
+    calendar_date: calendarDate,
+    normalization_notes: [],
   };
 
-  const todayRaw = await deps.memoryGet(calendarDate, stubWindow as any, stubInput);
-  const todayEpisodes = parseMemoryFile(todayRaw);
-  const currentDayHit = selectLatestUnexpiredParsedEpisode(todayEpisodes, nowISO);
+  const zone = deps.legacyLogTimezone ?? timezone;
+  const currentDates = enumerateLogDates(nowISO, nowISO, zone);
+  const currentHits = await Promise.all(currentDates.map(async date => ({ date,
+    episode: selectLatestUnexpiredParsedEpisode(parseMemoryFile(await deps.memoryGet(date, stubWindow, stubInput)), nowISO, zone),
+  })));
+  const currentDayHit = currentHits.filter(hit => hit.episode)
+    .sort((a, b) => timestampMillis(b.episode!.timestamp, zone) - timestampMillis(a.episode!.timestamp, zone))[0];
   if (currentDayHit) {
     return {
       status: 'hit',
       source: 'same_day_fast_hit',
       now: nowISO,
       timezone,
-      calendarDate,
-      parsed: currentDayHit,
+      calendarDate: currentDayHit.date,
+      parsed: currentDayHit.episode!,
     };
   }
 
@@ -294,9 +298,10 @@ export async function resolveReadOnlyFastSnapshot(
 
   if (lookbackDays > 1) {
     const activeFacts = await collectActiveFacts(
-      (candidateDate) => deps.memoryGet(candidateDate, stubWindow as any, stubInput),
+      (candidateDate) => deps.memoryGet(candidateDate, stubWindow, stubInput),
       nowISO,
       lookbackDays,
+      deps.legacyLogTimezone ?? timezone,
     );
     const lookbackHit = activeFacts.find((fact) => fact.calendar_date !== calendarDate);
     if (lookbackHit) {
@@ -321,7 +326,7 @@ export async function resolveReadOnlyFastSnapshot(
 
 function persistTraceIfConfigured(
   output: TimelineResolveOutput,
-  input: TimelineResolveInput,
+  _input: TimelineResolveInput,
   deps: TimelineRuntimeDependencies,
   requestedRange: string,
 ): boolean {
@@ -608,6 +613,8 @@ export async function timelineResolve(
           deps: {
             memoryFilePath: deps.memoryFilePath,
             canonicalRootName: deps.canonicalRootName,
+            canonicalRootPath: deps.canonicalRootPath,
+            legacyLogTimezone: deps.legacyLogTimezone,
             writeEpisode: deps.writeEpisode,
           },
           calendarDateFromTimestamp,
@@ -719,7 +726,7 @@ export async function timelineResolve(
     }, traceId);
     output.trace = trace;
     return finalizeTimelineOutput(output, input, deps, requestedRange);
-  } catch (error: any) {
+  } catch (error: unknown) {
     const timelineError = error instanceof Error ? error : new Error(String(error));
     const errorCode = classifyTimelineResolveError(timelineError);
 

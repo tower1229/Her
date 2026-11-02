@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import {
+  buildContactFingerprint,
   handlePreprocessedInbound,
   handleSentOutbound,
   prepareProactiveGreetingHeartbeatContext,
@@ -43,6 +44,28 @@ describe('engagement hooks', () => {
 
   afterAll(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('does not infer heartbeat from ordinary message text', async () => {
+    const result = await prepareProactiveGreetingHeartbeatContext({ prompt: 'HEARTBEAT.md HEARTBEAT_OK', messages: [] }, { workspaceDir: tmpDir }, params);
+    expect(result).toBeUndefined();
+    expect(fs.existsSync(resolveEngagementStatePath(tmpDir))).toBe(false);
+  });
+
+  it('admits at most one concurrent greeting and ignores uncorrelated delivery', async () => {
+    await handlePreprocessedInbound({ timestamp: new Date(Date.now() - 8 * 3600000), context: { from: 'user-1', body: 'hi' } }, params);
+    const ctx = { workspaceDir: tmpDir, sessionKey: 'agent:main:heartbeat', trigger: 'heartbeat', runId: 'run-1', channel: 'telegram', channelId: 'chat-1', accountId: 'account-1' };
+    const outcomes = await Promise.allSettled([1, 2].map(() => prepareProactiveGreetingHeartbeatContext({ prompt: '', messages: [] }, ctx, params)));
+    const allowed = outcomes.filter(r => r.status === 'fulfilled' && r.value?.prependContext?.includes('send is allowed'));
+    expect(allowed).toHaveLength(1);
+    await handleSentOutbound({ sessionKey: ctx.sessionKey, context: { to: 'chat-1', success: true, runId: 'wrong-run', channelId: 'telegram', accountId: 'account-1' } }, params);
+    const pending = loadEngagementState(resolveEngagementStatePath(tmpDir));
+    expect(pending.pending_proactive_send).toBe(true);
+    expect(pending.unanswered_proactive_count).toBe(0);
+    expect(pending.pending_proactive_channel_id).toBe('telegram');
+    expect(pending.pending_proactive_target).toBe('chat-1');
+    await handleSentOutbound({ sessionKey: ctx.sessionKey, context: { to: 'chat-1', success: true, runId: 'run-1', channelId: 'telegram', accountId: 'account-1' } }, params);
+    expect(loadEngagementState(resolveEngagementStatePath(tmpDir)).unanswered_proactive_count).toBe(1);
   });
 
   it('records enriched inbound messages and opt-out/opt-in markers', async () => {
@@ -120,6 +143,52 @@ describe('engagement hooks', () => {
     expect(state.contact_scope_status).toBe('conflict');
   });
 
+  it('keeps contact conflict after the original contact returns', async () => {
+    await handlePreprocessedInbound(
+      {
+        sessionKey: 'telegram:main',
+        timestamp: new Date('2026-04-03T12:00:00.000Z'),
+        context: {
+          channelId: 'telegram',
+          conversationId: 'chat-1',
+          from: 'user-1',
+          bodyForAgent: '你好',
+        },
+      },
+      params,
+    );
+    await handlePreprocessedInbound(
+      {
+        sessionKey: 'telegram:main',
+        timestamp: new Date('2026-04-03T12:10:00.000Z'),
+        context: {
+          channelId: 'telegram',
+          conversationId: 'chat-2',
+          from: 'user-2',
+          bodyForAgent: '你好',
+        },
+      },
+      params,
+    );
+    await handlePreprocessedInbound(
+      {
+        sessionKey: 'telegram:main',
+        timestamp: new Date('2026-04-03T12:20:00.000Z'),
+        context: {
+          channelId: 'telegram',
+          conversationId: 'chat-1',
+          from: 'user-1',
+          bodyForAgent: '我回来了',
+        },
+      },
+      params,
+    );
+
+    const state = loadEngagementState(resolveEngagementStatePath(tmpDir));
+    expect(state.contact_scope_status).toBe('conflict');
+    expect(state.primary_contact_fingerprint).toBe(buildContactFingerprint({ from: 'user-1' }));
+  });
+
   it('dedupes inbound events by fallback hash when messageId is missing', async () => {
     const event = {
       sessionKey: 'telegram:main',
@@ -165,6 +234,8 @@ describe('engagement hooks', () => {
         workspaceDir: tmpDir,
         sessionKey: 'agent:main:heartbeat:isolated-1',
         trigger: 'heartbeat',
+        runId: 'greeting-run',
+        chatId: 'chat-1',
       },
       params,
     );
@@ -185,6 +256,7 @@ describe('engagement hooks', () => {
           channelId: 'telegram',
           conversationId: 'chat-1',
           to: 'chat-1',
+          runId: 'greeting-run',
           content: '轻轻来问候你一下，今天还顺利吗？',
           success: true,
           messageId: 'out-1',
@@ -219,6 +291,8 @@ describe('engagement hooks', () => {
         recent_outbound_dedupe_keys: [],
         last_proactive_decision_token: 'decision-1',
         pending_proactive_send: true,
+        pending_proactive_run_id: 'greeting-run',
+        pending_proactive_target: 'chat-1',
         pending_proactive_send_started_at: '2026-04-03T11:50:00.000Z',
         proactive_greeting_enabled: true,
         idle_threshold_hours: 7,
@@ -241,6 +315,7 @@ describe('engagement hooks', () => {
           channelId: 'telegram',
           conversationId: 'chat-1',
           to: 'chat-1',
+          runId: 'greeting-run',
           content: 'hi',
           success: false,
           error: 'delivery failed',
@@ -273,6 +348,8 @@ describe('engagement hooks', () => {
         recent_outbound_dedupe_keys: [],
         last_proactive_decision_token: 'decision-1',
         pending_proactive_send: true,
+        pending_proactive_run_id: 'greeting-run',
+        pending_proactive_target: 'chat-1',
         pending_proactive_send_started_at: '2026-04-03T11:50:00.000Z',
         proactive_greeting_enabled: true,
         idle_threshold_hours: 7,
@@ -294,6 +371,7 @@ describe('engagement hooks', () => {
         channelId: 'telegram',
         conversationId: 'chat-1',
         to: 'chat-1',
+          runId: 'greeting-run',
         content: 'hi',
         success: true,
       },

@@ -1,4 +1,4 @@
-import { buildConsumptionView, defaultDurationForActivityMode } from './build_consumption_view';
+import { buildConsumptionView } from './build_consumption_view';
 import { CollectedTimelineFact, TimelineCollectorOutput, TimelineReasonerOutput } from './timeline_reasoner_contract';
 import { mapToEpisode } from '../lib/parse-memory';
 import { computeFingerprint } from '../lib/fingerprint';

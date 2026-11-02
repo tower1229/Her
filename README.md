@@ -2,6 +2,8 @@
 
 # OpenClaw Timeline Plugin
 
+Compatibility target: **OpenClaw 2026.10.9**, verified with **Node 24.22.1**. Other host versions are unverified. Upgrade setup on the original deployment host to capture `legacyLogTimezone`; existing explicit timezone and Hook policy settings are preserved. Daily Markdown and the normal Agent `memory_search` entry point remain shared. Internal semantic search is unavailable on this host version; Timeline continues with daily logs and permitted session history.
+
 ![Her](./assets/Her.webp)
 
 Why can AI be clever enough—and still fail to feel like company?
@@ -130,8 +132,7 @@ Then add explicit OpenClaw heartbeat config. On the default OpenClaw workspace, 
         "target": "last",
         "directPolicy": "allow",
         "isolatedSession": true,
-        "lightContext": true,
-        "skipWhenBusy": true
+        "lightContext": true
       }
     }
   }

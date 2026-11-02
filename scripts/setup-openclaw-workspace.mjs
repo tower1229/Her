@@ -22,7 +22,7 @@ const TIMELINE_PLUGIN_ID = 'stella-timeline-plugin';
 const ENGAGEMENT_STATE_SCHEMA_VERSION = '1.0';
 
 function defaultOpenClawHome() {
-  const envHome = process.env.OPENCLAW_HOME;
+  const envHome = process.env.OPENCLAW_STATE_DIR || process.env.OPENCLAW_HOME;
   if (typeof envHome === 'string' && envHome.trim()) {
     return path.resolve(envHome);
   }
@@ -232,32 +232,37 @@ function shouldConfigureOpenClaw(options, config, fallbackWorkspacePath) {
   return configuredWorkspace ? workspace === normalizePath(configuredWorkspace) : false;
 }
 
-function patchOpenClawConfig(config, workspace) {
+function patchOpenClawConfig(config, workspace, canonicalRootName) {
   const next = JSON.parse(JSON.stringify(config ?? {}));
   next.agents ??= {};
   next.agents.defaults ??= {};
   next.agents.defaults.workspace = workspace;
   next.agents.defaults.heartbeat = {
-    ...(next.agents.defaults.heartbeat ?? {}),
     every: '30m',
     target: 'last',
     directPolicy: 'allow',
     isolatedSession: true,
     lightContext: true,
-    skipWhenBusy: true,
+    ...(next.agents.defaults.heartbeat ?? {}),
   };
-  delete next.agents.defaults.heartbeat.session;
+  delete next.agents.defaults.heartbeat.skipWhenBusy;
   next.plugins ??= {};
   next.plugins.entries ??= {};
   next.plugins.entries[TIMELINE_PLUGIN_ID] ??= { enabled: true, config: {} };
-  next.plugins.entries[TIMELINE_PLUGIN_ID].enabled = true;
+  next.plugins.entries[TIMELINE_PLUGIN_ID].enabled ??= true;
   next.plugins.entries[TIMELINE_PLUGIN_ID].config ??= {};
   next.plugins.entries[TIMELINE_PLUGIN_ID].config.proactiveGreeting = {
-    ...(next.plugins.entries[TIMELINE_PLUGIN_ID].config.proactiveGreeting ?? {}),
     enabled: true,
     singleUserGuard: true,
+    ...(next.plugins.entries[TIMELINE_PLUGIN_ID].config.proactiveGreeting ?? {}),
   };
-  delete next.plugins.entries[TIMELINE_PLUGIN_ID].config.proactiveGreeting.sessionKey;
+  const entry = next.plugins.entries[TIMELINE_PLUGIN_ID];
+  entry.config.canonicalMemoryRoot = canonicalRootName;
+  entry.config.legacyLogTimezone ??= Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  entry.hooks ??= {};
+  entry.hooks.allowConversationAccess ??= true;
+  entry.hooks.allowPromptInjection ??= true;
+  if (entry.hooks.allowConversationAccess === false || entry.hooks.allowPromptInjection === false) console.warn('Timeline hooks explicitly disabled; existing policy preserved.');
   return next;
 }
 
@@ -265,8 +270,9 @@ function main() {
   const options = parseArgs(process.argv.slice(2));
   const openClawHome = defaultOpenClawHome();
   const defaultWorkspacePath = normalizePath(path.join(openClawHome, 'workspace'));
-  const openClawConfigPath = options.openClawConfigPath
-    ? normalizePath(options.openClawConfigPath)
+  const explicitConfigPath = options.openClawConfigPath || process.env.OPENCLAW_CONFIG_PATH;
+  const openClawConfigPath = explicitConfigPath
+    ? normalizePath(explicitConfigPath)
     : normalizePath(path.join(openClawHome, 'openclaw.json'));
   const existingConfig = readJsonFile(openClawConfigPath);
   const configureOpenClaw = shouldConfigureOpenClaw(options, existingConfig, defaultWorkspacePath);
@@ -316,7 +322,7 @@ function main() {
     if (!existingConfig) {
       configResult = `skipped OpenClaw config wiring ${openClawConfigPath} (file not found)`;
     } else {
-      const patchedConfig = patchOpenClawConfig(existingConfig, normalizePath(options.workspace));
+      const patchedConfig = patchOpenClawConfig(existingConfig, normalizePath(options.workspace), options.canonicalRootName);
       finalConfig = patchedConfig;
       const before = createJsonSnapshot(existingConfig);
       const after = createJsonSnapshot(patchedConfig);

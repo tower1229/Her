@@ -2,6 +2,8 @@
 
 # OpenClaw Timeline 插件
 
+兼容目标固定为 **OpenClaw 2026.10.9**，集成验收使用 **Node 24.22.1**；其他宿主版本尚未验证。升级时在原部署环境运行 setup，记录旧日志兼容时区 `legacyLogTimezone`；已有显式时区和 Hook 权限设置会保留。每日 Markdown 与普通 Agent 的 `memory_search` 继续共享；本版本不提供插件内部语义搜索，Timeline 按既有规则降级使用日记和获准读取的会话记录。
+
 ![Her](./assets/Her.webp)
 
 为什么 AI 足够聪明，却无法让人产生陪伴感？
@@ -131,8 +133,7 @@ npm run setup:workspace -- --with-heartbeat
         "target": "last",
         "directPolicy": "allow",
         "isolatedSession": true,
-        "lightContext": true,
-        "skipWhenBusy": true
+        "lightContext": true
       }
     }
   }

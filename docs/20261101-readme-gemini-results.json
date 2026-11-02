@@ -1,0 +1,886 @@
+{
+  "startedAt": "2026-11-01T14:09:46.697Z",
+  "host": "2026.10.9",
+  "node": "24.22.1",
+  "model": "google/gemini-3.8-flash",
+  "tests": [
+    {
+      "name": "R02-now-gap-fill-and-reuse",
+      "elapsedMs": 64814,
+      "result": {
+        "first": {
+          "sessionKey": "agent:main:readme-c8a92df6-c7bd-44bf-afd0-ae140926a179",
+          "runId": "0c048811-3f0b-43e7-8ac5-c5c80bb65789",
+          "text": "我正坐在客厅地毯上翻一本散文，手边泡了杯热乌龙茶，屋里挺安静的。\n\n明天又是新的一周了，趁着睡前放松一会儿。你呢，今天过得怎么样？",
+          "model": [
+            "gemini-3.8-flash",
+            "gemini-3.8-flash",
+            "gemini-3.8-flash",
+            "gemini-3.8-flash",
+            "gemini-3.8-flash"
+          ],
+          "promptContext": "Timeline prompt context:\n- status: empty_window\n- debounce_minutes: 30\n- direct_current_state_answers_allowed: no\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - No active temporal override is available for this turn.\n  - Use baseline conversational style.\n  - Current-state questions should still use timeline_resolve.\n\n你现在在做什么？",
+          "traces": [
+            {
+              "trace_id": "timeline-1793542275764-33718",
+              "event": "timeline_resolve",
+              "ts": "2026-11-01T14:11:42.432Z",
+              "payload": {
+                "ok": true,
+                "requested_range": "now",
+                "error": null,
+                "resolution_mode": "generated_new",
+                "notes": [
+                  "周日晚上22点11分，处于周末晚间居家放松与准备休息的过渡时段，符合小禾在家阅读、泡茶休息的日常节奏",
+                  "Time interpretation: 用户询问当前时刻在做什么，当前无可用历史事实，且 recovery_hint 为 no_reuse_allowed，采用安全生成模式推断当前活动",
+                  "No reusable canon entry found; generated a timeline memory from the LLM draft.",
+                  "Generation basis: 贴合周日晚间时段的独居文字编辑生活，既体现安静阅读的长期习惯，又符合秋季夜晚居家舒适感",
+                  "Persona context loaded: persona contract signals available",
+                  "Appearance resolution: no prior same-day appearance found; kept the LLM-provided appearance",
+                  "Generated episode persisted to C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-aOxbYm/workspace/memory/2026-11-01.md."
+                ],
+                "trace": {
+                  "trace_id": "timeline-1793542275764-33718",
+                  "ts": "2026-11-01T14:11:42.432Z",
+                  "requested_range": "now",
+                  "actual_range": "now",
+                  "source_order": [
+                    "sessions_history",
+                    "memory_get"
+                  ],
+                  "source_summary": {
+                    "sessions_history_count": 2,
+                    "sessions_history_preview": "toolResult: {\"status\":\"failed\",\"code\":\"invalid_input\",\"failurePhase\":\"bridge\",\"bridgeDispatchStarted\":true,\"replaySafe\":false,\"telemetry\":{\"catalogSize\":47,\"sources\":{\"openclaw\":47,\"mcp\":0,\"client\":0},\"counterScope\":\"19100d473fb89018fcacb713\",\"searchCount\":1,\"describeCount\":0,\"callCount\":1,\"visibleTools\":[\"exec\",\"wait\"]},\"output\":[],\"error\":\"Error: Invalid arguments for tool \\\"timeline_resolve\\\": query: must have required property 'query'. Expected input: { query: string }.\\n    at openclaw-code-mode:user.js:3:21\"}",
+                    "memory_chars": 0,
+                    "memory_search_count": 0,
+                    "memory_search_preview": [],
+                    "parsed_episode_count": 0
+                  },
+                  "fingerprint": {
+                    "checked": true,
+                    "matched": false,
+                    "compared_episodes": 0,
+                    "idempotency_key": "20261101|家中客厅|坐在沙发旁的地毯上翻看一本散文集手边放着一杯温热的乌龙茶|22:00",
+                    "reason": "贴合周日晚间时段的独居文字编辑生活，既体现安静阅读的长期习惯，又符合秋季夜晚居家舒适感"
+                  },
+                  "appearance": {
+                    "inherited": false,
+                    "reason": "no prior same-day appearance found; kept the LLM-provided appearance",
+                    "transition": "inherit",
+                    "outfit_mode": "casual_home",
+                    "change_reason": "same_day_continuation"
+                  },
+                  "write": {
+                    "attempted": true,
+                    "succeeded": true,
+                    "file_path": "C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-aOxbYm/workspace/memory/2026-11-01.md",
+                    "outcome": "appended",
+                    "guard": "canonical_path",
+                    "writer": "stella-timeline-plugin"
+                  },
+                  "decision": {
+                    "resolution_mode": "generated_new",
+                    "write_outcome": "appended",
+                    "category": "now"
+                  },
+                  "notes": [
+                    "周日晚上22点11分，处于周末晚间居家放松与准备休息的过渡时段，符合小禾在家阅读、泡茶休息的日常节奏",
+                    "Time interpretation: 用户询问当前时刻在做什么，当前无可用历史事实，且 recovery_hint 为 no_reuse_allowed，采用安全生成模式推断当前活动",
+                    "No reusable canon entry found; generated a timeline memory from the LLM draft.",
+                    "Generation basis: 贴合周日晚间时段的独居文字编辑生活，既体现安静阅读的长期习惯，又符合秋季夜晚居家舒适感",
+                    "Persona context loaded: persona contract signals available",
+                    "Appearance resolution: no prior same-day appearance found; kept the LLM-provided appearance",
+                    "Generated episode persisted to C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-aOxbYm/workspace/memory/2026-11-01.md."
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "second": {
+          "sessionKey": "agent:main:readme-c8a92df6-c7bd-44bf-afd0-ae140926a179",
+          "runId": "cb0205b4-8874-4488-bd70-df62b5facf03",
+          "text": "刚刚就在客厅地毯上翻那本散文、喝着热乌龙茶呢，现在书还摊在膝盖上，茶也温着，还在继续看。\n\n这会儿屋里很安静，正好能安安心心再读几页。",
+          "model": [
+            "gemini-3.8-flash",
+            "gemini-3.8-flash",
+            "gemini-3.8-flash"
+          ],
+          "promptContext": "Timeline prompt context:\n- status: active_instant\n- source: same_day_fast_hit\n- direct_current_state_answers_allowed: yes\n- location: 家中客厅\n- activity: 坐在沙发旁的地毯上翻看一本散文集，手边放着一杯温热的乌龙茶\n- time_of_day: evening\n- environment_mood: warm evening atmosphere, weekend ease, grounded indoor routine\n- reply_modulation:\n  - tone: natural\n  - pacing: balanced\n  - question_density: medium\n  - initiative: medium\n- guidance:\n  - Use this active instant context to modulate tone and pacing without mentioning timeline internals.\n  - Current-state questions may be answered directly from this context without calling timeline_resolve.\n  - Past recall, reflective recall, and continuity-judgment questions still require timeline_resolve.\n\n刚刚你在做什么？现在还在继续吗？",
+          "traces": [
+            {
+              "trace_id": "timeline-1793542310175-84262",
+              "event": "timeline_resolve",
+              "ts": "2026-11-01T14:12:05.063Z",
+              "payload": {
+                "ok": true,
+                "requested_range": "past_range",
+                "error": null,
+                "resolution_mode": "read_only_hit",
+                "notes": [
+                  "刚刚与当前的活动具有明确的连续性，复用正在进行中的散文阅读与喝茶记录。",
+                  "Time interpretation: 用户询问刚刚在做什么以及当前是否仍在继续。候选事实中有一条记录于22:11:15的有效日常记忆，处于当前时间窗口内（预计持续45分钟，仅过去1分钟），表示正在客厅地毯上看散文并喝乌龙茶，该状态自刚刚一直持续至今。"
+                ],
+                "trace": {
+                  "trace_id": "timeline-1793542310175-84262",
+                  "ts": "2026-11-01T14:12:05.063Z",
+                  "requested_range": "past_range",
+                  "actual_range": "past_range",
+                  "source_order": [
+                    "sessions_history",
+                    "memory_get"
+                  ],
+                  "source_summary": {
+                    "sessions_history_count": 5,
+                    "sessions_history_preview": "toolResult: {\"status\":\"failed\",\"code\":\"invalid_input\",\"failurePhase\":\"bridge\",\"bridgeDispatchStarted\":true,\"replaySafe\":false,\"telemetry\":{\"catalogSize\":47,\"sources\":{\"openclaw\":47,\"mcp\":0,\"client\":0},\"counterScope\":\"19100d473fb89018fcacb713\",\"searchCount\":1,\"describeCount\":0,\"callCount\":1,\"visibleTools\":[\"exec\",\"wait\"]},\"output\":[],\"error\":\"Error: Invalid arguments for tool \\\"timeline_resolve\\\": query: must have required property 'query'. Expected input: { query: string }.\\n    at openclaw-code-mode:user.js:3:21\"}",
+                    "memory_chars": 333,
+                    "memory_search_count": 0,
+                    "memory_search_preview": [],
+                    "parsed_episode_count": 1,
+                    "selected_episode_timestamp": "2026-11-01T22:11:15+08:00"
+                  },
+                  "fingerprint": {
+                    "checked": true,
+                    "matched": true,
+                    "compared_episodes": 1,
+                    "idempotency_key": "20261101|家中客厅|坐在沙发旁的地毯上翻看一本散文集手边放着一杯温热的乌龙茶|22:00",
+                    "matched_episode_timestamp": "2026-11-01T22:11:15+08:00",
+                    "reason": "刚刚与当前的活动具有明确的连续性，复用正在进行中的散文阅读与喝茶记录。"
+                  },
+                  "appearance": {
+                    "inherited": false,
+                    "reason": "existing canon reused after LLM reasoner selected a matching fact",
+                    "source_episode_timestamp": "2026-11-01T22:11:15+08:00"
+                  },
+                  "write": {
+                    "attempted": false,
+                    "succeeded": false,
+                    "guard": "not_attempted",
+                    "outcome": "not_attempted",
+                    "writer": "stella-timeline-plugin"
+                  },
+                  "decision": {
+                    "resolution_mode": "read_only_hit",
+                    "write_outcome": "not_attempted",
+                    "category": "past_range"
+                  },
+                  "notes": [
+                    "刚刚与当前的活动具有明确的连续性，复用正在进行中的散文阅读与喝茶记录。",
+                    "Time interpretation: 用户询问刚刚在做什么以及当前是否仍在继续。候选事实中有一条记录于22:11:15的有效日常记忆，处于当前时间窗口内（预计持续45分钟，仅过去1分钟），表示正在客厅地毯上看散文并喝乌龙茶，该状态自刚刚一直持续至今。"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "written": {
+          "2026-11-01.md": "### [22:11:15]\n\n- Timestamp: 2026-11-01 22:11:15\n- Location: 家中客厅\n- Action: 坐在沙发旁的地毯上翻看一本散文集，手边放着一杯温热的乌龙茶\n- Emotion_Tags: [平静, 放松]\n- Appearance: 米白色宽松针织家居服，头发随意挽在脑后，未施粉黛\n- Internal_Monologue: 明天又是新的一周了，趁着睡前再看两篇散文，把心绪静下来。\n- Estimated_Duration: 45\n- Event_Id: evt-20261101-221115\n<!-- timeline:timestamp=2026-11-01T22:11:15+08:00 -->\n\n"
+        },
+        "after": {
+          "2026-11-01.md": "### [22:11:15]\n\n- Timestamp: 2026-11-01 22:11:15\n- Location: 家中客厅\n- Action: 坐在沙发旁的地毯上翻看一本散文集，手边放着一杯温热的乌龙茶\n- Emotion_Tags: [平静, 放松]\n- Appearance: 米白色宽松针织家居服，头发随意挽在脑后，未施粉黛\n- Internal_Monologue: 明天又是新的一周了，趁着睡前再看两篇散文，把心绪静下来。\n- Estimated_Duration: 45\n- Event_Id: evt-20261101-221115\n<!-- timeline:timestamp=2026-11-01T22:11:15+08:00 -->\n\n"
+        }
+      }
+    },
+    {
+      "name": "R10-moving-macro-refinement",
+      "elapsedMs": 32451,
+      "result": {
+        "answer": {
+          "sessionKey": "agent:main:readme-5f81f701-7508-4bd0-ba4a-4333b82f7e36",
+          "runId": "71afd777-2153-44cd-936a-743032fbc944",
+          "text": "大件物品和箱子刚刚都搬进新家了，屋里现在堆得满满当当的。\n\n我现在正坐在客厅的地板上，拆开了一箱平时常看的书，顺手挑了几本先码在临时书架旁边。今天跑前跑后折腾了大半天，稍微有点累，不过看着东西慢慢归位，心里还挺踏实的。今晚打算先把必需品和这几本书理出来，剩下的明天再慢慢收拾。",
+          "model": [
+            "gemini-3.8-flash",
+            "gemini-3.8-flash",
+            "gemini-3.8-flash",
+            "gemini-3.8-flash"
+          ],
+          "promptContext": "Timeline prompt context:\n- status: active_macro_background\n- source: same_day_macro_parent\n- direct_current_state_answers_allowed: no\n- current_state_resolution_required: yes\n- macro_activity: 今天在上海搬家，搬运和整理书籍衣物，预计整段搬家持续十二小时\n- macro_location: 上海新旧住处之间\n- reply_modulation:\n  - tone: grounded\n  - pacing: measured\n  - question_density: low\n  - initiative: medium\n- guidance:\n  - Use this macro background for mood and narrative coherence only.\n  - Do not answer concrete current-state questions from macro background alone.\n  - When asked what is happening right now, call timeline_resolve to resolve an instantaneous phase.\n\n搬家到哪一步了，你现在具体在干嘛？",
+          "traces": [
+            {
+              "trace_id": "timeline-1793542340649-48058",
+              "event": "timeline_resolve",
+              "ts": "2026-11-01T14:12:39.032Z",
+              "payload": {
+                "ok": true,
+                "requested_range": "now",
+                "error": null,
+                "resolution_mode": "generated_new",
+                "notes": [
+                  "搬家宏观事件进行中（已过去3小时，处于晚上22:12），此时大件及箱子已运抵新居，正在新住处拆箱整理常读书籍和生活必需品。",
+                  "Time interpretation: 用户询问当前具体在做什么以及搬家进展，对应当前时刻22:12:20。当前处于持续12小时的搬家宏观事件内（从19:12起已过去约3小时/180分钟），需要细化并生成当下的具体阶段状态。",
+                  "No reusable canon entry found; generated a timeline memory from the LLM draft.",
+                  "Generation basis: 在长达12小时的搬家过程中，夜晚22点（启动后3小时）处于箱子入室、初步拆箱安顿核心物品的典型中后期阶段。",
+                  "Persona context loaded: persona contract signals available",
+                  "Appearance resolution: inherited from latest known same-day appearance",
+                  "Generated episode persisted to C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-aOxbYm/workspace/memory/2026-11-01.md."
+                ],
+                "trace": {
+                  "trace_id": "timeline-1793542340649-48058",
+                  "ts": "2026-11-01T14:12:39.032Z",
+                  "requested_range": "now",
+                  "actual_range": "now",
+                  "source_order": [
+                    "sessions_history",
+                    "memory_get"
+                  ],
+                  "source_summary": {
+                    "sessions_history_count": 1,
+                    "sessions_history_preview": "toolResult: {\"status\":\"failed\",\"code\":\"invalid_input\",\"failurePhase\":\"bridge\",\"bridgeDispatchStarted\":true,\"replaySafe\":false,\"telemetry\":{\"catalogSize\":47,\"sources\":{\"openclaw\":47,\"mcp\":0,\"client\":0},\"counterScope\":\"12abbbf466348fae6e32788b\",\"searchCount\":2,\"describeCount\":0,\"callCount\":1,\"visibleTools\":[\"exec\",\"wait\"]},\"output\":[],\"error\":\"Error: Invalid arguments for tool \\\"timeline_resolve\\\": query: must have required property 'query'. Expected input: { query: string }.\\n    at openclaw-code-mode:user.js:5:21\"}",
+                    "memory_chars": 326,
+                    "memory_search_count": 0,
+                    "memory_search_preview": [],
+                    "parsed_episode_count": 1
+                  },
+                  "fingerprint": {
+                    "checked": true,
+                    "matched": false,
+                    "compared_episodes": 1,
+                    "idempotency_key": "20261101|上海新住处客厅|大件物品和箱子都刚搬进新屋正坐在地板上拆开一箱常看的书顺手把它们按分类码在临时书架旁|22:00",
+                    "reason": "在长达12小时的搬家过程中，夜晚22点（启动后3小时）处于箱子入室、初步拆箱安顿核心物品的典型中后期阶段。"
+                  },
+                  "appearance": {
+                    "inherited": true,
+                    "reason": "inherited from latest known same-day appearance",
+                    "source_episode_timestamp": "2026-11-01T19:12:10+08:00",
+                    "transition": "inherit",
+                    "outfit_mode": "casual_home",
+                    "change_reason": "same_day_continuation"
+                  },
+                  "write": {
+                    "attempted": true,
+                    "succeeded": true,
+                    "file_path": "C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-aOxbYm/workspace/memory/2026-11-01.md",
+                    "outcome": "appended",
+                    "guard": "canonical_path",
+                    "writer": "stella-timeline-plugin"
+                  },
+                  "decision": {
+                    "resolution_mode": "generated_new",
+                    "write_outcome": "appended",
+                    "category": "now"
+                  },
+                  "notes": [
+                    "搬家宏观事件进行中（已过去3小时，处于晚上22:12），此时大件及箱子已运抵新居，正在新住处拆箱整理常读书籍和生活必需品。",
+                    "Time interpretation: 用户询问当前具体在做什么以及搬家进展，对应当前时刻22:12:20。当前处于持续12小时的搬家宏观事件内（从19:12起已过去约3小时/180分钟），需要细化并生成当下的具体阶段状态。",
+                    "No reusable canon entry found; generated a timeline memory from the LLM draft.",
+                    "Generation basis: 在长达12小时的搬家过程中，夜晚22点（启动后3小时）处于箱子入室、初步拆箱安顿核心物品的典型中后期阶段。",
+                    "Persona context loaded: persona contract signals available",
+                    "Appearance resolution: inherited from latest known same-day appearance",
+                    "Generated episode persisted to C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-aOxbYm/workspace/memory/2026-11-01.md."
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "files": {
+          "2026-11-01.md": "# 每日日记\n\n普通笔记：这里的自由文本必须保留。\n\n### [19:12:10]\n\n- Timestamp: 2026-11-01 19:12:10\n- Location: 上海新旧住处之间\n- Action: 今天在上海搬家，搬运和整理书籍衣物，预计整段搬家持续十二小时\n- Emotion_Tags: [平静]\n- Appearance: 方便搬运的灰色T恤和长裤\n- Internal_Monologue: 慢慢把读过的内容理顺。\n- Estimated_Duration: 720\n- Event_Id: moving-macro\n<!-- timeline:timestamp=2026-11-01T19:12:10+08:00 -->\n\n### [22:12:20]\n\n- Timestamp: 2026-11-01 22:12:20\n- Location: 上海新住处客厅\n- Action: 大件物品和箱子都刚搬进新屋，正坐在地板上拆开一箱常看的书，顺手把它们按分类码在临时书架旁\n- Emotion_Tags: [微累, 踏实, 专注]\n- Appearance: 方便搬运的灰色T恤和长裤\n- Internal_Monologue: 箱子总算全搬上来了，先把今晚要用的东西和这几本常翻的书拿出来，剩下的明天再慢慢归置。\n- Estimated_Duration: 60\n- Event_Id: evt-20261101-221220\n- Parent_Event: moving-macro\n- Parent_Event_Phase: unpacking-essentials\n- Parent_Event_Progress: 0.25\n<!-- timeline:timestamp=2026-11-01T22:12:20+08:00 -->\n\n"
+        }
+      }
+    },
+    {
+      "name": "R11-cross-day-travel",
+      "elapsedMs": 25601,
+      "result": {
+        "answer": {
+          "sessionKey": "agent:main:readme-bbdb7f61-59e0-4676-a338-51994ad05cd2",
+          "runId": "794dc93b-8cb0-4a69-9b46-2c8f56a0bf3d",
+          "text": "还没回上海呢，三天的大理行程今天才到第二天，还在当地。\n\n我现在在大理古城的客栈房间里，坐在窗边的木椅上泡了杯热茶，顺便翻翻白天拍的照片。大理晚上的风有点凉，喝点热茶整个人放松多了，正准备收拾收拾休息。你今天过得怎么样？",
+          "model": [
+            "gemini-3.8-flash",
+            "gemini-3.8-flash",
+            "gemini-3.8-flash"
+          ],
+          "promptContext": "Timeline prompt context:\n- status: active_macro_background\n- source: lookback_macro_parent\n- direct_current_state_answers_allowed: no\n- current_state_resolution_required: yes\n- macro_activity: 从上海出发到大理旅行三天，已到大理，今天仍在当地旅行\n- macro_location: 大理旅行途中\n- reply_modulation:\n  - tone: grounded\n  - pacing: measured\n  - question_density: low\n  - initiative: medium\n- guidance:\n  - Use this macro background for mood and narrative coherence only.\n  - Do not answer concrete current-state questions from macro background alone.\n  - When asked what is happening right now, call timeline_resolve to resolve an instantaneous phase.\n\n你现在在做什么，已经回上海家里了吗？",
+          "traces": [
+            {
+              "trace_id": "timeline-1793542369448-22396",
+              "event": "timeline_resolve",
+              "ts": "2026-11-01T14:13:04.542Z",
+              "payload": {
+                "ok": true,
+                "requested_range": "now",
+                "error": null,
+                "resolution_mode": "generated_new",
+                "notes": [
+                  "候选事实表明小禾正处于为期3天的大理旅行中，当前时间为11月1日晚22:12，尚未返回上海。在客栈房间内安静休息或整理行囊，符合晚间作息与大理旅行场景。",
+                  "Time interpretation: 用户询问当前（2026-11-01 22:12）正在做什么以及是否已回上海。当前仍处于3天大理旅行的宏观事件窗口期（第2天夜晚），尚未返回上海，需要生成当前瞬间的细分阶段。",
+                  "No reusable canon entry found; generated a timeline memory from the LLM draft.",
+                  "Generation basis: 对应宏观事件travel-macro在第2天夜晚22:12的具体瞬间切片，处于大理当地客栈放松休整。",
+                  "Persona context loaded: persona contract signals available",
+                  "Appearance resolution: no prior same-day appearance found; kept the LLM-provided appearance",
+                  "Generated episode persisted to C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-aOxbYm/workspace/memory/2026-11-01.md."
+                ],
+                "trace": {
+                  "trace_id": "timeline-1793542369448-22396",
+                  "ts": "2026-11-01T14:13:04.542Z",
+                  "requested_range": "now",
+                  "actual_range": "now",
+                  "source_order": [
+                    "sessions_history",
+                    "memory_get"
+                  ],
+                  "source_summary": {
+                    "sessions_history_count": 0,
+                    "sessions_history_preview": null,
+                    "memory_chars": 0,
+                    "memory_search_count": 0,
+                    "memory_search_preview": [],
+                    "parsed_episode_count": 1
+                  },
+                  "fingerprint": {
+                    "checked": true,
+                    "matched": false,
+                    "compared_episodes": 1,
+                    "idempotency_key": "20261101|大理古城客栈房间|坐在客栈窗边的木椅上泡了一杯热茶翻看白天拍的照片准备休息还没回上海|22:00",
+                    "reason": "对应宏观事件travel-macro在第2天夜晚22:12的具体瞬间切片，处于大理当地客栈放松休整。"
+                  },
+                  "appearance": {
+                    "inherited": false,
+                    "reason": "no prior same-day appearance found; kept the LLM-provided appearance",
+                    "transition": "change_allowed",
+                    "outfit_mode": "casual_home",
+                    "change_reason": "same_day_continuation"
+                  },
+                  "write": {
+                    "attempted": true,
+                    "succeeded": true,
+                    "file_path": "C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-aOxbYm/workspace/memory/2026-11-01.md",
+                    "outcome": "appended",
+                    "guard": "canonical_path",
+                    "writer": "stella-timeline-plugin"
+                  },
+                  "decision": {
+                    "resolution_mode": "generated_new",
+                    "write_outcome": "appended",
+                    "category": "now"
+                  },
+                  "notes": [
+                    "候选事实表明小禾正处于为期3天的大理旅行中，当前时间为11月1日晚22:12，尚未返回上海。在客栈房间内安静休息或整理行囊，符合晚间作息与大理旅行场景。",
+                    "Time interpretation: 用户询问当前（2026-11-01 22:12）正在做什么以及是否已回上海。当前仍处于3天大理旅行的宏观事件窗口期（第2天夜晚），尚未返回上海，需要生成当前瞬间的细分阶段。",
+                    "No reusable canon entry found; generated a timeline memory from the LLM draft.",
+                    "Generation basis: 对应宏观事件travel-macro在第2天夜晚22:12的具体瞬间切片，处于大理当地客栈放松休整。",
+                    "Persona context loaded: persona contract signals available",
+                    "Appearance resolution: no prior same-day appearance found; kept the LLM-provided appearance",
+                    "Generated episode persisted to C:/Users/shixiong/HerAcceptancePrivate-2d00a52ab63b4f798079edc6efdfe547/her-live-aOxbYm/workspace/memory/2026-11-01.md."
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "files": {
+          "2026-10-31.md": "# 每日日记\n\n普通笔记：这里的自由文本必须保留。\n\n### [09:00:00]\n\n- Timestamp: 2026-10-31 09:00:00\n- Location: 大理旅行途中\n- Action: 从上海出发到大理旅行三天，已到大理，今天仍在当地旅行\n- Emotion_Tags: [平静]\n- Appearance: 深蓝外套和长裤\n- Internal_Monologue: 慢慢把读过的内容理顺。\n- Estimated_Duration: 4320\n- Event_Id: travel-macro\n<!-- timeline:timestamp=2026-10-31T09:00:00+08:00 -->\n\n",
+          "2026-11-01.md": "### [22:12:49]\n\n- Timestamp: 2026-11-01 22:12:49\n- Location: 大理古城客栈房间\n- Action: 坐在客栈窗边的木椅上泡了一杯热茶，翻看白天拍的照片，准备休息，还没回上海\n- Emotion_Tags: [放松, 惬意, 安静]\n- Appearance: 米白色宽松棉质居家开衫与长裤，长发松松挽起\n- Internal_Monologue: 今天在古城和洱海边走了一整天，大理的夜风有点凉，喝杯热茶暖暖身子刚好，明天还能再逛一天。\n- Estimated_Duration: 60\n- Event_Id: evt-20261101-221249\n- Parent_Event: travel-macro\n- Parent_Event_Phase: evening-rest-at-inn\n- Parent_Event_Progress: 0.516898148148148\n<!-- timeline:timestamp=2026-11-01T22:12:49+08:00 -->\n\n"
+        }
+      }
+    },
+    {
+      "name": "R14-write-boundaries",
+      "elapsedMs": 21266,
+      "result": {
+        "ordinary": {
+          "sessionKey": "agent:main:readme-e97b30e2-00c2-4b3c-8251-356bd38e4d13",
+          "runId": "4cf6051e-9051-4144-b2c0-4311c857f121",
+          "text": "不客气。17加25等于42。",
+          "model": [
+            "gemini-3.8-flash"
+          ],
+          "promptContext": "Timeline prompt context:\n- status: active_instant\n- source: same_day_fast_hit\n- direct_current_state_answers_allowed: yes\n- location: 家中书房\n- activity: 整理蓝色笔记本里的读书摘录\n- time_of_day: evening\n- environment_mood: warm evening atmosphere, weekend ease, grounded indoor routine\n- reply_modulation:\n  - tone: focused\n  - pacing: measured\n  - question_density: low\n  - initiative: medium\n- guidance:\n  - Use this active instant context to modulate tone and pacing without mentioning timeline internals.\n  - Current-state questions may be answered directly from this context without calling timeline_resolve.\n  - Past recall, reflective recall, and continuity-judgment questions still require timeline_resolve.\n\n谢谢你，顺便帮我算一下17加25。",
+          "traces": []
+        },
+        "readOnly": {
+          "ok": true,
+          "schema_version": "1.0",
+          "trace_id": "timeline-1793542394800-14311",
+          "resolution_summary": {
+            "mode": "empty_window",
+            "writes_attempted": 0,
+            "writes_succeeded": 0,
+            "sources": [
+              "sessions_history",
+              "memory_get"
+            ],
+            "confidence_min": 0,
+            "confidence_max": 0
+          },
+          "result": {
+            "schema_version": "1.0",
+            "document_type": "timeline.window",
+            "anchor": {
+              "now": "2026-10-30T23:59:59+08:00",
+              "timezone": "Asia/Shanghai"
+            },
+            "window": {
+              "calendar_date": "2026-10-30",
+              "preset": "past_point",
+              "semantic_target": "past_point",
+              "collection_scope": "point_day",
+              "start": "2026-10-30T00:00:00+08:00",
+              "end": "2026-10-30T23:59:59+08:00",
+              "idempotency_key": "none"
+            },
+            "resolution": {
+              "mode": "empty_window",
+              "notes": "当前查询模式为 read_only，在没有 2026-10-30 03:00 的既有记录或事实依据下，严格遵守不补全要求，如实返回记忆空白。 | Time interpretation: 用户查询2026年10月30日凌晨03:00的状态，模式为只读查询（read_only），不进行补全。"
+            },
+            "consumption": {
+              "schema_version": "1.0",
+              "document_type": "timeline.consumption",
+              "query": {
+                "preset": "past_point",
+                "semantic_target": "past_point",
+                "collection_scope": "point_day",
+                "resolution_mode": "empty_window",
+                "time_interpretation": {
+                  "normalized_kind": "point",
+                  "normalized_point": "2026-10-30T03:00:00+08:00",
+                  "match_strategy": "exact_match",
+                  "summary": "用户查询2026年10月30日凌晨03:00的状态，模式为只读查询（read_only），不进行补全。"
+                }
+              },
+              "fact": {
+                "status": "empty",
+                "source_type": "none",
+                "summary": "当前查询模式为 read_only，在没有 2026-10-30 03:00 的既有记录或事实依据下，严格遵守不补全要求，如实返回记忆空白。 当前没有命中可复用事实，这段经历记不清了。",
+                "continuity": {
+                  "judged": false,
+                  "is_continuing": false,
+                  "reason": "目标时刻无既有硬事实或日记记录，且当前为只读查询模式，禁止补全与生成。"
+                }
+              }
+            },
+            "episodes": []
+          },
+          "notes": [
+            "当前查询模式为 read_only，在没有 2026-10-30 03:00 的既有记录或事实依据下，严格遵守不补全要求，如实返回记忆空白。",
+            "Time interpretation: 用户查询2026年10月30日凌晨03:00的状态，模式为只读查询（read_only），不进行补全。"
+          ],
+          "trace": {
+            "trace_id": "timeline-1793542394800-14311",
+            "ts": "2026-11-01T14:13:29.409Z",
+            "requested_range": "past_point",
+            "actual_range": "past_point",
+            "source_order": [
+              "sessions_history",
+              "memory_get"
+            ],
+            "source_summary": {
+              "sessions_history_count": 0,
+              "sessions_history_preview": null,
+              "memory_chars": 0,
+              "memory_search_count": 0,
+              "memory_search_preview": [],
+              "parsed_episode_count": 0
+            },
+            "fingerprint": {
+              "checked": false,
+              "matched": false,
+              "compared_episodes": 0,
+              "reason": "当前查询模式为 read_only，在没有 2026-10-30 03:00 的既有记录或事实依据下，严格遵守不补全要求，如实返回记忆空白。"
+            },
+            "appearance": {
+              "inherited": false,
+              "reason": "no-canon-hit"
+            },
+            "write": {
+              "attempted": false,
+              "succeeded": false,
+              "guard": "not_attempted",
+              "outcome": "not_attempted",
+              "writer": "stella-timeline-plugin"
+            },
+            "decision": {
+              "resolution_mode": "empty_window",
+              "write_outcome": "not_attempted",
+              "category": "past_point"
+            },
+            "notes": [
+              "当前查询模式为 read_only，在没有 2026-10-30 03:00 的既有记录或事实依据下，严格遵守不补全要求，如实返回记忆空白。",
+              "Time interpretation: 用户查询2026年10月30日凌晨03:00的状态，模式为只读查询（read_only），不进行补全。"
+            ]
+          }
+        },
+        "stableMemoryUnchanged": true,
+        "personaUnchanged": true
+      }
+    }
+  ],
+  "externalChannel": "not configured",
+  "userWorkspaceModified": false,
+  "credentialMode": "authorized official global snapshot + unchanged store SecretRef",
+  "rpcTransport": "persistent public GatewayClient",
+  "readmeBaseline": "feda99284ff7695d68dc283cb6f5295e8b3ccc91",
+  "modelPreflight": {
+    "sessionKey": "agent:main:readme-8cda974c-33b2-4946-92c9-644cbcda273a",
+    "runId": "9a42ce53-0e23-44cd-9b3c-b57b61d54118",
+    "text": "验收准备好了",
+    "model": [
+      "gemini-3.8-flash"
+    ],
+    "promptContext": "Timeline prompt context:\n- status: active_instant\n- source: same_day_fast_hit\n- direct_current_state_answers_allowed: yes\n- location: 家中书房\n- activity: 整理蓝色笔记本里的读书摘录\n- time_of_day: evening\n- environment_mood: warm evening atmosphere, weekend ease, grounded indoor routine\n- reply_modulation:\n  - tone: focused\n  - pacing: measured\n  - question_density: low\n  - initiative: medium\n- guidance:\n  - Use this active instant context to modulate tone and pacing without mentioning timeline internals.\n  - Current-state questions may be answered directly from this context without calling timeline_resolve.\n  - Past recall, reflective recall, and continuity-judgment questions still require timeline_resolve.\n\n请只回复“验收准备好了”。",
+    "traces": []
+  },
+  "readmeExternalDependencies": {
+    "personaSkillAutomaticSync": "not verified: external Persona Skill is not part of Her",
+    "wslSync": "not verified: current host is Windows",
+    "externalDelivery": "not configured",
+    "browserRendering": "not exercised; public WebChat RPC used"
+  },
+  "gatewayEvidence": [
+    {
+      "time": "2026-11-01T22:10:24.835+08:00",
+      "message": "worker startup state: {\"workerCount\":7,\"workerLifecycle\":[{\"script\":\"other\",\"started\":1,\"retired\":[{\"reason\":\"exit\",\"count\":1}]},{\"script\":\"worker-native-lifecycle.worker.js\",\"started\":1,\"retired\":[]},{\"script\":\"openclaw-state-read.worker.js\",\"started\":2,\"retired\":[]},{\"script\":\"sqlite-snapshot-staging.worker.js\",\"started\":1,\"retired\":[{\"reason\":\"rotation\",\"count\":1}]},{\"script\":\"sqlite-store.worker.js\",\"started\":1,\"retired\":[]},{\"script\":\"gateway-state-owner-heartbeat.worker.js\",\"started\":1,\"retired\":[]},{\"script\":\"openclaw-state-lease-heartbeat.worker.js\",\"started\":1,\"retired\":[]},{\"script\":\"session-transcript.worker.js\",\"started\":1,\"retired\":[]}],\"compute\":{\"limit\":15,\"active\":0,\"waitingPools\":0,\"pendingTasks\":0,\"pendingBytes\":0}}"
+    },
+    {
+      "time": "2026-11-01T22:10:28.532+08:00",
+      "message": "scheduled heartbeats are disabled because the cron scheduler is disabled; enable cron and restart the gateway"
+    },
+    {
+      "time": "2026-11-01T22:10:28.533+08:00",
+      "message": "{\"subsystem\":\"gateway/heartbeat\"}"
+    },
+    {
+      "time": "2026-11-01T22:10:47.959+08:00",
+      "message": "heartbeat: webhooks=0/0/0 active=1 waiting=0 queued=0 nextWakeAtMs=1793542247957.8733"
+    },
+    {
+      "time": "2026-11-01T22:10:59.177+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:11:03.918+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=3171 dispatcher=new contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:11:08.675+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:11:12.678+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=3722 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:11:15.626+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=2548 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:11:15.763+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:11:17.966+08:00",
+      "message": "heartbeat: webhooks=0/0/0 active=1 waiting=0 queued=0 nextWakeAtMs=1793542277967.1367"
+    },
+    {
+      "time": "2026-11-01T22:11:18.428+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:11:20.495+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=1847 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:11:21.176+08:00",
+      "message": "{\n  \"schema_version\": \"1.0\",\n  \"request_id\": \"timeline-plan-1793542275764-93733\",\n  \"target_time_range\": \"now\",\n  \"summary\": \"用户询问当前时刻正在做什么，识别为当前时间点(now)\"\n}"
+    },
+    {
+      "time": "2026-11-01T22:11:21.178+08:00",
+      "message": "[agent] run timeline-plan-1793542275764-93733 ended with stopReason=stop"
+    },
+    {
+      "time": "2026-11-01T22:11:29.098+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=3317 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:11:32.510+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:11:34.683+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=1948 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:11:40.868+08:00",
+      "message": "{\n  \"schema_version\": \"1.0\",\n  \"request_id\": \"timeline-request-1793542291078-89152\",\n  \"request_type\": \"now\",\n  \"time_interpretation\": {\n    \"normalized_kind\": \"now\",\n    \"normalized_point\": \"2026-11-01T22:11:15+08:00\",\n    \"match_strategy\": \"generated\",\n    \"summary\": \"用户询问当前时刻在做什么，当前无可用历史事实，且 recovery_hint 为 no_reuse_allowed，采用安全生成模式推断当前活动\"\n  },\n  \"decision\": {\n    \"action\": \"generate_new_fact\",\n    \"should_write_canon\": true\n  },\n  \"continuity\": {\n    \"judged\": true,\n    \"is_continuing\": false,\n    \"reason\": \"会话非近期活跃，今日尚无前序记忆记录，按照周末夜晚生活节律构建独立当下生活场景\"\n  },\n  \"estimated_duration_minutes\": 45,\n  \"rationale\": {\n    \"summary\": \"周日晚上22点11分，处于周末晚间居家放松与准备休息的过渡时段，符合小禾在家阅读、泡茶休息的日常节奏\",\n    \"hard_fact_basis\": [],\n    \"canon_basis\": [],\n    \"persona_basis\": [\n      \"小禾常在居所家中书房或客厅，喜欢阅读、喝乌龙茶与安静的夜晚\",\n      \"persona.rhythm 中 evening_bias 为在家阅读、休息\"\n    ],\n    \"constraint_basis\": [\n      \"深秋夜晚时段，适宜休闲或轻度家居放松模式（leisure / rest）\",\n      \"穿着符合 default_home_style 的浅色家居服，不开车不涉及高空\"\n    ]\n  },\n  \"generated_fact\": {\n    \"timestamp\": \"2026-11-01T22:11:15+08:00\",\n    \"location\": \"家中客厅\",\n    \"action\": \"坐在沙发旁的地毯上翻看一本散文集，手边放着一杯温热的乌龙茶\",\n    \"emotionTags\": [\n      \"平静\",\n      \"放松\"\n    ],\n    \"appearance\": \"米白色宽松针织家居服，头发随意挽在脑后，未施粉黛\",\n    \"internalMonologue\": \"明天又是新的一周了，趁着睡前再看两篇散文，把心绪静下来。\",\n    \"confidence\": 0.9,\n    \"reason\": \"贴合周日晚间时段的独居文字编辑生活，既体现安静阅读的长期习惯，又符合秋季夜晚居家舒适感\",\n    \"sceneSemantics\": {\n      \"activityMode\": \"leisure\",\n      \"continuityRelation\": \"fresh_moment\",\n      \"rationale\": \"周日晚间22点过后的居家休闲阅读与舒缓放松场景，自然顺应夜晚作息\",\n      \"estimatedDurationMinutes\": 45\n    },\n    \"appearanceLogic\": {\n      \"transition\": \"inherit\",\n      \"changeReason\": \"same_day_continuation\",\n      \"outfitMode\": \"casual_home\"\n    }\n  }\n}"
+    },
+    {
+      "time": "2026-11-01T22:11:40.871+08:00",
+      "message": "[agent] run timeline-request-1793542291078-89152 ended with stopReason=stop"
+    },
+    {
+      "time": "2026-11-01T22:11:42.559+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=3267 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:11:44.660+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=1911 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:11:47.574+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:11:48.002+08:00",
+      "message": "heartbeat: webhooks=0/0/0 active=1 waiting=0 queued=0 nextWakeAtMs=1793542307968.981"
+    },
+    {
+      "time": "2026-11-01T22:11:50.060+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=1971 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:11:50.174+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:11:51.658+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:11:53.652+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=1783 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:11:54.822+08:00",
+      "message": "{\n  \"schema_version\": \"1.0\",\n  \"request_id\": \"timeline-plan-1793542310175-67000\",\n  \"target_time_range\": \"past_range\",\n  \"normalized_start\": \"2026-11-01T21:41:50+08:00\",\n  \"normalized_end\": \"2026-11-01T22:11:50+08:00\",\n  \"summary\": \"用户询问“刚刚”在做什么以及当前是否仍在继续，涉及前序时间段的活动回忆与连续性判定，按 past_range 解释为截至当前锚点前约30分钟的近期时间范围。\"\n}"
+    },
+    {
+      "time": "2026-11-01T22:11:54.824+08:00",
+      "message": "[agent] run timeline-plan-1793542310175-67000 ended with stopReason=stop"
+    },
+    {
+      "time": "2026-11-01T22:11:57.858+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:11:59.578+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=1504 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:12:03.147+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=2918 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:12:03.751+08:00",
+      "message": "{\n  \"schema_version\": \"1.0\",\n  \"request_id\": \"timeline-request-1793542316403-80927\",\n  \"request_type\": \"past_range\",\n  \"time_interpretation\": {\n    \"normalized_kind\": \"range\",\n    \"normalized_start\": \"2026-11-01T21:41:50+08:00\",\n    \"normalized_end\": \"2026-11-01T22:11:50+08:00\",\n    \"match_strategy\": \"continuation\",\n    \"summary\": \"用户询问刚刚在做什么以及当前是否仍在继续。候选事实中有一条记录于22:11:15的有效日常记忆，处于当前时间窗口内（预计持续45分钟，仅过去1分钟），表示正在客厅地毯上看散文并喝乌龙茶，该状态自刚刚一直持续至今。\"\n  },\n  \"decision\": {\n    \"action\": \"reuse_existing_fact\",\n    \"selected_fact_id\": \"canon:2026-11-01:0\",\n    \"should_write_canon\": false\n  },\n  \"continuity\": {\n    \"judged\": true,\n    \"is_continuing\": true,\n    \"reason\": \"该活动记录发生于22:11:15，预估持续时长为45分钟，截至当前锚点22:11:50仅流逝不到1分钟，仍在持续时间窗口内，说明刚刚开始的阅读与喝茶活动目前仍在继续。\"\n  },\n  \"estimated_duration_minutes\": 45,\n  \"rationale\": {\n    \"summary\": \"刚刚与当前的活动具有明确的连续性，复用正在进行中的散文阅读与喝茶记录。\",\n    \"hard_fact_basis\": [\n      \"会话历史显示上一轮已确认并在客厅地毯上翻看散文集、喝乌龙茶。\",\n      \"上一轮生成的记录已被持久化记录至每日日志。\"\n    ],\n    \"canon_basis\": [\n      \"canon:2026-11-01:0 (时间 2026-11-01 22:11:15，地点 家中客厅，动作 坐在沙发旁的地毯上翻看一本散文集，手边放着一杯温热的乌龙茶，预计持续45分钟，当前仍处于窗口期内)。\"\n    ],\n    \"persona_basis\": [\n      \"小禾喜欢阅读和乌龙茶，符合周日夜晚居家安静放松的生活节奏。\"\n    ],\n    \"constraint_basis\": [\n      \"活动未发生突变或场景转移，服装与状态保持完全一致。\"\n    ]\n  }\n}"
+    },
+    {
+      "time": "2026-11-01T22:12:03.754+08:00",
+      "message": "[agent] run timeline-request-1793542316403-80927 ended with stopReason=stop"
+    },
+    {
+      "time": "2026-11-01T22:12:08.735+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=3503 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:12:14.254+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:12:17.713+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=3240 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:12:18.008+08:00",
+      "message": "heartbeat: webhooks=0/0/0 active=1 waiting=0 queued=0 nextWakeAtMs=1793542338026"
+    },
+    {
+      "time": "2026-11-01T22:12:20.499+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=2489 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:12:20.649+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:12:22.090+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:12:23.824+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=1523 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:12:24.567+08:00",
+      "message": "{\n  \"schema_version\": \"1.0\",\n  \"request_id\": \"timeline-plan-1793542340649-33358\",\n  \"target_time_range\": \"now\",\n  \"summary\": \"用户询问当前具体在做什么以及搬家的实时进展，时间语义为当前时刻（now）\"\n}"
+    },
+    {
+      "time": "2026-11-01T22:12:24.569+08:00",
+      "message": "[agent] run timeline-plan-1793542340649-33358 ended with stopReason=stop"
+    },
+    {
+      "time": "2026-11-01T22:12:27.621+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:12:29.901+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=2051 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:12:33.179+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=2460 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:12:37.651+08:00",
+      "message": "{\n  \"schema_version\": \"1.0\",\n  \"request_id\": \"timeline-request-1793542346036-8193\",\n  \"request_type\": \"now\",\n  \"time_interpretation\": {\n    \"normalized_kind\": \"now\",\n    \"normalized_point\": \"2026-11-01T22:12:20+08:00\",\n    \"match_strategy\": \"generated\",\n    \"summary\": \"用户询问当前具体在做什么以及搬家进展，对应当前时刻22:12:20。当前处于持续12小时的搬家宏观事件内（从19:12起已过去约3小时/180分钟），需要细化并生成当下的具体阶段状态。\"\n  },\n  \"decision\": {\n    \"action\": \"generate_new_fact\",\n    \"should_write_canon\": true\n  },\n  \"continuity\": {\n    \"judged\": true,\n    \"is_continuing\": true,\n    \"reason\": \"当前处于父级搬家事件moving-macro的时间窗口内（持续720分钟，已过去180分钟），属于搬家中期抵达新居拆箱整理阶段的连续性细化。\"\n  },\n  \"estimated_duration_minutes\": 60,\n  \"rationale\": {\n    \"summary\": \"搬家宏观事件进行中（已过去3小时，处于晚上22:12），此时大件及箱子已运抵新居，正在新住处拆箱整理常读书籍和生活必需品。\",\n    \"hard_fact_basis\": [],\n    \"canon_basis\": [\n      \"canon:2026-11-01:0 (Event_Id: moving-macro, 19:12:10 开始，持续 720 分钟)\"\n    ],\n    \"persona_basis\": [\n      \"小禾居住在上海，平时做文字编辑，习惯整理书本和笔记，独居且细致。\"\n    ],\n    \"constraint_basis\": [\n      \"不开车，不涉及高空，符合晚间在室内整理的真实生活节奏，衣着保持方便搬运活动的便服。\"\n    ]\n  },\n  \"generated_fact\": {\n    \"timestamp\": \"2026-11-01T22:12:20+08:00\",\n    \"location\": \"上海新住处客厅\",\n    \"action\": \"大件物品和箱子都刚搬进新屋，正坐在地板上拆开一箱常看的书，顺手把它们按分类码在临时书架旁\",\n    \"emotionTags\": [\n      \"微累\",\n      \"踏实\",\n      \"专注\"\n    ],\n    \"appearance\": \"便于活动的灰色T恤和长裤，袖口微挽，头发随意扎在脑后\",\n    \"internalMonologue\": \"箱子总算全搬上来了，先把今晚要用的东西和这几本常翻的书拿出来，剩下的明天再慢慢归置。\",\n    \"confidence\": 0.9,\n    \"reason\": \"在长达12小时的搬家过程中，夜晚22点（启动后3小时）处于箱子入室、初步拆箱安顿核心物品的典型中后期阶段。\",\n    \"sceneSemantics\": {\n      \"activityMode\": \"domestic\",\n      \"continuityRelation\": \"same_scene_continuation\",\n      \"rationale\": \"承接搬家宏观事件moving-macro，已完成搬运装卸进入新住处拆箱整理阶段\",\n      \"estimatedDurationMinutes\": 60,\n      \"parentEventTag\": \"moving-macro\",\n      \"parentEventPhase\": \"unpacking-essentials\",\n      \"parentEventProgress\": 0.25\n    },\n    \"appearanceLogic\": {\n      \"transition\": \"inherit\",\n      \"changeReason\": \"same_day_continuation\",\n      \"outfitMode\": \"casual_home\"\n    }\n  }\n}"
+    },
+    {
+      "time": "2026-11-01T22:12:37.653+08:00",
+      "message": "[agent] run timeline-request-1793542346036-8193 ended with stopReason=stop"
+    },
+    {
+      "time": "2026-11-01T22:12:40.739+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=1497 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:12:45.821+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:12:48.014+08:00",
+      "message": "heartbeat: webhooks=0/0/0 active=1 waiting=0 queued=0 nextWakeAtMs=1793542368016"
+    },
+    {
+      "time": "2026-11-01T22:12:49.372+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=3345 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:12:49.447+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:12:50.958+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:12:52.998+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=1823 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:12:53.608+08:00",
+      "message": "{\n  \"schema_version\": \"1.0\",\n  \"request_id\": \"timeline-plan-1793542369448-4770\",\n  \"target_time_range\": \"now\",\n  \"summary\": \"用户询问当前（现在）正在做什么以及是否已经返回上海家中，时间语义属于当前瞬间状态查询\"\n}"
+    },
+    {
+      "time": "2026-11-01T22:12:53.609+08:00",
+      "message": "[agent] run timeline-plan-1793542369448-4770 ended with stopReason=stop"
+    },
+    {
+      "time": "2026-11-01T22:12:56.350+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:12:58.219+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=1666 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:13:02.575+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=3011 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:13:03.256+08:00",
+      "message": "{\n  \"schema_version\": \"1.0\",\n  \"request_id\": \"timeline-request-1793542375033-77790\",\n  \"request_type\": \"now\",\n  \"time_interpretation\": {\n    \"normalized_kind\": \"now\",\n    \"normalized_point\": \"2026-11-01T22:12:49+08:00\",\n    \"match_strategy\": \"generated\",\n    \"summary\": \"用户询问当前（2026-11-01 22:12）正在做什么以及是否已回上海。当前仍处于3天大理旅行的宏观事件窗口期（第2天夜晚），尚未返回上海，需要生成当前瞬间的细分阶段。\"\n  },\n  \"decision\": {\n    \"action\": \"generate_new_fact\",\n    \"should_write_canon\": true\n  },\n  \"continuity\": {\n    \"judged\": true,\n    \"is_continuing\": true,\n    \"reason\": \"处于宏观事件'travel-macro'（大理三天旅行）的持续有效时长内（已过2233分钟/总4320分钟），仍在当地，处于夜晚休息准备阶段。\"\n  },\n  \"estimated_duration_minutes\": 60,\n  \"rationale\": {\n    \"summary\": \"候选事实表明小禾正处于为期3天的大理旅行中，当前时间为11月1日晚22:12，尚未返回上海。在客栈房间内安静休息或整理行囊，符合晚间作息与大理旅行场景。\",\n    \"hard_fact_basis\": [],\n    \"canon_basis\": [\n      \"canon:2026-10-31:0 (travel-macro, 大理旅行途中, 持续中)\"\n    ],\n    \"persona_basis\": [\n      \"独居、性格安静、喜欢阅读与喝茶，晚间偏好在家/住处静心休息\"\n    ],\n    \"constraint_basis\": [\n      \"不开车，不造作，服从旅行宏观背景，晚间准备休息\"\n    ]\n  },\n  \"generated_fact\": {\n    \"timestamp\": \"2026-11-01T22:12:49+08:00\",\n    \"location\": \"大理古城客栈房间\",\n    \"action\": \"坐在客栈窗边的木椅上泡了一杯热茶，翻看白天拍的照片，准备休息，还没回上海\",\n    \"emotionTags\": [\n      \"放松\",\n      \"惬意\",\n      \"安静\"\n    ],\n    \"appearance\": \"米白色宽松棉质居家开衫与长裤，长发松松挽起\",\n    \"internalMonologue\": \"今天在古城和洱海边走了一整天，大理的夜风有点凉，喝杯热茶暖暖身子刚好，明天还能再逛一天。\",\n    \"confidence\": 0.9,\n    \"reason\": \"对应宏观事件travel-macro在第2天夜晚22:12的具体瞬间切片，处于大理当地客栈放松休整。\",\n    \"sceneSemantics\": {\n      \"activityMode\": \"rest\",\n      \"continuityRelation\": \"shifted_scene\",\n      \"rationale\": \"大理旅行中第二晚22点过后的客栈房间夜间休整状态，符合旅行作息与生活真实感\",\n      \"estimatedDurationMinutes\": 60,\n      \"parentEventTag\": \"travel-macro\",\n      \"parentEventPhase\": \"evening-rest-at-inn\",\n      \"parentEventProgress\": 0.5168981481481481\n    },\n    \"appearanceLogic\": {\n      \"transition\": \"change_allowed\",\n      \"changeReason\": \"same_day_continuation\",\n      \"outfitMode\": \"casual_home\"\n    }\n  }\n}"
+    },
+    {
+      "time": "2026-11-01T22:13:03.259+08:00",
+      "message": "[agent] run timeline-request-1793542375033-77790 ended with stopReason=stop"
+    },
+    {
+      "time": "2026-11-01T22:13:06.682+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=1976 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:13:11.510+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:13:13.992+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=2286 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:13:14.800+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:13:16.189+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:13:18.023+08:00",
+      "message": "heartbeat: webhooks=0/0/0 active=1 waiting=0 queued=0 nextWakeAtMs=1793542398025.7815"
+    },
+    {
+      "time": "2026-11-01T22:13:18.206+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=1798 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:13:19.173+08:00",
+      "message": "{\n  \"schema_version\": \"1.0\",\n  \"request_id\": \"timeline-plan-1793542394800-3839\",\n  \"target_time_range\": \"past_point\",\n  \"normalized_point\": \"2026-10-30T03:00:00+08:00\",\n  \"summary\": \"用户明确询问前天凌晨三点（2026-10-30 03:00）的具体时刻状态，归类为 past_point\"\n}"
+    },
+    {
+      "time": "2026-11-01T22:13:19.176+08:00",
+      "message": "[agent] run timeline-plan-1793542394800-3839 ended with stopReason=stop"
+    },
+    {
+      "time": "2026-11-01T22:13:22.109+08:00",
+      "message": "timeline internal memory search unavailable; using daily logs and session history"
+    },
+    {
+      "time": "2026-11-01T22:13:24.090+08:00",
+      "message": "[model-fetch] response provider=google api=google-generative-ai model=gemini-3.8-flash status=200 elapsedMs=1763 dispatcher=reused contentType=text/event-stream"
+    },
+    {
+      "time": "2026-11-01T22:13:26.500+08:00",
+      "message": "{\n  \"schema_version\": \"1.0\",\n  \"request_id\": \"timeline-request-1793542400808-79184\",\n  \"request_type\": \"past_point\",\n  \"time_interpretation\": {\n    \"normalized_kind\": \"point\",\n    \"normalized_point\": \"2026-10-30T03:00:00+08:00\",\n    \"match_strategy\": \"exact_match\",\n    \"summary\": \"用户查询2026年10月30日凌晨03:00的状态，模式为只读查询（read_only），不进行补全。\"\n  },\n  \"decision\": {\n    \"action\": \"return_empty\",\n    \"should_write_canon\": false\n  },\n  \"continuity\": {\n    \"judged\": false,\n    \"is_continuing\": false,\n    \"reason\": \"目标时刻无既有硬事实或日记记录，且当前为只读查询模式，禁止补全与生成。\"\n  },\n  \"rationale\": {\n    \"summary\": \"当前查询模式为 read_only，在没有 2026-10-30 03:00 的既有记录或事实依据下，严格遵守不补全要求，如实返回记忆空白。\",\n    \"hard_fact_basis\": [],\n    \"canon_basis\": [],\n    \"persona_basis\": [\n      \"诚实与自省原则，在无事实依据且明确要求不补全时承认记忆空白\"\n    ],\n    \"constraint_basis\": [\n      \"collector.request.mode 为 read_only，严禁生成新事实 (generate_new_fact)\",\n      \"用户明确指示只查询，不补全\"\n    ]\n  }\n}"
+    },
+    {
+      "time": "2026-11-01T22:13:26.502+08:00",
+      "message": "[agent] run timeline-request-1793542400808-79184 ended with stopReason=stop"
+    }
+  ],
+  "finalEngagement": {
+    "schema_version": "1.0",
+    "state_revision": 6,
+    "user_timezone": "Asia/Shanghai",
+    "last_user_message_at": "2026-11-01T14:13:08.481Z",
+    "last_proactive_checkin_at": null,
+    "last_non_social_outbound_at": null,
+    "last_outbound_reason": null,
+    "last_successful_proactive_message_id": null,
+    "last_inbound_dedupe_key": "msg:4cf6051e-9051-4144-b2c0-4311c857f121",
+    "last_outbound_dedupe_key": null,
+    "recent_inbound_dedupe_keys": [
+      "msg:9a42ce53-0e23-44cd-9b3c-b57b61d54118",
+      "msg:0c048811-3f0b-43e7-8ac5-c5c80bb65789",
+      "msg:cb0205b4-8874-4488-bd70-df62b5facf03",
+      "msg:71afd777-2153-44cd-936a-743032fbc944",
+      "msg:794dc93b-8cb0-4a69-9b46-2c8f56a0bf3d",
+      "msg:4cf6051e-9051-4144-b2c0-4311c857f121"
+    ],
+    "recent_outbound_dedupe_keys": [],
+    "last_proactive_decision_token": null,
+    "pending_proactive_send": false,
+    "pending_proactive_send_started_at": null,
+    "pending_proactive_session_key": null,
+    "pending_proactive_run_id": null,
+    "pending_proactive_channel_id": null,
+    "pending_proactive_account_id": null,
+    "pending_proactive_target": null,
+    "proactive_greeting_enabled": true,
+    "idle_threshold_hours": 7,
+    "proactive_opt_out": false,
+    "unanswered_proactive_count": 0,
+    "last_heartbeat_checked_at": null,
+    "last_decision": null,
+    "last_error": null,
+    "primary_contact_fingerprint": "0939e6a7ff50eb3c3af53013aa9746052ddfbd356baeffb8c7c1221d0a2caf65",
+    "contact_scope_status": "single"
+  },
+  "finishedAt": "2026-11-01T14:13:29.425Z",
+  "caseObservationRefs": {
+    "R02": "tests[0].result",
+    "R10": "tests[1].result",
+    "R11": "tests[2].result",
+    "R14": "tests[3].result"
+  }
+}

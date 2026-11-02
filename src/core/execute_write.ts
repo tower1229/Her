@@ -1,9 +1,10 @@
+import { commitEpisode } from '../storage/commit-episode';
 import { materializeGeneratedCandidate } from './materialize_generated_candidate';
 import { CollectedSources } from './collect_sources';
 import { ResolvedWindow } from './resolve_window';
 import { TimelineCollectorOutput, TimelineGeneratedDraft } from './timeline_reasoner_contract';
 import { assertCanonicalDailyLogPath } from '../storage/daily_log';
-import { FileLockError, withFileLock } from '../storage/lock';
+import { FileLockError } from '../storage/lock';
 import { WriteResult } from '../storage/write-episode';
 
 function errorMessage(error: unknown): string {
@@ -13,6 +14,8 @@ function errorMessage(error: unknown): string {
 export interface ExecuteWriteDeps {
   memoryFilePath?: (calendarDate: string) => string;
   canonicalRootName?: string;
+  canonicalRootPath?: string;
+  legacyLogTimezone?: string;
   writeEpisode?: (input: {
     timestamp: string;
     location: string;
@@ -120,13 +123,13 @@ export async function executeGeneratedWrite(input: {
       requestedPath,
       generatedCalendarDate,
       input.deps.canonicalRootName || 'memory',
+      input.deps.canonicalRootPath,
     );
     const estimatedDuration = input.generatedFact.sceneSemantics?.estimatedDurationMinutes
       ?? input.estimatedDurationMinutesOverride;
     const parentSemantics = input.generatedFact.sceneSemantics;
     writeResult = input.deps.writeEpisode
-      ? await withFileLock(filePath, async () =>
-          input.deps.writeEpisode!({
+      ? (await commitEpisode({
             timestamp: generated.parsed.timestamp,
             location: generated.parsed.location,
             action: generated.parsed.action,
@@ -139,8 +142,8 @@ export async function executeGeneratedWrite(input: {
             parentEventProgress: parentSemantics?.parentEventProgress,
             filePath,
             confidence: generated.parsed.confidence,
-          }),
-        )
+            legacyLogTimezone: input.deps.legacyLogTimezone,
+          }, { writer: input.deps.writeEpisode!, rootName: input.deps.canonicalRootName, rootPath: input.deps.canonicalRootPath })).result
       : writeResult;
   } catch (error: unknown) {
     if (error instanceof FileLockError) {

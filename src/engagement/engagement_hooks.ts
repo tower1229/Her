@@ -61,6 +61,11 @@ export interface PluginHookContextLike {
   workspaceDir?: string;
   sessionKey?: string;
   trigger?: string;
+  runId?: string;
+  channelId?: string;
+  channel?: string;
+  accountId?: string;
+  chatId?: string;
 }
 
 export interface EngagementHookParams {
@@ -175,10 +180,12 @@ function markContactScope(
     };
   }
   if (state.primary_contact_fingerprint === fingerprint) {
-    return {
-      ...state,
-      contact_scope_status: 'single',
-    };
+    return state.contact_scope_status === 'conflict'
+      ? state
+      : {
+        ...state,
+        contact_scope_status: 'single',
+      };
   }
   return {
     ...state,
@@ -303,6 +310,19 @@ export async function handleSentOutbound(
 
   await updateEngagementState(statePath, params.config, (current) => {
     const normalized = expirePendingIfNeeded(current, now, config.pendingSendTimeoutMinutes);
+    const pendingSession = normalized.pending_proactive_session_key || config.sessionKey;
+    const recipientMatches = normalized.pending_proactive_target
+      ? event.context.to === normalized.pending_proactive_target
+      : Boolean(normalized.primary_contact_fingerprint && buildContactFingerprint({ from: event.context.to }) === normalized.primary_contact_fingerprint);
+    const correlated = normalized.pending_proactive_send && event.sessionKey === pendingSession
+      && Boolean(normalized.pending_proactive_run_id && event.context.runId === normalized.pending_proactive_run_id)
+      && recipientMatches
+      && (!normalized.pending_proactive_channel_id || event.context.channelId === normalized.pending_proactive_channel_id)
+      && (!normalized.pending_proactive_account_id || event.context.accountId === normalized.pending_proactive_account_id);
+    if (!correlated) {
+      params.logger?.debug?.('timeline outbound not correlated with pending greeting; ignoring');
+      return normalized;
+    }
     if (normalized.recent_outbound_dedupe_keys.includes(dedupeKey)) {
       return normalized;
     }
@@ -352,13 +372,10 @@ function mergePrependContext(existing: string | undefined, injected: string | un
 }
 
 function isHeartbeatPreflightRun(
-  event: BeforePromptBuildEventLike,
+  _event: BeforePromptBuildEventLike,
   hookContext: PluginHookContextLike,
 ): boolean {
-  if (hookContext.trigger === 'heartbeat') {
-    return true;
-  }
-  return /HEARTBEAT_OK|HEARTBEAT\.md/i.test(event.prompt);
+  return hookContext.trigger === 'heartbeat';
 }
 
 export async function prepareProactiveGreetingHeartbeatContext(
@@ -378,10 +395,11 @@ export async function prepareProactiveGreetingHeartbeatContext(
   const now = new Date();
   const currentState = loadEngagementState(statePath, params.config);
   const preparedState = expirePendingIfNeeded(currentState, now, config.pendingSendTimeoutMinutes);
-  const decision = shouldSendProactiveGreeting(preparedState, now, config);
+  let decision = shouldSendProactiveGreeting(preparedState, now, config);
 
   await updateEngagementState(statePath, params.config, (current) => {
     let next = expirePendingIfNeeded(current, now, config.pendingSendTimeoutMinutes);
+    decision = shouldSendProactiveGreeting(next, now, config);
     next = {
       ...next,
       proactive_greeting_enabled: config.enabled,
@@ -398,6 +416,10 @@ export async function prepareProactiveGreetingHeartbeatContext(
       pending_proactive_send: true,
       pending_proactive_send_started_at: now.toISOString(),
       pending_proactive_session_key: hookContext.sessionKey || null,
+      pending_proactive_run_id: hookContext.runId || null,
+      pending_proactive_channel_id: hookContext.channel || null,
+      pending_proactive_account_id: hookContext.accountId || null,
+      pending_proactive_target: hookContext.chatId || hookContext.channelId || null,
     };
   });
 

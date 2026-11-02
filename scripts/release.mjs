@@ -87,6 +87,7 @@ function main() {
 
   run(npmCommand(), ['run', 'generate:holidays']);
   run(npmCommand(), ['run', 'verify']);
+  run(npmCommand(), ['run', 'test:smoke']);
   run(npmCommand(), ['publish', ...publishArgs]);
 }
 

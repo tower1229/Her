@@ -17,7 +17,7 @@ describe('collectActiveFacts', () => {
       return '';
     });
 
-    const facts = await collectActiveFacts(memoryGet, mockNow, 1);
+    const facts = await collectActiveFacts(memoryGet, mockNow, 1, 'Asia/Shanghai');
     expect(facts).toHaveLength(1);
     expect(facts[0].event_id).toBe('evt-1');
     expect(facts[0].elapsed_minutes).toBe(60);
@@ -37,7 +37,7 @@ describe('collectActiveFacts', () => {
       return '';
     });
 
-    const facts = await collectActiveFacts(memoryGet, mockNow, 7);
+    const facts = await collectActiveFacts(memoryGet, mockNow, 7, 'Asia/Shanghai');
     expect(facts).toHaveLength(0);
   });
 
@@ -55,7 +55,7 @@ describe('collectActiveFacts', () => {
       return '';
     });
 
-    const facts = await collectActiveFacts(memoryGet, mockNow, 7);
+    const facts = await collectActiveFacts(memoryGet, mockNow, 7, 'Asia/Shanghai');
     expect(facts).toHaveLength(1);
     expect(facts[0].event_id).toBe('evt-travel');
     // From 03-30 12:00 to 03-31 14:00 is 24 + 2 = 26 hours = 1560 mins
@@ -80,7 +80,7 @@ describe('collectActiveFacts', () => {
       return '';
     });
 
-    const facts = await collectActiveFacts(memoryGet, mockNow, 1);
+    const facts = await collectActiveFacts(memoryGet, mockNow, 1, 'Asia/Shanghai');
     expect(facts).toHaveLength(2);
     expect(facts[0].event_id).toBe('evt-afternoon');
     expect(facts[1].event_id).toBe('evt-morning');

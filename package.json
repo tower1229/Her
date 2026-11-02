@@ -1,6 +1,6 @@
 {
   "name": "stella-timeline-plugin",
-  "version": "2.8.10",
+  "version": "2.9.0",
   "description": "Native OpenClaw timeline plugin with a canonical timeline_resolve tool, bundled skill routing, and guarded append-only writes.",
   "keywords": [
     "openclaw",
@@ -54,6 +54,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^25.x",
     "jest": "^30.x",
+    "openclaw": "2026.10.9",
     "ts-jest": "^29.x",
     "typescript": "^6.x"
   },
@@ -78,10 +79,10 @@
       "./dist/index.js"
     ],
     "compat": {
-      "pluginApi": ">=2026.6.10"
+      "pluginApi": "2026.10.9"
     },
     "build": {
-      "openclawVersion": "2026.6.10"
+      "openclawVersion": "2026.10.9"
     }
   }
 }

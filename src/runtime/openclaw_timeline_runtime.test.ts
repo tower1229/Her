@@ -3,9 +3,9 @@ import * as path from 'path';
 import { createDefaultEngagementState, resolveEngagementStatePath } from '../engagement/engagement_state';
 import {
   makeOpenClawTimelineBeforePromptBuildHook,
+  makeOpenClawTimelineHeartbeatHook,
+  makeOpenClawTimelineMessagePreprocessedHook,
   makeOpenClawTimelineResolveToolFactory,
-  resetOpenClawPluginRuntimeModuleLoaderForTests,
-  setOpenClawPluginRuntimeModuleLoaderForTests,
 } from './openclaw_timeline_runtime';
 
 function formatLocalCalendarDate(date: Date): string {
@@ -37,20 +37,50 @@ describe('openclaw timeline runtime factories', () => {
   beforeEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
     fs.mkdirSync(canonicalRoot, { recursive: true });
-    resetOpenClawPluginRuntimeModuleLoaderForTests();
   });
 
   afterAll(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
-    resetOpenClawPluginRuntimeModuleLoaderForTests();
+  });
+
+  it.each([false, true])('only records admitted enriched inbound messages (reversed notification order: %s)', async reversed => {
+    const hook = makeOpenClawTimelineMessagePreprocessedHook({ workspaceDir: tmpDir, pluginConfig: { canonicalMemoryRoot: 'timeline-memory' } });
+    const statePath = path.join(canonicalRoot, 'engagement_state.json');
+    const base = { sessionKey: 'agent:main:custom', timestamp: new Date('2026-11-01T12:00:00Z'), context: { channelId: 'webchat', from: 'operator', messageId: 'human-1', body: '[voice]', transcript: '别主动联系我' } };
+    const notifications = ['received', 'preprocessed'];
+    if (reversed) notifications.reverse();
+    await hook({ ...base, action: notifications[0] });
+    expect(fs.existsSync(statePath)).toBe(false);
+    await hook({ ...base, action: notifications[1] });
+    const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+    expect(state.proactive_opt_out).toBe(true);
+    expect(state.last_user_message_at).toBe('2026-11-01T12:00:00.000Z');
+    const saved = fs.readFileSync(statePath, 'utf8');
+    // Internal turns can use the same sender and custom session as the user.
+    await hook({ ...base, action: 'preprocessed', context: { ...base.context, messageId: undefined, body: 'heartbeat', transcript: undefined } });
+    await hook({ ...base, action: 'preprocessed', context: { ...base.context, messageId: 'internal-only' } });
+    expect(fs.readFileSync(statePath, 'utf8')).toBe(saved);
+  });
+
+  it('records admitted messages without an ID once and ignores their internal preprocessing', async () => {
+    const hook = makeOpenClawTimelineMessagePreprocessedHook({ workspaceDir: tmpDir, pluginConfig: { canonicalMemoryRoot: 'timeline-memory' } });
+    const event = { sessionKey: 'agent:main:custom', context: { from: 'operator', content: '别主动联系我' } };
+    await hook({ ...event, action: 'received' });
+    const statePath = path.join(canonicalRoot, 'engagement_state.json');
+    const saved = fs.readFileSync(statePath, 'utf8');
+    expect(JSON.parse(saved).proactive_opt_out).toBe(true);
+    await hook({ ...event, action: 'preprocessed', context: { ...event.context, body: 'heartbeat' } });
+    expect(fs.readFileSync(statePath, 'utf8')).toBe(saved);
   });
 
   it('injects workspace/session/pluginConfig into timeline_resolve through the real runtime factory', async () => {
-    const today = formatLocalCalendarDate(new Date());
+    const now = new Date();
+    const today = formatLocalCalendarDate(now);
+    const thirtyMinutesAgo = formatLocalTimestamp(new Date(now.getTime() - 30 * 60_000));
 
     fs.writeFileSync(
       path.join(canonicalRoot, `${today}.md`),
-      `### [Episode]\n- Timestamp: ${today}T18:00:00+08:00\n- Location: 家里书房\n- Action: 继续整理今天的工作记录\n- Emotion_Tags: [专注, 平静]\n- Appearance: 宽松的家居服\n- Internal_Monologue: 再收一下尾就差不多了。\n她傍晚还在家里书房继续整理今天的工作记录。`,
+      `### [Episode]\n- Timestamp: ${thirtyMinutesAgo}\n- Location: 家里书房\n- Action: 继续整理今天的工作记录\n- Emotion_Tags: [专注, 平静]\n- Appearance: 宽松的家居服\n- Estimated_Duration: 120\n- Internal_Monologue: 再收一下尾就差不多了。\n她傍晚还在家里书房继续整理今天的工作记录。`,
       'utf8',
     );
 
@@ -186,7 +216,9 @@ describe('openclaw timeline runtime factories', () => {
   });
 
   it('prefers persona/PERSONA_PROFILE.md over legacy core files in the runtime factory path', async () => {
-    const today = formatLocalCalendarDate(new Date());
+    const now = new Date();
+    const today = formatLocalCalendarDate(now);
+    const thirtyMinutesAgo = formatLocalTimestamp(new Date(now.getTime() - 30 * 60_000));
     let latestReasonerRequestId = '';
     let latestPlannerRequestId = '';
     let latestReasonerMessage = '';
@@ -214,7 +246,7 @@ describe('openclaw timeline runtime factories', () => {
     fs.writeFileSync(path.join(tmpDir, 'IDENTITY.md'), 'She lives in Beijing.', 'utf8');
     fs.writeFileSync(
       path.join(canonicalRoot, `${today}.md`),
-      `### [Episode]\n- Timestamp: ${today}T18:00:00+08:00\n- Location: 家里书房\n- Action: 继续整理今天的工作记录\n- Emotion_Tags: [专注, 平静]\n- Appearance: 宽松的家居服\n- Internal_Monologue: 再收一下尾就差不多了。\n她傍晚还在家里书房继续整理今天的工作记录。`,
+      `### [Episode]\n- Timestamp: ${thirtyMinutesAgo}\n- Location: 家里书房\n- Action: 继续整理今天的工作记录\n- Emotion_Tags: [专注, 平静]\n- Appearance: 宽松的家居服\n- Estimated_Duration: 120\n- Internal_Monologue: 再收一下尾就差不多了。\n她傍晚还在家里书房继续整理今天的工作记录。`,
       'utf8',
     );
 
@@ -336,11 +368,13 @@ describe('openclaw timeline runtime factories', () => {
   });
 
   it('recovers the matching planner and reasoner JSON from mixed assistant transcripts', async () => {
-    const today = formatLocalCalendarDate(new Date());
+    const now = new Date();
+    const today = formatLocalCalendarDate(now);
+    const thirtyMinutesAgo = formatLocalTimestamp(new Date(now.getTime() - 30 * 60_000));
 
     fs.writeFileSync(
       path.join(canonicalRoot, `${today}.md`),
-      `### [Episode]\n- Timestamp: ${today}T18:00:00+08:00\n- Location: 家里书房\n- Action: 继续整理今天的工作记录\n- Emotion_Tags: [专注, 平静]\n- Appearance: 宽松的家居服\n- Internal_Monologue: 再收一下尾就差不多了。\n她傍晚还在家里书房继续整理今天的工作记录。`,
+      `### [Episode]\n- Timestamp: ${thirtyMinutesAgo}\n- Location: 家里书房\n- Action: 继续整理今天的工作记录\n- Emotion_Tags: [专注, 平静]\n- Appearance: 宽松的家居服\n- Estimated_Duration: 120\n- Internal_Monologue: 再收一下尾就差不多了。\n她傍晚还在家里书房继续整理今天的工作记录。`,
       'utf8',
     );
 
@@ -613,21 +647,28 @@ describe('openclaw timeline runtime factories', () => {
       query: '你在干嘛',
     });
 
-    const payload = result.details as { ok: boolean; resolution_summary?: { mode: string }; result?: { episodes: any[] } };
+    const payload = result.details as { ok: boolean; resolution_summary?: { mode: string }; result?: { episodes: unknown[]; consumption?: { fact?: { status?: string } } } };
     expect(payload.ok).toBe(true);
-    expect(payload.resolution_summary?.mode).toBe('read_only_hit');
-    expect(String(payload.result?.episodes?.[0]?.state_snapshot?.scene?.location_label || '')).toContain('书房');
+    expect(payload.resolution_summary?.mode).toBe('empty_window');
+    expect(payload.result?.consumption?.fact?.status).toBe('empty');
   });
 
-  it('falls back to heuristic planner and reasoner decisions when subagents time out', async () => {
+  it('falls back to empty_window when subagents time out instead of keyword-picking canon', async () => {
     const today = formatLocalCalendarDate(new Date());
+    const yesterday = formatLocalCalendarDate(new Date(Date.now() - 24 * 60 * 60_000));
 
+    fs.writeFileSync(
+      path.join(canonicalRoot, `${yesterday}.md`),
+      `### [Episode]\n- Timestamp: ${yesterday}T19:00:00+08:00\n- Location: 公园\n- Action: 和朋友烧烤聊天\n- Emotion_Tags: [开心, 有趣]\n- Appearance: 休闲外套\n- Internal_Monologue: 今晚挺好玩的。\n昨晚和朋友在公园烧烤。`,
+      'utf8',
+    );
     fs.writeFileSync(
       path.join(canonicalRoot, `${today}.md`),
       `### [Episode]\n- Timestamp: ${today}T18:00:00+08:00\n- Location: 家里书房\n- Action: 继续整理今天的工作记录\n- Emotion_Tags: [专注, 平静]\n- Appearance: 宽松的家居服\n- Internal_Monologue: 再收一下尾就差不多了。\n她傍晚还在家里书房继续整理今天的工作记录。`,
       'utf8',
     );
 
+    const reasonerSessionKeys: string[] = [];
     const pluginApi = {
       workspaceDir: tmpDir,
       pluginConfig: {
@@ -635,7 +676,10 @@ describe('openclaw timeline runtime factories', () => {
       },
       runtime: {
         subagent: {
-          run: async () => ({ runId: 'reasoner-run-timeout' }),
+          run: async (input: { sessionKey?: string }) => {
+            if (typeof input.sessionKey === 'string') reasonerSessionKeys.push(input.sessionKey);
+            return { runId: `reasoner-run-timeout-${reasonerSessionKeys.length}` };
+          },
           waitForRun: async () => ({ status: 'timeout' }),
           getSessionMessages: async () => ({ messages: [] }),
           deleteSession: async () => undefined,
@@ -662,157 +706,22 @@ describe('openclaw timeline runtime factories', () => {
     });
 
     const result = await tool.execute('call-timeout', {
-      query: '你在干嘛',
+      query: '昨晚有什么有趣的事',
+      trace: true,
     });
 
-    const payload = result.details as { ok: boolean; resolution_summary: { mode: string }; result?: { episodes: any[] } };
-    expect(payload.ok).toBe(true);
-    expect(payload.resolution_summary.mode).toBe('read_only_hit');
-    expect(String(payload.result?.episodes?.[0]?.state_snapshot?.scene?.location_label || '')).toContain('书房');
-  });
-
-  it('recovers by late-binding the gateway subagent runtime when the injected runtime is unavailable', async () => {
-    const today = formatLocalCalendarDate(new Date());
-
-    fs.writeFileSync(
-      path.join(canonicalRoot, `${today}.md`),
-      `### [Episode]\n- Timestamp: ${today}T18:00:00+08:00\n- Location: 家里书房\n- Action: 继续整理今天的工作记录\n- Emotion_Tags: [专注, 平静]\n- Appearance: 宽松的家居服\n- Internal_Monologue: 再收一下尾就差不多了。\n她傍晚还在家里书房继续整理今天的工作记录。`,
-      'utf8',
-    );
-
-    let latestReasonerRequestId = '';
-    let latestPlannerRequestId = '';
-    const unavailable = jest.fn(async () => {
-      throw new Error('Plugin runtime subagent methods are only available during a gateway request.');
-    });
-    const lateBoundGetSessionMessages = jest.fn();
-
-    setOpenClawPluginRuntimeModuleLoaderForTests(() => ({
-      createPluginRuntime: () => ({
-        subagent: {
-          run: async ({ message }: { message: string }) => {
-            const marker = '"request_id": "';
-            const start = message.indexOf(marker);
-            if (start !== -1) {
-              const rest = message.slice(start + marker.length);
-              const requestId = rest.slice(0, rest.indexOf('"'));
-              if (message.includes('"target_time_range": "now | past_point | past_range"')) {
-                latestPlannerRequestId = requestId;
-              } else {
-                latestReasonerRequestId = requestId;
-              }
-            }
-            return { runId: 'late-bound-run-1' };
-          },
-          waitForRun: async () => ({ status: 'ok' as const }),
-          getSessionMessages: lateBoundGetSessionMessages,
-          getSession: lateBoundGetSessionMessages,
-          deleteSession: async () => undefined,
-        },
-      }),
-    }));
-
-    const pluginApi = {
-      workspaceDir: tmpDir,
-      pluginConfig: {
-        canonicalMemoryRoot: 'timeline-memory',
-      },
-      runtime: {
-        subagent: {
-          run: unavailable,
-          waitForRun: unavailable,
-          getSessionMessages: unavailable,
-          deleteSession: unavailable,
-        },
-        tools: {
-          createMemorySearchTool: () => ({
-            name: 'memory_search',
-            description: 'memory search',
-            parameters: {},
-            execute: async () => ({
-              content: [{ type: 'text' as const, text: '{}' }],
-              details: { results: [] },
-            }),
-          }),
-        },
-      },
-      logger: {},
+    const payload = result.details as {
+      ok: boolean;
+      resolution_summary: { mode: string };
+      trace?: { decision?: { error_code?: string } };
+      result?: { episodes: unknown[]; consumption?: { fact?: { status?: string } } };
     };
-
-    const factory = makeOpenClawTimelineResolveToolFactory(pluginApi);
-    const tool = factory({
-      workspaceDir: tmpDir,
-      sessionKey: 'telegram:chat-123',
-    });
-
-    lateBoundGetSessionMessages.mockImplementation(async ({ sessionKey }: { sessionKey: string }) => {
-      if (sessionKey === 'telegram:chat-123') {
-        return {
-          messages: [
-            { role: 'user', bodyText: '你现在在干嘛' },
-            { role: 'assistant', bodyText: '我先确认一下现在的状态。' },
-          ],
-        };
-      }
-      if (sessionKey.includes(':planner:')) {
-        return {
-          messages: [
-            {
-              role: 'assistant',
-              bodyText: JSON.stringify({
-                schema_version: '1.0',
-                request_id: latestPlannerRequestId,
-                target_time_range: 'now',
-                summary: 'Normalized the request into a current-state query.',
-              }),
-            },
-          ],
-        };
-      }
-      return {
-        messages: [
-          {
-            role: 'assistant',
-            bodyText: JSON.stringify({
-              schema_version: '1.0',
-              request_id: latestReasonerRequestId,
-              request_type: 'now',
-              decision: {
-                action: 'reuse_existing_fact',
-                selected_fact_id: `canon:${today}:0`,
-                should_write_canon: false,
-              },
-              continuity: {
-                judged: true,
-                is_continuing: true,
-                reason: 'The current activity is still continuing.',
-              },
-              rationale: {
-                summary: 'Reused the existing canon fact that still covers the current moment.',
-                hard_fact_basis: ['user: 你现在在干嘛'],
-                canon_basis: [`canon:${today}:0`],
-                persona_basis: [],
-                constraint_basis: [],
-              },
-            }),
-          },
-        ],
-      };
-    });
-
-    const result = await tool.execute('call-late-bound', {
-      query: '你现在在干嘛',
-    });
-
-    const payload = result.details as { ok: boolean; resolution_summary: { mode: string }; result?: { episodes: unknown[] } };
     expect(payload.ok).toBe(true);
-    expect(payload.resolution_summary.mode).toBe('read_only_hit');
-    expect(payload.result?.episodes).toHaveLength(1);
-    expect(unavailable).toHaveBeenCalled();
-    expect(lateBoundGetSessionMessages).toHaveBeenCalledWith({
-      sessionKey: 'telegram:chat-123',
-      limit: 12,
-    });
+    expect(payload.resolution_summary.mode).toBe('empty_window');
+    expect(payload.result?.consumption?.fact?.status).toBe('empty');
+    expect(payload.result?.episodes ?? []).toEqual([]);
+    expect(payload.trace?.decision?.error_code).toBe('REASONER_UNAVAILABLE');
+    expect(reasonerSessionKeys.filter((key) => key.includes('timeline-reasoner:') && !key.includes(':planner:'))).toHaveLength(1);
   });
 
   it('injects active_instant prompt context through before_prompt_build', async () => {
@@ -876,7 +785,7 @@ describe('openclaw timeline runtime factories', () => {
       'utf8',
     );
 
-    const handler = makeOpenClawTimelineBeforePromptBuildHook({
+    const handler = makeOpenClawTimelineHeartbeatHook({
       workspaceDir: tmpDir,
       pluginConfig: {
         canonicalMemoryRoot: 'timeline-memory',
@@ -906,8 +815,7 @@ describe('openclaw timeline runtime factories', () => {
 
     const result = await handler(
       {
-        prompt: 'plain background tick',
-        messages: [],
+        sessionKey: 'proactive-greeting',
       },
       {
         workspaceDir: tmpDir,

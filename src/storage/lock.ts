@@ -1,5 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { randomUUID } from 'crypto';
+import { isNodeErrorCode } from './node-error';
 
 export class FileLockError extends Error {
   code: 'LOCK_EXISTS';
@@ -18,21 +20,38 @@ export async function withFileLock<T>(targetPath: string, fn: () => Promise<T>):
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  let fd: number | null = null;
+  let fd: number;
   try {
     fd = fs.openSync(lockPath, 'wx');
-    return await fn();
-  } catch (error: any) {
-    if (error && typeof error === 'object' && error.code === 'EEXIST') {
+  } catch (error: unknown) {
+    if (isNodeErrorCode(error, 'EEXIST')) {
       throw new FileLockError(lockPath);
     }
     throw error;
+  }
+  const owner = randomUUID();
+  const identity = fs.fstatSync(fd);
+  let ownerWritten = false;
+  try {
+    fs.writeFileSync(fd, owner);
+    ownerWritten = true;
+    return await fn();
   } finally {
-    if (fd !== null) {
-      fs.closeSync(fd);
-    }
-    if (fs.existsSync(lockPath)) {
-      fs.unlinkSync(lockPath);
+    fs.closeSync(fd);
+    try {
+      const current = fs.statSync(lockPath);
+      const sameFile = current.dev === identity.dev && current.ino === identity.ino;
+      const contents = fs.readFileSync(lockPath, 'utf8');
+      if (sameFile && (contents === owner || (!ownerWritten && contents === ''))) fs.unlinkSync(lockPath);
+    } catch (error: unknown) {
+      if (!isNodeErrorCode(error, 'ENOENT')) throw error;
     }
   }
+}
+
+export async function withFileLocks<T>(paths: string[], fn: () => Promise<T>): Promise<T> {
+  const sorted = [...new Set(paths.map(p => path.resolve(p)))].sort();
+  const acquire = (index: number): Promise<T> => index === sorted.length
+    ? fn() : withFileLock(sorted[index], () => acquire(index + 1));
+  return acquire(0);
 }

@@ -78,7 +78,7 @@ describe('timelineResolve trace schema', () => {
 
     expect(result.ok).toBe(true);
     expect(result.trace_id).toBe(result.trace?.trace_id);
-    expect(result.trace?.source_order).toEqual(['sessions_history', 'memory_get', 'memory_search']);
+    expect(result.trace?.source_order).toEqual(['sessions_history', 'memory_get']);
     expect(result.trace?.source_summary.parsed_episode_count).toBe(1);
     expect(result.trace?.fingerprint.checked).toBe(true);
     expect(result.trace?.fingerprint.compared_episodes).toBe(1);

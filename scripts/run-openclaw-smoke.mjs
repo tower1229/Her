@@ -1,304 +1,125 @@
-import { execSync, spawnSync } from 'node:child_process';
+// Fixed-version integration probe. Private host bundles are test dependencies only.
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { spawn, spawnSync } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const runtimeTempDir = process.platform === 'win32' ? os.tmpdir() : '/tmp';
+const scriptPath = fileURLToPath(import.meta.url);
+const repoRoot = path.resolve(path.dirname(scriptPath), '..');
+const pluginId = 'stella-timeline-plugin';
 
-function runCapture(command) {
+function readNpmPackFilename(stdout) {
+  const text = String(stdout || '');
+  const startCandidates = [text.indexOf('['), text.indexOf('{')].filter((index) => index >= 0);
+  assert.ok(startCandidates.length > 0, `npm pack --json produced no JSON: ${text.slice(0, 400)}`);
+  const parsed = JSON.parse(text.slice(Math.min(...startCandidates)));
+  const entries = Array.isArray(parsed)
+    ? parsed
+    : parsed?.filename
+      ? [parsed]
+      : Object.values(parsed ?? {});
+  const filename = entries.find((entry) => entry && typeof entry.filename === 'string')?.filename;
+  assert.ok(filename, `npm pack --json missing filename: ${text.slice(0, 400)}`);
+  return filename;
+}
+
+if (!process.argv.includes('--probe')) {
+  // Explicit installation wins; do not silently test a different host on failure.
+  const hostRoot = path.resolve(process.env.OPENCLAW_PACKAGE_ROOT || path.join(repoRoot, 'node_modules/openclaw'));
+  assert.equal(JSON.parse(fs.readFileSync(path.join(hostRoot, 'package.json'), 'utf8')).version, '2026.10.9');
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'her-host-smoke-'));
   try {
-    return execSync(command, {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      env: {
-        ...process.env,
-        TMPDIR: runtimeTempDir,
-        TMP: runtimeTempDir,
-        TEMP: runtimeTempDir,
-      },
-    }).trim();
-  } catch {
-    return '';
+    const pluginRoot = path.join(temp, 'plugin');
+    const npmCli = [process.env.npm_execpath, path.join(path.dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js'), path.resolve(path.dirname(process.execPath), '../lib/node_modules/npm/bin/npm-cli.js')].find(p => p && fs.existsSync(p));
+    assert.ok(npmCli, 'npm CLI required to validate the actual publication tarball');
+    const packed = spawnSync(process.execPath, [npmCli, 'pack', '--ignore-scripts', '--json', '--pack-destination', temp], { cwd: repoRoot, encoding: 'utf8' });
+    assert.equal(packed.status, 0, packed.stderr);
+    const tarball = path.join(temp, readNpmPackFilename(packed.stdout));
+    const extracted = spawnSync('tar', ['-xf', tarball, '-C', temp], { encoding: 'utf8' });
+    assert.equal(extracted.status, 0, extracted.stderr);
+    fs.renameSync(path.join(temp, 'package'), pluginRoot);
+    const env = { ...process.env, OPENCLAW_STATE_DIR: path.join(temp, 'state'), OPENCLAW_CONFIG_PATH: path.join(temp, 'openclaw.json'), OPENCLAW_HOME: temp };
+    for (const key of Object.keys(env)) if (/(API_KEY|TOKEN|SECRET|PASSWORD)$/.test(key)) delete env[key];
+    const child = spawn(process.env.OPENCLAW_NODE_BIN || process.execPath, [scriptPath, '--probe', hostRoot, temp], {
+      cwd: temp, env, stdio: 'inherit',
+    });
+    const timeout = setTimeout(() => child.kill(), 120000);
+    let status;
+    try { status = await new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', resolve); }); }
+    finally { clearTimeout(timeout); }
+    assert.equal(status, 0, 'Fixed-host acceptance failed or exceeded its 120s budget');
+  } finally {
+    assert.equal(path.dirname(temp), path.resolve(os.tmpdir()));
+    fs.rmSync(temp, { recursive: true, force: true });
   }
-}
-
-function resolveOnPath(binaryName) {
-  const command = process.platform === 'win32' ? 'where' : 'which';
-  const result = spawnSync(command, [binaryName], {
-    encoding: 'utf8',
-    env: {
-      ...process.env,
-      TMPDIR: runtimeTempDir,
-      TMP: runtimeTempDir,
-      TEMP: runtimeTempDir,
-    },
-  });
-  if (result.status !== 0) return '';
-  return result.stdout
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .find(Boolean) || '';
-}
-
-function listJsFiles(dirPath) {
-  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-  const files = [];
-  for (const entry of entries) {
-    const fullPath = path.join(dirPath, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...listJsFiles(fullPath));
-      continue;
+} else {
+  const [hostRoot, temp] = process.argv.slice(-2);
+  assert.equal(process.versions.node, '24.22.1', 'Acceptance must use Node 24.22.1');
+  const dist = path.join(hostRoot, 'dist');
+  async function hostExport(prefix, name) {
+    const files = fs.readdirSync(dist).filter(n => n.startsWith(prefix) && /\.(?:mjs|js)$/.test(n));
+    for (const file of files) {
+      const source = fs.readFileSync(path.join(dist, file), 'utf8');
+      const alias = source.match(new RegExp('\\b' + name + ' as ([\\w$]+)'))?.[1];
+      if (!alias && !source.includes(`export function ${name}`)) continue;
+      const mod = await import(pathToFileURL(path.join(dist, file)).href);
+      if (typeof (mod[alias] || mod[name]) === 'function') return mod[alias] || mod[name];
     }
-    if (entry.isFile() && entry.name.endsWith('.js')) {
-      files.push(fullPath);
-    }
+    throw new Error(`Required host export missing: ${name}`);
   }
-  return files;
-}
-
-function candidateDistDirs() {
-  const dirs = new Set();
-  const explicit = process.env.OPENCLAW_RUNTIME_MODULE?.trim();
-  if (explicit && fs.existsSync(explicit)) {
-    dirs.add(path.dirname(explicit));
+  const load = await hostExport('loader-', 'loadOpenClawPlugins');
+  const resolveTools = await hostExport('tools-', 'resolvePluginTools');
+  const workspaceDir = path.join(temp, 'workspace');
+  fs.mkdirSync(path.join(workspaceDir, 'memory'), { recursive: true });
+  const config = {
+    agents: { defaults: { workspace: workspaceDir } },
+    memory: { search: { provider: 'none' } },
+    plugins: { allow: [pluginId, 'memory-core'], load: { paths: [path.join(temp, 'plugin')] }, entries: {
+      [pluginId]: { enabled: true, hooks: { allowPromptInjection: true, allowConversationAccess: true }, config: { legacyLogTimezone: 'UTC' } },
+    } },
+    tools: { profile: 'coding', alsoAllow: [pluginId] },
+  };
+  fs.writeFileSync(process.env.OPENCLAW_CONFIG_PATH, JSON.stringify(config));
+  const registry = await load({ config, workspaceDir, cache: false });
+  console.log('Host registry loaded');
+  const plugin = registry.plugins.find(p => p.id === pluginId);
+  assert.equal(plugin?.status, 'loaded', JSON.stringify({ plugin, diagnostics: registry.diagnostics }));
+  const tools = await resolveTools({ context: { config, workspaceDir, agentId: 'main', sessionKey: 'agent:main:main', sandboxed: true }, runtimeRegistry: registry, existingToolNames: new Set(), toolAllowlist: [pluginId] });
+  assert.ok(tools.some(t => t.name === 'timeline_resolve'));
+  assert.ok(tools.some(t => t.name === 'timeline_transition'));
+  const hooks = registry.typedHooks.filter(h => h.pluginId === pluginId).map(h => h.hookName);
+  for (const name of ['before_prompt_build', 'heartbeat_prompt_contribution', 'message_sent']) assert.ok(hooks.includes(name), `Missing typed hook ${name}: ${JSON.stringify(hooks)}`);
+  const require = createRequire(import.meta.url);
+  const { writeEpisode } = require(path.join(temp, 'plugin/dist/src/storage/write-episode.js'));
+  const daily = path.join(workspaceDir, 'memory/2026-11-01.md');
+  fs.writeFileSync(daily, '# Daily\r\n\r\nOrdinary note: amberbadger prefers tea.\r\n');
+  assert.ok((await writeEpisode({ filePath: daily, timestamp: '2026-11-01T09:00:00+00:00', location: 'home', action: 'cobaltkingfisher reads novels', emotionTags: ['calm'], appearance: 'casual' })).success);
+  assert.ok(fs.readFileSync(daily, 'utf8').includes('amberbadger'));
+  const memoryTools = await resolveTools({ context: { config, workspaceDir, agentId: 'main', sessionKey: 'agent:main:main', sandboxed: true }, runtimeRegistry: registry, existingToolNames: new Set(), toolAllowlist: ['memory-core'] });
+  const search = memoryTools.find(t => t.name === 'memory_search');
+  assert.ok(search, 'Default memory_search tool missing');
+  for (const query of ['amberbadger', 'cobaltkingfisher']) {
+    console.log(`Checking default memory_search: ${query}`);
+    const response = await search.execute(`probe-${query}`, { query, minScore: 0 });
+    const payload = JSON.parse(response.content.find(c => c.type === 'text').text);
+    assert.ok(payload.results?.some(h => h.path === 'memory/2026-11-01.md'), `Default memory_search did not find ${query}: ${JSON.stringify(payload)}`);
   }
-
-  const npmRoot = runCapture(process.platform === 'win32' ? 'npm.cmd root -g' : 'npm root -g');
-  if (npmRoot) {
-    dirs.add(path.join(npmRoot, 'openclaw', 'dist'));
-  }
-
-  const npmPrefix = runCapture(process.platform === 'win32' ? 'npm.cmd prefix -g' : 'npm prefix -g');
-  if (npmPrefix) {
-    dirs.add(path.join(npmPrefix, 'node_modules', 'openclaw', 'dist'));
-    dirs.add(path.join(npmPrefix, 'lib', 'node_modules', 'openclaw', 'dist'));
-  }
-
-  const openClawBin = resolveOnPath('openclaw');
-  if (openClawBin) {
-    const binDir = path.dirname(openClawBin);
-    dirs.add(path.join(binDir, 'node_modules', 'openclaw', 'dist'));
-    dirs.add(path.join(binDir, '..', 'node_modules', 'openclaw', 'dist'));
-    dirs.add(path.join(binDir, '..', 'lib', 'node_modules', 'openclaw', 'dist'));
-  }
-
-  if (process.platform === 'win32') {
-    const appData = process.env.APPDATA?.trim();
-    if (appData) {
-      dirs.add(path.join(appData, 'npm', 'node_modules', 'openclaw', 'dist'));
-    }
-  }
-
-  return [...dirs];
-}
-
-function findRuntimeModulesInDist(distDir) {
-  if (!fs.existsSync(distDir)) return null;
-
-  const stableLoaderModule = path.join(distDir, 'plugins', 'loader.js');
-  const stableToolsModule = path.join(distDir, 'plugins', 'tools.js');
-  if (fs.existsSync(stableLoaderModule) && fs.existsSync(stableToolsModule)) {
-    return { loaderModule: stableLoaderModule, toolsModule: stableToolsModule };
-  }
-
-  const candidates = listJsFiles(distDir);
-  const aliasAware = candidates.find((filePath) => {
-    const content = fs.readFileSync(filePath, 'utf8');
-    return content.includes('loadOpenClawPlugins as') && content.includes('resolvePluginTools as');
-  });
-  if (aliasAware) return { loaderModule: aliasAware, toolsModule: aliasAware };
-
-  const direct = candidates.find((filePath) => {
-    const content = fs.readFileSync(filePath, 'utf8');
-    return content.includes('function loadOpenClawPlugins') && content.includes('function resolvePluginTools');
-  });
-  if (direct) return { loaderModule: direct, toolsModule: direct };
-
-  return null;
-}
-
-function findOpenClawRuntimeModules() {
-  const explicit = process.env.OPENCLAW_RUNTIME_MODULE?.trim();
-  if (explicit && fs.existsSync(explicit)) {
-    return { loaderModule: explicit, toolsModule: explicit };
-  }
-
-  for (const distDir of candidateDistDirs()) {
-    const runtimeModules = findRuntimeModulesInDist(distDir);
-    if (runtimeModules) return runtimeModules;
-  }
-
-  const nvmNodeDir = path.join(os.homedir(), '.nvm', 'versions', 'node');
-  if (fs.existsSync(nvmNodeDir)) {
-    for (const entry of fs.readdirSync(nvmNodeDir, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const distDir = path.join(nvmNodeDir, entry.name, 'lib', 'node_modules', 'openclaw', 'dist');
-      const runtimeModules = findRuntimeModulesInDist(distDir);
-      if (runtimeModules) return runtimeModules;
-    }
-  }
-
-  return null;
-}
-
-function findCompatibleNodeBin(runtimeModulePath) {
-  const explicit = process.env.OPENCLAW_NODE_BIN?.trim();
-  if (explicit && fs.existsSync(explicit)) return explicit;
-
-  const normalized = path.normalize(runtimeModulePath);
-  const unixMarker = `${path.sep}lib${path.sep}node_modules${path.sep}openclaw${path.sep}dist${path.sep}`;
-  const unixIndex = normalized.lastIndexOf(unixMarker);
-  if (unixIndex !== -1) {
-    const prefixDir = normalized.slice(0, unixIndex);
-    const unixNode = path.join(prefixDir, 'bin', 'node');
-    if (fs.existsSync(unixNode)) return unixNode;
-    const winNode = path.join(prefixDir, 'node.exe');
-    if (fs.existsSync(winNode)) return winNode;
-  }
-
-  return process.execPath;
-}
-
-function parseLastJsonObject(raw) {
-  const jsonLine = raw
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith('{') && line.endsWith('}'))
-    .slice(-1)[0];
-  if (!jsonLine) {
-    throw new Error(`OpenClaw smoke script did not emit a JSON payload.\n${raw}`);
-  }
-  return JSON.parse(jsonLine);
-}
-
-function copyRecursive(sourcePath, targetPath) {
-  const stat = fs.statSync(sourcePath);
-  if (stat.isDirectory()) {
-    fs.mkdirSync(targetPath, { recursive: true });
-    for (const entry of fs.readdirSync(sourcePath)) {
-      copyRecursive(path.join(sourcePath, entry), path.join(targetPath, entry));
-    }
-    return;
-  }
-  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-  fs.copyFileSync(sourcePath, targetPath);
-}
-
-function setSafePermissions(targetPath) {
-  if (process.platform === 'win32' || !fs.existsSync(targetPath)) return;
-  const stat = fs.statSync(targetPath);
-  fs.chmodSync(targetPath, stat.isDirectory() ? 0o755 : 0o644);
-  if (stat.isDirectory()) {
-    for (const entry of fs.readdirSync(targetPath)) {
-      setSafePermissions(path.join(targetPath, entry));
-    }
-  }
-}
-
-function stagePluginForSmoke() {
-  const stagedRoot = fs.mkdtempSync(path.join(runtimeTempDir, 'stella-timeline-plugin-smoke-'));
-  for (const entry of ['package.json', 'openclaw.plugin.json', 'dist']) {
-    const sourcePath = path.join(repoRoot, entry);
-    if (!fs.existsSync(sourcePath)) {
-      throw new Error(`OpenClaw smoke staging missing required path: ${sourcePath}`);
-    }
-    copyRecursive(sourcePath, path.join(stagedRoot, entry));
-  }
-  setSafePermissions(stagedRoot);
-  return stagedRoot;
-}
-
-const runtimeModules = findOpenClawRuntimeModules();
-if (!runtimeModules) {
-  console.log('Skipping OpenClaw smoke: OpenClaw runtime not found on this machine.');
+  console.log('Shared daily memory_search passed');
+  const blockedConfig = structuredClone(config);
+  blockedConfig.plugins.entries[pluginId].hooks = { allowConversationAccess: false, allowPromptInjection: false };
+  const blocked = await load({ config: blockedConfig, workspaceDir, cache: false, activate: false });
+  const blockedHooks = blocked.typedHooks.filter(h => h.pluginId === pluginId);
+  assert.ok(!blockedHooks.some(h => ['heartbeat_prompt_contribution', 'before_prompt_build'].includes(h.hookName)), `Host failed to gate prompt hooks: ${JSON.stringify(blockedHooks.map(h => h.hookName))}`);
+  // Delivery observation (message_sent) remains available in this host version;
+  // it cannot count an unrelated outbound message as a successful greeting.
+  for (const hook of blockedHooks) assert.equal(await hook.handler({ prompt: 'hi', messages: [] }, { workspaceDir }), undefined);
+  console.log('Host hook policy gates passed; closing memory resources');
+  await (await hostExport('memory-', 'closeAllMemorySearchManagers'))();
+  await new Promise(resolve => process.stdout.write(JSON.stringify({ host: '2026.10.9', node: process.versions.node, plugin: plugin.status, tools: tools.map(t => t.name), hooks, hookPolicyGates: 'passed', sharedDailyRecall: 'passed (real default memory_search, lexical mode)', liveModel: 'not verified', liveChannel: 'not verified' }) + '\n', resolve));
+  // The standalone probe owns this process. The loaded host installs background
+  // observers; after all assertions and memory close finish, end their lifetime.
   process.exit(0);
 }
-
-const openClawNodeBin = findCompatibleNodeBin(runtimeModules.loaderModule);
-const stagedPluginRoot = stagePluginForSmoke();
-const script = `
-  import fs from 'node:fs';
-  import { pathToFileURL } from 'node:url';
-
-  const loaderModulePath = ${JSON.stringify(runtimeModules.loaderModule)};
-  const toolsModulePath = ${JSON.stringify(runtimeModules.toolsModule)};
-  const repoRoot = ${JSON.stringify(repoRoot)};
-  const pluginRoot = ${JSON.stringify(stagedPluginRoot)};
-  const resolveExport = async (modulePath, symbolName) => {
-    const source = fs.readFileSync(modulePath, 'utf8');
-    const alias = source.match(new RegExp('\\\\b' + symbolName + ' as ([\\\\w$]+)'))?.[1] || symbolName;
-    const module = await import(pathToFileURL(modulePath).href);
-    return module[symbolName] || module[alias] || module.default?.[symbolName] || module.default?.[alias];
-  };
-  const loadOpenClawPlugins = await resolveExport(loaderModulePath, 'loadOpenClawPlugins');
-  const resolvePluginTools = await resolveExport(toolsModulePath, 'resolvePluginTools');
-
-  if (typeof loadOpenClawPlugins !== 'function' || typeof resolvePluginTools !== 'function') {
-    throw new Error('Unable to resolve OpenClaw runtime exports from ' + loaderModulePath + ' and ' + toolsModulePath);
-  }
-
-  const config = {
-    plugins: {
-      allow: ['stella-timeline-plugin'],
-      load: { paths: [pluginRoot] },
-      entries: { 'stella-timeline-plugin': { enabled: true } },
-    },
-    tools: {
-      profile: 'coding',
-      alsoAllow: ['stella-timeline-plugin'],
-    },
-  };
-
-  const registry = loadOpenClawPlugins({ config, workspaceDir: repoRoot });
-  const plugin = registry.plugins.find((entry) => entry.id === 'stella-timeline-plugin');
-  const resolvedTools = resolvePluginTools({
-    context: { config, workspaceDir: repoRoot, sandboxed: true },
-    existingToolNames: new Set(),
-    toolAllowlist: ['stella-timeline-plugin'],
-  });
-
-  console.log(JSON.stringify({
-    loaderModulePath,
-    toolsModulePath,
-    plugin: plugin ? {
-      status: plugin.status,
-      toolNames: plugin.toolNames,
-    } : null,
-    resolvedToolNames: resolvedTools.map((tool) => tool.name),
-  }));
-`;
-
-const result = spawnSync(openClawNodeBin, ['--input-type=module', '-e', script], {
-  cwd: repoRoot,
-  encoding: 'utf8',
-  env: {
-    ...process.env,
-    TMPDIR: runtimeTempDir,
-    TMP: runtimeTempDir,
-    TEMP: runtimeTempDir,
-  },
-});
-
-if (result.status !== 0) {
-  const output = `${result.stdout || ''}${result.stderr || ''}`.trim();
-  console.error(output || `OpenClaw smoke failed with exit code ${result.status}`);
-  process.exit(result.status ?? 1);
-}
-
-const payload = parseLastJsonObject(result.stdout || '');
-if (!payload.plugin) {
-  console.error(`OpenClaw smoke did not load stella-timeline-plugin.\n${result.stdout || ''}`);
-  process.exit(1);
-}
-if (payload.plugin.status !== 'loaded') {
-  console.error(`OpenClaw smoke loaded stella-timeline-plugin with unexpected status: ${payload.plugin.status}`);
-  process.exit(1);
-}
-if (!Array.isArray(payload.resolvedToolNames) || !payload.resolvedToolNames.includes('timeline_resolve') || !payload.resolvedToolNames.includes('timeline_transition')) {
-  console.error(`OpenClaw smoke did not resolve required timeline tools into runtime tools.\n${JSON.stringify(payload)}`);
-  process.exit(1);
-}
-
-console.log(`OpenClaw smoke passed using ${runtimeModules.loaderModule} and ${runtimeModules.toolsModule}`);
