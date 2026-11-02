@@ -136,25 +136,6 @@ function syncWorkspaceSkill(extensionDir, workspaceSkillDir) {
   fs.cpSync(sourceSkillDir, workspaceSkillDir, { recursive: true });
 }
 
-function updateInstallMetadata(configPath, extensionDir, version) {
-  if (!fs.existsSync(configPath)) {
-    return;
-  }
-  const config = readJson(configPath);
-  if (!config.plugins) config.plugins = {};
-  if (!config.plugins.installs) config.plugins.installs = {};
-  const current = config.plugins.installs['stella-timeline-plugin'] || {};
-  config.plugins.installs['stella-timeline-plugin'] = {
-    ...current,
-    source: 'path',
-    sourcePath: extensionDir,
-    installPath: extensionDir,
-    version,
-    installedAt: new Date().toISOString(),
-  };
-  writeJson(configPath, config);
-}
-
 function printHelp() {
   console.log([
     'Usage: npm run sync:local-openclaw -- [--no-build] [--no-backup] [--workspace <dir>] [--extension-dir <dir>]',
@@ -170,7 +151,7 @@ function parseArgs(argv) {
     backup: true,
     extensionDir: defaultExtensionDir,
     workspaceDir: defaultWorkspaceDir,
-    configPath: defaultConfigPath,
+    configPath: defaultConfigPath, // retained for CLI compatibility; install records live in OpenClaw's sqlite registry, not openclaw.json
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -222,7 +203,6 @@ function main() {
   copyTree(repoRoot, options.extensionDir);
   syncWorkspaceSkill(options.extensionDir, workspaceSkillDir);
   run(process.execPath, ['scripts/setup-openclaw-workspace.mjs', '--workspace', options.workspaceDir, '--with-heartbeat']);
-  updateInstallMetadata(options.configPath, options.extensionDir, version);
   applySafePermissions(options.extensionDir, 0o700);
   applySafePermissions(workspaceSkillDir, 0o700);
 
